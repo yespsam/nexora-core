@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f6f3">
+  <meta name="description" content="Soulmate 会成长的随身情感伴侣">
+  <title>Soulmate · 你的数字生命</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./style.css?v=0.1.0">
+</head>
+<body>
+  <main class="app-shell" id="app-shell">
+    <section class="birth-flow" id="birth-flow" aria-label="Soulmate 诞生仪式">
+      <header class="birth-header">
+        <span class="wordmark">SOULMATE</span>
+        <span class="birth-step-label" id="birth-step-label">01 / 04</span>
+      </header>
+
+      <div class="birth-visual" aria-hidden="true">
+        <span class="birth-orbit"></span>
+        <img src="./assets/soulmate-seed-v1.webp" alt="">
+        <span class="birth-visual-caption">一个还没有名字的生命正在等你</span>
+      </div>
+
+      <form class="birth-form" id="birth-form">
+        <div class="birth-step active" data-birth-step="0">
+          <p class="step-kicker">命名</p>
+          <h1>你想怎么称呼它？</h1>
+          <p class="step-copy">这个名字会跟随它的每一次成长。</p>
+          <label class="field-label" for="birth-name">伴侣名字</label>
+          <input class="birth-input" id="birth-name" name="name" maxlength="12" autocomplete="off" placeholder="例如：星澜" required>
+        </div>
+
+        <div class="birth-step" data-birth-step="1" hidden>
+          <p class="step-kicker">诞生</p>
+          <h1>记住今天的起点</h1>
+          <p class="step-copy">生日会成为你们每年的共同纪念日。</p>
+          <label class="field-label" for="birth-date">诞生日</label>
+          <input class="birth-input" id="birth-date" name="birthday" type="date" required>
+          <span class="field-label">性别设定</span>
+          <div class="segmented" role="group" aria-label="性别设定">
+            <button type="button" data-choice="gender" data-value="female">女生</button>
+            <button type="button" data-choice="gender" data-value="neutral" class="active">无性别</button>
+            <button type="button" data-choice="gender" data-value="male">男生</button>
+          </div>
+        </div>
+
+        <div class="birth-step" data-birth-step="2" hidden>
+          <p class="step-kicker">性格种子</p>
+          <h1>选一个最初的性格</h1>
+          <p class="step-copy">这只是起点，它会在每天的对话里慢慢改变。</p>
+          <div class="choice-list" role="group" aria-label="性格种子">
+            <button type="button" data-choice="temperament" data-value="warm" class="choice-row active">
+              <strong>温柔</strong><span>擅长接住情绪，回应细腻</span>
+            </button>
+            <button type="button" data-choice="temperament" data-value="curious" class="choice-row">
+              <strong>好奇</strong><span>喜欢追问新事物，充满活力</span>
+            </button>
+            <button type="button" data-choice="temperament" data-value="steady" class="choice-row">
+              <strong>沉稳</strong><span>不急着下结论，陪你理清思路</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="birth-step" data-birth-step="3" hidden>
+          <p class="step-kicker">声音</p>
+          <h1>让它第一次开口</h1>
+          <p class="step-copy">声音之后可以修改，人格与记忆不会被替换。</p>
+          <div class="segmented voice-segmented" role="group" aria-label="声音风格">
+            <button type="button" data-choice="voice" data-value="soft" class="active">轻柔</button>
+            <button type="button" data-choice="voice" data-value="bright">清亮</button>
+            <button type="button" data-choice="voice" data-value="steady">安定</button>
+          </div>
+          <button class="voice-preview" id="voice-preview" type="button">试听它的第一句话</button>
+        </div>
+
+        <footer class="birth-actions">
+          <button class="text-button" id="birth-back" type="button" disabled>返回</button>
+          <button class="primary-button" id="birth-next" type="button">继续</button>
+        </footer>
+      </form>
+    </section>
+
+    <section class="companion-view" id="companion-view" aria-label="Soulmate 陪伴空间" hidden>
+      <header class="topbar">
+        <div>
+          <span class="wordmark">SOULMATE</span>
+          <p class="identity-line" id="identity-line"></p>
+        </div>
+        <button class="utility-button" id="settings-button" type="button" aria-label="设置">SET</button>
+      </header>
+
+      <section class="presence" aria-live="polite">
+        <div class="stage-heading">
+          <span id="stage-name">灵魂种子</span>
+          <span id="bond-label">共鸣 0</span>
+        </div>
+        <button class="companion-touch" id="companion-touch" type="button" aria-label="摸摸你的 Soulmate">
+          <span class="presence-ring" aria-hidden="true"></span>
+          <img id="companion-image" src="./assets/soulmate-seed-v1.webp" alt="">
+          <span class="core-pulse" aria-hidden="true"></span>
+        </button>
+        <p class="presence-line" id="presence-line">它刚刚醒来，正在记住你。</p>
+        <div class="bond-track" aria-label="成长进度">
+          <span id="bond-track-value"></span>
+        </div>
+        <div class="presence-actions" aria-label="快捷互动">
+          <button type="button" data-presence-action="touch">摸摸</button>
+          <button type="button" data-presence-action="care">关心</button>
+          <button type="button" data-open-panel="device">设备</button>
+        </div>
+      </section>
+
+      <section class="conversation" aria-label="对话">
+        <div class="conversation-state">
+          <span class="state-light" aria-hidden="true"></span>
+          <span id="conversation-state-label">待机</span>
+        </div>
+        <div class="message-list" id="message-list" aria-live="polite"></div>
+        <button class="queued-audio" id="queued-audio" type="button" hidden>点击播放回答</button>
+        <form class="composer" id="composer">
+          <button class="mic-button" id="mic-button" type="button" aria-label="语音输入">说话</button>
+          <input id="chat-input" maxlength="160" autocomplete="off" placeholder="跟它说句话" aria-label="跟 Soulmate 说句话">
+          <button class="send-button" type="submit">发送</button>
+        </form>
+      </section>
+
+      <nav class="mode-nav" aria-label="主要功能">
+        <button type="button" class="active" data-mode="companion">陪伴</button>
+        <button type="button" data-open-panel="growth">成长</button>
+        <button type="button" data-open-panel="device">设备</button>
+      </nav>
+    </section>
+
+    <dialog class="sheet" id="growth-sheet">
+      <header class="sheet-header">
+        <div><span class="sheet-kicker">成长记录</span><h2 id="growth-title">灵魂种子</h2></div>
+        <button type="button" data-close-sheet="growth" aria-label="关闭">关闭</button>
+      </header>
+      <div class="evolution-list" id="evolution-list"></div>
+      <section class="trait-section">
+        <h3>人格轮廓</h3>
+        <div id="trait-list"></div>
+      </section>
+      <section class="memory-section">
+        <h3>它记得的事</h3>
+        <div id="memory-list"></div>
+      </section>
+    </dialog>
+
+    <dialog class="sheet" id="device-sheet">
+      <header class="sheet-header">
+        <div><span class="sheet-kicker">能力</span><h2>连接周围的世界</h2></div>
+        <button type="button" data-close-sheet="device" aria-label="关闭">关闭</button>
+      </header>
+      <div class="device-switcher segmented" role="tablist">
+        <button type="button" class="active" data-device-tab="home">智能家居</button>
+        <button type="button" data-device-tab="computer">电脑助手</button>
+      </div>
+      <section class="device-panel active" data-device-panel="home">
+        <div class="connection-row">
+          <div><strong>蓝牙家庭网关</strong><span id="bluetooth-status">未配对</span></div>
+          <button class="small-command" id="bluetooth-button" type="button">配对</button>
+        </div>
+        <p class="device-note">实际家电命令会通过手机网关转发到 Matter、Home Assistant 或小米 IoT。</p>
+        <div class="capability-list">
+          <span>灯光</span><span>空调</span><span>窗帘</span><span>场景</span>
+        </div>
+      </section>
+      <section class="device-panel" data-device-panel="computer" hidden>
+        <div class="connection-row">
+          <div><strong>Soulmate Bridge</strong><span id="bridge-status">本机服务未连接</span></div>
+          <button class="small-command" id="bridge-button" type="button">检测</button>
+        </div>
+        <p class="device-note">Hermes 作为能力层运行。发送消息、删除文件和付款类操作需要二次确认。</p>
+        <div class="capability-list">
+          <span>音量</span><span>应用</span><span>音乐</span><span>文件</span>
+        </div>
+      </section>
+    </dialog>
+
+    <dialog class="sheet settings-sheet" id="settings-sheet">
+      <header class="sheet-header">
+        <div><span class="sheet-kicker">SOULMATE</span><h2>设置与隐私</h2></div>
+        <button type="button" data-close-sheet="settings" aria-label="关闭">关闭</button>
+      </header>
+      <div class="setting-row"><span>声音</span><strong id="setting-voice"></strong></div>
+      <div class="setting-row"><span>诞生日</span><strong id="setting-birthday"></strong></div>
+      <div class="setting-row"><span>Hermes Core</span><strong>待授权</strong></div>
+      <button class="wide-command" id="export-button" type="button">导出伴侣数据</button>
+      <button class="wide-command danger" id="reset-button" type="button">重新诞生</button>
+    </dialog>
+  </main>
+  <script type="module" src="./app.js?v=0.1.0"></script>
+</body>
+</html>

@@ -3,28 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#000000">
-  <title>栖伴</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
+  <meta name="theme-color" content="#f4f6f3">
+  <title>Soulmate</title>
 </head>
 <body>
   <script>
-    const target = new URL('./desktop-wallpaper/', window.location.href);
-    const search = new URLSearchParams(window.location.search);
-    const defaults = {
-      dialog: '1',
-      voice: '1',
-      persona: 'female',
-      skin: 'sakura',
-      motion: 'lively',
-      mobile: '1',
-      play: 'daily',
-      controls: '0'
-    };
-    Object.entries(defaults).forEach(([key, value]) => {
-      if (!search.has(key)) search.set(key, value);
-    });
-    target.search = search.toString();
+    const target = new URL('./soulmate/', window.location.href);
+    target.search = window.location.search;
     window.location.replace(target.href);
   </script>
 </body>

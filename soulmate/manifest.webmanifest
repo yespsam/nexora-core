@@ -1,0 +1,21 @@
+{
+  "name": "Soulmate",
+  "short_name": "Soulmate",
+  "description": "会成长的随身情感伴侣",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f3",
+  "theme_color": "#f4f6f3",
+  "icons": [
+    {
+      "src": "./assets/soulmate-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./assets/soulmate-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

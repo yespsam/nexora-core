@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import handler, { buildLLMMessages, cleanHistory } from '../netlify/functions/chat.mjs';
+import handler, { buildLLMMessages, cleanHistory, cleanSoulmateProfile } from '../netlify/functions/chat.mjs';
 
 function chatRequest(method, body) {
   return new Request('http://localhost/api/chat', {
@@ -39,6 +39,25 @@ test('buildLLMMessages places prior conversation before the latest message', () 
     { role: 'user', content: '那就去昨天那家吧' }
   ]);
   assert.match(messages[0].content, /结合前文/);
+});
+
+test('Soulmate profile customizes identity and keeps memory context compact', () => {
+  const profile = cleanSoulmateProfile({
+    name: '星澜<script>',
+    birthday: '2026-07-28',
+    gender: 'neutral',
+    temperament: 'curious',
+    stage: '灵魂种子',
+    daysTogether: 3,
+    traits: { warmth: 61, curiosity: 77, steadiness: 50 },
+    memories: Array.from({ length: 9 }, (_, index) => `记忆 ${index}`)
+  });
+  assert.equal(profile.name, '星澜script');
+  assert.equal(profile.memories.length, 6);
+  const messages = buildLLMMessages('你还记得吗？', 'female', [], profile);
+  assert.match(messages[0].content, /你是「星澜script」/);
+  assert.match(messages[0].content, /已陪伴 3 天/);
+  assert.match(messages[0].content, /不得声称看到/);
 });
 
 test('handler forwards sanitized history to the cloud model request', async (t) => {

@@ -1,0 +1,153 @@
+export const SOULMATE_PROFILE_VERSION = 1;
+export const SOULMATE_STORAGE_KEY = 'soulmate-profile-v1';
+export const SOULMATE_HISTORY_KEY = 'soulmate-history-v1';
+
+export const soulmateStages = Object.freeze([
+  {
+    id: 'seed',
+    name: '灵魂种子',
+    minBond: 0,
+    nextBond: 80,
+    asset: './assets/soulmate-seed-v1.webp',
+    description: '它正在认识你的声音和日常。'
+  },
+  {
+    id: 'young',
+    name: '幼生形态',
+    minBond: 80,
+    nextBond: 240,
+    asset: './assets/soulmate-young-v1.webp',
+    description: '它开始表达偏好，也会主动关心你。'
+  },
+  {
+    id: 'resonance',
+    name: '共鸣形态',
+    minBond: 240,
+    nextBond: null,
+    asset: './assets/soulmate-resonance-v1.webp',
+    description: '你们共同塑造了它的性格、能力和外形。'
+  }
+]);
+
+const genderIds = new Set(['female', 'male', 'neutral']);
+const voiceIds = new Set(['soft', 'bright', 'steady']);
+const temperamentIds = new Set(['warm', 'curious', 'steady']);
+
+function cleanText(value, limit) {
+  return String(value || '')
+    .replace(/[<>&]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, limit);
+}
+
+function cleanDate(value, fallback) {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : fallback;
+  return date;
+}
+
+function numeric(value, fallback, min = 0, max = 10000) {
+  return Math.max(min, Math.min(max, Number.isFinite(Number(value)) ? Number(value) : fallback));
+}
+
+export function stageForBond(bond) {
+  const value = numeric(bond, 0);
+  return [...soulmateStages].reverse().find((stage) => value >= stage.minBond) || soulmateStages[0];
+}
+
+export function createSoulmateProfile(input = {}, now = Date.now()) {
+  const today = new Date(now).toISOString().slice(0, 10);
+  const temperament = temperamentIds.has(input.temperament) ? input.temperament : 'warm';
+  const traitSeeds = {
+    warm: { warmth: 66, curiosity: 42, steadiness: 54, courage: 40, independence: 34 },
+    curious: { warmth: 48, curiosity: 70, steadiness: 38, courage: 52, independence: 42 },
+    steady: { warmth: 52, curiosity: 38, steadiness: 72, courage: 48, independence: 44 }
+  };
+  return {
+    version: SOULMATE_PROFILE_VERSION,
+    id: `soulmate-${now.toString(36)}`,
+    name: cleanText(input.name, 12) || '未命名',
+    birthday: cleanDate(input.birthday, today),
+    gender: genderIds.has(input.gender) ? input.gender : 'neutral',
+    voice: voiceIds.has(input.voice) ? input.voice : 'soft',
+    temperament,
+    createdAt: now,
+    lastActiveAt: now,
+    bond: 0,
+    interactions: 0,
+    daysTogether: 1,
+    traits: traitSeeds[temperament],
+    memories: []
+  };
+}
+
+export function normalizeSoulmateProfile(value, now = Date.now()) {
+  if (!value || typeof value !== 'object' || value.version !== SOULMATE_PROFILE_VERSION) return null;
+  const createdAt = numeric(value.createdAt, now, 0, now);
+  const daysTogether = Math.max(1, Math.floor((now - createdAt) / 86400000) + 1);
+  const base = createSoulmateProfile(value, createdAt);
+  return {
+    ...base,
+    id: cleanText(value.id, 64) || base.id,
+    lastActiveAt: numeric(value.lastActiveAt, now, createdAt, now),
+    bond: numeric(value.bond, 0, 0, 9999),
+    interactions: numeric(value.interactions, 0, 0, 999999),
+    daysTogether,
+    traits: {
+      warmth: numeric(value.traits?.warmth, base.traits.warmth, 0, 100),
+      curiosity: numeric(value.traits?.curiosity, base.traits.curiosity, 0, 100),
+      steadiness: numeric(value.traits?.steadiness, base.traits.steadiness, 0, 100),
+      courage: numeric(value.traits?.courage, base.traits.courage, 0, 100),
+      independence: numeric(value.traits?.independence, base.traits.independence, 0, 100)
+    },
+    memories: Array.isArray(value.memories)
+      ? value.memories.map((memory) => ({
+        text: cleanText(memory?.text, 120),
+        createdAt: numeric(memory?.createdAt, now, createdAt, now)
+      })).filter((memory) => memory.text).slice(-24)
+      : []
+  };
+}
+
+export function growSoulmate(profile, interaction = {}, now = Date.now()) {
+  const current = normalizeSoulmateProfile(profile, now);
+  if (!current) return null;
+  const kind = ['chat', 'touch', 'care', 'device'].includes(interaction.kind) ? interaction.kind : 'touch';
+  const gain = { chat: 8, touch: 2, care: 5, device: 3 }[kind];
+  const next = structuredClone(current);
+  next.bond = Math.min(9999, next.bond + gain);
+  next.interactions += 1;
+  next.lastActiveAt = now;
+  const text = cleanText(interaction.text, 120);
+  if (kind === 'chat' && text) {
+    next.memories = [...next.memories, { text, createdAt: now }].slice(-24);
+    if (/[?？为什么怎么想知道]/.test(text)) next.traits.curiosity = Math.min(100, next.traits.curiosity + 1);
+    if (/[谢谢喜欢爱想你抱]/.test(text)) next.traits.warmth = Math.min(100, next.traits.warmth + 1);
+    if (/[难过压力累害怕担心]/.test(text)) next.traits.steadiness = Math.min(100, next.traits.steadiness + 1);
+  }
+  return next;
+}
+
+export function stageProgress(profile) {
+  const stage = stageForBond(profile?.bond || 0);
+  if (!stage.nextBond) return { stage, progress: 1, remaining: 0 };
+  const span = stage.nextBond - stage.minBond;
+  const progress = Math.max(0, Math.min(1, ((profile?.bond || 0) - stage.minBond) / span));
+  return { stage, progress, remaining: Math.max(0, stage.nextBond - (profile?.bond || 0)) };
+}
+
+export function soulmatePromptProfile(profile) {
+  const current = normalizeSoulmateProfile(profile);
+  if (!current) return null;
+  const stage = stageForBond(current.bond);
+  return {
+    name: current.name,
+    birthday: current.birthday,
+    gender: current.gender,
+    temperament: current.temperament,
+    stage: stage.name,
+    daysTogether: current.daysTogether,
+    traits: current.traits,
+    memories: current.memories.slice(-6).map((memory) => memory.text)
+  };
+}

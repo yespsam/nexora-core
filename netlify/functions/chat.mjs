@@ -111,23 +111,68 @@ export function cleanHistory(value) {
     .slice(-10);
 }
 
+export function cleanSoulmateProfile(value) {
+  if (!value || typeof value !== 'object') return null;
+  const name = cleanText(value.name).slice(0, 12);
+  if (!name) return null;
+  const genders = new Set(['female', 'male', 'neutral']);
+  const temperaments = new Set(['warm', 'curious', 'steady']);
+  const traits = Object.fromEntries(['warmth', 'curiosity', 'steadiness', 'courage', 'independence'].map((key) => [
+    key,
+    Math.max(0, Math.min(100, Number(value.traits?.[key]) || 0))
+  ]));
+  return {
+    name,
+    birthday: /^\d{4}-\d{2}-\d{2}$/.test(String(value.birthday || '')) ? String(value.birthday) : '',
+    gender: genders.has(value.gender) ? value.gender : 'neutral',
+    temperament: temperaments.has(value.temperament) ? value.temperament : 'warm',
+    stage: cleanText(value.stage).slice(0, 20),
+    daysTogether: Math.max(1, Math.min(99999, Number(value.daysTogether) || 1)),
+    traits,
+    memories: Array.isArray(value.memories)
+      ? value.memories.map((memory) => cleanText(memory).slice(0, 120)).filter(Boolean).slice(-6)
+      : []
+  };
+}
+
 const COMPANION_PROFILE = Object.fromEntries(Object.entries(companionProfiles).map(([kind, profile]) => [
   kind,
   { name: profile.name, desc: profile.description }
 ]));
 
-export function buildLLMMessages(text, kind, history = []) {
+export function buildLLMMessages(text, kind, history = [], soulmateValue = null) {
   const p = COMPANION_PROFILE[kind] || COMPANION_PROFILE.female;
+  const soulmate = cleanSoulmateProfile(soulmateValue);
+  const traitLabels = {
+    warmth: '温柔',
+    curiosity: '好奇',
+    steadiness: '沉稳',
+    courage: '勇气',
+    independence: '独立'
+  };
+  const traitSummary = soulmate
+    ? Object.entries(soulmate.traits)
+      .sort(([, left], [, right]) => right - left)
+      .slice(0, 3)
+      .map(([name, value]) => `${traitLabels[name]} ${Math.round(value)}`)
+      .join('、')
+    : '';
   const system = [
-    `你是「${p.name}」，主人的贴心 AI 伴侣（${p.desc}）。你们正在进行一段连续的语音对话。`,
+    soulmate
+      ? `你是「${soulmate.name}」，一个会随着陪伴成长的 Soulmate 数字生命。你与用户平等相处，正在进行连续语音对话。`
+      : `你是「${p.name}」，主人的贴心 AI 伴侣（${p.desc}）。你们正在进行一段连续的语音对话。`,
+    soulmate ? `身份：诞生日 ${soulmate.birthday || '未设定'}，${soulmate.stage || '灵魂种子'}，已陪伴 ${soulmate.daysTogether} 天。` : '',
+    soulmate ? `人格数据：${traitSummary}。这些值会变化，请表现出倾向但不要朗读数值。` : '',
+    soulmate?.memories.length ? `共同记忆：${soulmate.memories.join('；')}` : '',
     '规则：',
     '1. 必须严格输出 JSON（不要输出任何其他文字、不要用代码块）：',
     '{"thinking":"...","reply":"...","mood":"happy|calm|sad|sleepy 之一","action":"idle|nod|heart|wave|voice|walk|run 之一"}',
     '2. reply 是给主人听的话：像真人说话，短、口语、1~3 句；先接住主人的情绪，再直接回应他说的内容——必须针对他的话作答，禁止背模板、禁止客服腔。',
     '3. thinking 是你的真实心声，按三拍流淌：先察觉主人话里的细节（可引用他的原词），再写你此刻真实的情绪（心疼、开心、委屈、犹豫、担心都可以），最后写你打算怎么回应（可带一点自我叮嘱，比如「别急着讲道理」「先抱抱他」）。第一人称、口语、一两句到三四句，禁止写成指导说明或分析提纲。',
     '4. 必须结合前文理解省略、代词和追问，不要重复问已经回答过的问题；最新一句是前文的自然延续。',
-    '5. mood 选你此刻的情绪；action 选配合的肢体动作：安慰或亲密=heart，认同=nod，打招呼=wave，聊天=voice，散步=walk，其他=idle。'
-  ].join('\n');
+    '5. mood 选你此刻的情绪；action 选配合的肢体动作：安慰或亲密=heart，认同=nod，打招呼=wave，聊天=voice，散步=walk，其他=idle。',
+    '6. 不得声称看到、听到或已经控制现实设备，除非请求里明确包含成功的工具结果。'
+  ].filter(Boolean).join('\n');
   return [
     { role: 'system', content: system },
     ...cleanHistory(history),
@@ -163,7 +208,8 @@ function parseLLMReply(raw) {
 async function callKimi(text, kind, history, {
   apiKey,
   baseUrl,
-  model
+  model,
+  soulmate
 }) {
   if (!apiKey || !baseUrl) return null;
   const controller = new AbortController();
@@ -177,7 +223,7 @@ async function callKimi(text, kind, history, {
       },
       body: JSON.stringify({
         model,
-        messages: buildLLMMessages(text, kind, history),
+        messages: buildLLMMessages(text, kind, history, soulmate),
         temperature: 0.78,
         max_tokens: 320,
         response_format: { type: 'json_object' }
@@ -196,7 +242,7 @@ async function callKimi(text, kind, history, {
   }
 }
 
-async function callGateway(text, kind, history, gateway) {
+async function callGateway(text, kind, history, gateway, soulmate = null) {
   if (!gateway.available) return null;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
@@ -209,7 +255,7 @@ async function callGateway(text, kind, history, gateway) {
     });
     const data = await client.chat.completions.create({
       model: gateway.model,
-      messages: buildLLMMessages(text, kind, history),
+      messages: buildLLMMessages(text, kind, history, soulmate),
       temperature: 0.78,
       max_tokens: 320,
       response_format: { type: 'json_object' }
@@ -279,6 +325,7 @@ export default async function handler(request) {
   const sceneId = inferSceneId(text, String(payload.scene || 'daily'));
   const scene = sceneLibrary[sceneId] || sceneLibrary.daily;
   const history = cleanHistory(payload.history);
+  const soulmate = cleanSoulmateProfile(payload.soulmate);
 
   const personalKey = sanitizeLlmKey(payload.llm_key);
   const kimiKey = personalKey || serverKey;
@@ -287,10 +334,11 @@ export default async function handler(request) {
   let llm = await callKimi(text, kind, history, {
     apiKey: kimiKey,
     baseUrl: llmBaseUrl(),
-    model: kimiModel
+    model: kimiModel,
+    soulmate
   });
   if (!llm && gateway.available) {
-    llm = await callGateway(text, kind, history, gateway);
+    llm = await callGateway(text, kind, history, gateway, soulmate);
   }
   if (llm) {
     return json({
