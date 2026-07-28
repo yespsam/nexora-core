@@ -5,7 +5,8 @@ import {
   growSoulmate,
   normalizeSoulmateProfile,
   soulmatePromptProfile,
-  soulmateStages,
+  soulmateStarterCatalog,
+  stagesForStarter,
   stageProgress
 } from '../shared/soulmate-profile.mjs';
 
@@ -21,6 +22,8 @@ const birthStepLabel = $('#birth-step-label');
 const birthBack = $('#birth-back');
 const birthNext = $('#birth-next');
 const voicePreview = $('#voice-preview');
+const birthVisualImage = $('#birth-visual-image');
+const birthVisualCaption = $('#birth-visual-caption');
 const identityLine = $('#identity-line');
 const stageName = $('#stage-name');
 const bondLabel = $('#bond-label');
@@ -72,6 +75,7 @@ const traitNames = {
 const state = {
   birthStep: 0,
   birthSelections: {
+    starter: 'cute',
     gender: 'neutral',
     temperament: 'warm',
     voice: 'soft'
@@ -158,15 +162,15 @@ function setPhase(phase) {
 }
 
 function showBirthStep(index) {
-  state.birthStep = Math.max(0, Math.min(3, index));
+  state.birthStep = Math.max(0, Math.min(4, index));
   $$('.birth-step').forEach((step, stepIndex) => {
     step.hidden = stepIndex !== state.birthStep;
     step.classList.toggle('active', stepIndex === state.birthStep);
   });
-  birthStepLabel.textContent = `${String(state.birthStep + 1).padStart(2, '0')} / 04`;
+  birthStepLabel.textContent = `${String(state.birthStep + 1).padStart(2, '0')} / 05`;
   birthBack.disabled = state.birthStep === 0;
-  birthNext.textContent = state.birthStep === 3 ? '让它诞生' : '继续';
-  if (state.birthStep === 0) window.setTimeout(() => birthName.focus(), 120);
+  birthNext.textContent = state.birthStep === 4 ? '让它诞生' : '继续';
+  if (state.birthStep === 1) window.setTimeout(() => birthName.focus(), 120);
 }
 
 function selectChoice(group, value) {
@@ -175,16 +179,21 @@ function selectChoice(group, value) {
     button.classList.toggle('active', button.dataset.value === value);
     button.setAttribute('aria-pressed', button.dataset.value === value ? 'true' : 'false');
   });
+  if (group === 'starter') {
+    const starter = soulmateStarterCatalog[value] || soulmateStarterCatalog.cute;
+    birthVisualImage.src = starter.stages[0].asset;
+    birthVisualCaption.textContent = `${starter.species}正在等你的选择`;
+  }
 }
 
 function validateBirthStep() {
-  if (state.birthStep === 0 && !birthName.value.trim()) {
+  if (state.birthStep === 1 && !birthName.value.trim()) {
     birthName.setCustomValidity('请先为它取一个名字');
     birthName.reportValidity();
     birthName.setCustomValidity('');
     return false;
   }
-  if (state.birthStep === 1 && !birthDate.value) {
+  if (state.birthStep === 2 && !birthDate.value) {
     birthDate.reportValidity();
     return false;
   }
@@ -243,8 +252,9 @@ function renderCompanion() {
   bondLabel.textContent = `共鸣 ${state.profile.bond}`;
   bondTrackValue.style.width = `${Math.round(progress.progress * 100)}%`;
   companionImage.alt = `${state.profile.name}的${progress.stage.name}形象`;
-  if (state.currentStageId !== progress.stage.id) {
-    state.currentStageId = progress.stage.id;
+  const stageIdentity = `${state.profile.starter}:${progress.stage.id}`;
+  if (state.currentStageId !== stageIdentity) {
+    state.currentStageId = stageIdentity;
     companionImage.style.opacity = '0';
     window.setTimeout(() => {
       companionImage.src = progress.stage.asset;
@@ -252,6 +262,7 @@ function renderCompanion() {
     }, 120);
   }
   $('#setting-voice').textContent = voiceNames[state.profile.voice] || voiceNames.soft;
+  $('#setting-starter').textContent = (soulmateStarterCatalog[state.profile.starter] || soulmateStarterCatalog.cute).species;
   $('#setting-birthday').textContent = state.profile.birthday;
   renderGrowth();
 }
@@ -261,7 +272,7 @@ function renderGrowth() {
   const progress = stageProgress(state.profile);
   growthTitle.textContent = progress.stage.name;
   evolutionList.textContent = '';
-  soulmateStages.forEach((stage) => {
+  stagesForStarter(state.profile.starter).forEach((stage) => {
     const item = document.createElement('div');
     const unlocked = state.profile.bond >= stage.minBond;
     item.className = `evolution-item${stage.id === progress.stage.id ? ' active' : ''}${unlocked ? ' unlocked' : ''}`;
@@ -573,7 +584,7 @@ function exportProfile() {
 
 birthNext.addEventListener('click', () => {
   if (!validateBirthStep()) return;
-  if (state.birthStep === 3) completeBirth();
+  if (state.birthStep === 4) completeBirth();
   else showBirthStep(state.birthStep + 1);
 });
 

@@ -227,6 +227,61 @@ input:focus-visible {
   border-top: 1px solid var(--line);
 }
 
+.starter-choice-grid {
+  width: min(100%, 520px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.starter-choice {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 6px 11px;
+  background: rgba(255, 255, 255, 0.64);
+  color: var(--ink-soft);
+}
+
+.starter-choice img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  transition: transform 180ms ease;
+}
+
+.starter-choice strong,
+.starter-choice span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.starter-choice strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.starter-choice span {
+  margin-top: 3px;
+  font-size: 10px;
+}
+
+.starter-choice.active {
+  border-color: var(--coral);
+  background: #ffffff;
+  color: var(--coral-strong);
+  box-shadow: inset 0 -3px 0 var(--coral);
+}
+
+.starter-choice.active img {
+  transform: translateY(-3px) scale(1.03);
+}
+
 .choice-row {
   width: 100%;
   min-height: 74px;
@@ -899,6 +954,7 @@ input:focus-visible {
   .birth-input,
   .segmented,
   .voice-preview,
+  .starter-choice-grid,
   .choice-list,
   .birth-actions {
     width: 100%;

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:soulmate-assets": "node tools/process-soulmate-concept.mjs",
+    "build:soulmate-assets": "node tools/process-soulmate-starters.mjs",
     "build:model:female-head": "node tools/build-curved-face-texture.mjs && node tools/build-browser-head.mjs",
     "build:model:female": "node tools/build-browser-model.mjs female",
     "build:model:male": "node tools/build-browser-model.mjs male",

@@ -5,9 +5,11 @@ import {
   createSoulmateProfile,
   growSoulmate,
   normalizeSoulmateProfile,
+  soulmateStarters,
   soulmatePromptProfile,
   stageForBond,
-  stageProgress
+  stageProgress,
+  stagesForStarter
 } from '../shared/soulmate-profile.mjs';
 
 test('creates a named Soulmate with a stable identity seed', () => {
@@ -16,12 +18,23 @@ test('creates a named Soulmate with a stable identity seed', () => {
     birthday: '2026-07-28',
     gender: 'neutral',
     voice: 'soft',
-    temperament: 'curious'
+    temperament: 'curious',
+    starter: 'cool'
   }, Date.UTC(2026, 6, 28));
   assert.equal(profile.name, '星澜');
   assert.equal(profile.birthday, '2026-07-28');
   assert.equal(profile.traits.curiosity, 70);
-  assert.equal(stageForBond(profile.bond).id, 'seed');
+  assert.equal(profile.starter, 'cool');
+  assert.match(stageForBond(profile.bond, profile.starter).asset, /cool-seed/);
+});
+
+test('offers three original starters with independent evolution assets', () => {
+  assert.deepEqual(soulmateStarters.map((starter) => starter.id), ['cute', 'cool', 'beautiful']);
+  soulmateStarters.forEach((starter) => {
+    const stages = stagesForStarter(starter.id);
+    assert.equal(stages.length, 3);
+    assert.ok(stages.every((stage) => stage.asset.includes(`/starters/${starter.id}-`)));
+  });
 });
 
 test('chat grows bond, traits, and bounded memories', () => {
@@ -50,6 +63,7 @@ test('stage progress and prompt data expose only compact personality context', (
   assert.equal(progress.progress, 0.5);
   const prompt = soulmatePromptProfile(profile);
   assert.equal(prompt.name, '星澜');
-  assert.equal(prompt.stage, '灵魂种子');
+  assert.equal(prompt.stage, '绒云幼体');
+  assert.equal(prompt.species, '绒云兽');
   assert.ok(!('id' in prompt));
 });

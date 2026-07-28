@@ -2,36 +2,70 @@ export const SOULMATE_PROFILE_VERSION = 1;
 export const SOULMATE_STORAGE_KEY = 'soulmate-profile-v1';
 export const SOULMATE_HISTORY_KEY = 'soulmate-history-v1';
 
-export const soulmateStages = Object.freeze([
-  {
-    id: 'seed',
-    name: '灵魂种子',
-    minBond: 0,
-    nextBond: 80,
-    asset: './assets/soulmate-seed-v1.webp',
-    description: '它正在认识你的声音和日常。'
-  },
-  {
-    id: 'young',
-    name: '幼生形态',
-    minBond: 80,
-    nextBond: 240,
-    asset: './assets/soulmate-young-v1.webp',
-    description: '它开始表达偏好，也会主动关心你。'
-  },
-  {
-    id: 'resonance',
-    name: '共鸣形态',
-    minBond: 240,
-    nextBond: null,
-    asset: './assets/soulmate-resonance-v1.webp',
-    description: '你们共同塑造了它的性格、能力和外形。'
-  }
-]);
+const starterRoute = (id, name, species, description, stageNames) => Object.freeze({
+  id,
+  name,
+  species,
+  description,
+  stages: Object.freeze([
+    {
+      id: 'seed',
+      name: stageNames[0],
+      minBond: 0,
+      nextBond: 80,
+      asset: `./assets/starters/${id}-seed-v1.webp`,
+      description: '它正在认识你的声音和日常。'
+    },
+    {
+      id: 'young',
+      name: stageNames[1],
+      minBond: 80,
+      nextBond: 240,
+      asset: `./assets/starters/${id}-young-v1.webp`,
+      description: '它开始表达偏好，也会主动关心你。'
+    },
+    {
+      id: 'resonance',
+      name: stageNames[2],
+      minBond: 240,
+      nextBond: null,
+      asset: `./assets/starters/${id}-resonance-v1.webp`,
+      description: '你们共同塑造了它的性格、能力和外形。'
+    }
+  ])
+});
+
+export const soulmateStarterCatalog = Object.freeze({
+  cute: starterRoute(
+    'cute',
+    '可爱型',
+    '绒云兽',
+    '亲近、活泼，喜欢主动贴近你。',
+    ['绒云幼体', '绒云成长体', '绒心共鸣体']
+  ),
+  cool: starterRoute(
+    'cool',
+    '帅气型',
+    '曜影兽',
+    '敏锐、果断，常常安静地守在你身边。',
+    ['曜影幼体', '曜影成长体', '曜影共鸣体']
+  ),
+  beautiful: starterRoute(
+    'beautiful',
+    '优美型',
+    '月羽灵',
+    '安静、细腻，会留意情绪里的微小变化。',
+    ['月羽幼体', '月羽成长体', '月华共鸣体']
+  )
+});
+
+export const soulmateStarters = Object.freeze(Object.values(soulmateStarterCatalog));
+export const soulmateStages = soulmateStarterCatalog.cute.stages;
 
 const genderIds = new Set(['female', 'male', 'neutral']);
 const voiceIds = new Set(['soft', 'bright', 'steady']);
 const temperamentIds = new Set(['warm', 'curious', 'steady']);
+const starterIds = new Set(Object.keys(soulmateStarterCatalog));
 
 function cleanText(value, limit) {
   return String(value || '')
@@ -50,9 +84,14 @@ function numeric(value, fallback, min = 0, max = 10000) {
   return Math.max(min, Math.min(max, Number.isFinite(Number(value)) ? Number(value) : fallback));
 }
 
-export function stageForBond(bond) {
+export function stagesForStarter(starter = 'cute') {
+  return (soulmateStarterCatalog[starter] || soulmateStarterCatalog.cute).stages;
+}
+
+export function stageForBond(bond, starter = 'cute') {
   const value = numeric(bond, 0);
-  return [...soulmateStages].reverse().find((stage) => value >= stage.minBond) || soulmateStages[0];
+  const stages = stagesForStarter(starter);
+  return [...stages].reverse().find((stage) => value >= stage.minBond) || stages[0];
 }
 
 export function createSoulmateProfile(input = {}, now = Date.now()) {
@@ -70,6 +109,7 @@ export function createSoulmateProfile(input = {}, now = Date.now()) {
     birthday: cleanDate(input.birthday, today),
     gender: genderIds.has(input.gender) ? input.gender : 'neutral',
     voice: voiceIds.has(input.voice) ? input.voice : 'soft',
+    starter: starterIds.has(input.starter) ? input.starter : 'cute',
     temperament,
     createdAt: now,
     lastActiveAt: now,
@@ -129,7 +169,7 @@ export function growSoulmate(profile, interaction = {}, now = Date.now()) {
 }
 
 export function stageProgress(profile) {
-  const stage = stageForBond(profile?.bond || 0);
+  const stage = stageForBond(profile?.bond || 0, profile?.starter);
   if (!stage.nextBond) return { stage, progress: 1, remaining: 0 };
   const span = stage.nextBond - stage.minBond;
   const progress = Math.max(0, Math.min(1, ((profile?.bond || 0) - stage.minBond) / span));
@@ -139,12 +179,15 @@ export function stageProgress(profile) {
 export function soulmatePromptProfile(profile) {
   const current = normalizeSoulmateProfile(profile);
   if (!current) return null;
-  const stage = stageForBond(current.bond);
+  const stage = stageForBond(current.bond, current.starter);
+  const starter = soulmateStarterCatalog[current.starter] || soulmateStarterCatalog.cute;
   return {
     name: current.name,
     birthday: current.birthday,
     gender: current.gender,
     temperament: current.temperament,
+    starter: starter.name,
+    species: starter.species,
     stage: stage.name,
     daysTogether: current.daysTogether,
     traits: current.traits,

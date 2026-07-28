@@ -47,7 +47,9 @@ test('Soulmate profile customizes identity and keeps memory context compact', ()
     birthday: '2026-07-28',
     gender: 'neutral',
     temperament: 'curious',
-    stage: '灵魂种子',
+    starter: '帅气型',
+    species: '曜影兽',
+    stage: '曜影幼体',
     daysTogether: 3,
     traits: { warmth: 61, curiosity: 77, steadiness: 50 },
     memories: Array.from({ length: 9 }, (_, index) => `记忆 ${index}`)
@@ -57,6 +59,7 @@ test('Soulmate profile customizes identity and keeps memory context compact', ()
   const messages = buildLLMMessages('你还记得吗？', 'female', [], profile);
   assert.match(messages[0].content, /你是「星澜script」/);
   assert.match(messages[0].content, /已陪伴 3 天/);
+  assert.match(messages[0].content, /曜影兽/);
   assert.match(messages[0].content, /不得声称看到/);
 });
 

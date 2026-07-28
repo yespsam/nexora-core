@@ -4,14 +4,16 @@ Soulmate is a wearable emotional companion that grows from daily interaction. Th
 
 ## Product Loop
 
-1. The user names a new Soulmate and chooses its birthday, gender, initial temperament, and voice.
+1. The user chooses one of three original starter companions, then names it and chooses its birthday, gender, initial temperament, and voice.
 2. Daily conversation updates a structured personality profile and a bounded memory record.
 3. Bond milestones unlock original visual stages and new capabilities.
 4. The same identity follows the user across the pendant, mobile app, desktop presence, and home gateway.
 
 ## Evolution Model
 
-The first visual family has three stages: Soul Seed, Young Companion, and Resonance Companion. Evolution is driven primarily by meaningful conversation and shared events. Repeated tapping has a session cap so it cannot replace relationship development.
+Birth begins with three distinct visual and personality routes: the cute cloud companion, the cool shadow companion, and the graceful moon-feather companion. Each route has its own Seed, Young, and Resonance stages, so a user's original choice stays recognizable throughout growth.
+
+Evolution is driven primarily by meaningful conversation and shared events. Repeated tapping has a session cap so it cannot replace relationship development. The selected route, current stage, name, and personality are stored as one identity and supplied to the conversation model together.
 
 Personality is represented by warmth, curiosity, steadiness, courage, and independence. Initial temperament only seeds these values. Conversation can change them gradually.
 

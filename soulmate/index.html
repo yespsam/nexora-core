@@ -7,24 +7,44 @@
   <meta name="description" content="Soulmate 会成长的随身情感伴侣">
   <title>Soulmate · 你的数字生命</title>
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./style.css?v=0.1.0">
+  <link rel="stylesheet" href="./style.css?v=0.2.0">
 </head>
 <body>
   <main class="app-shell" id="app-shell">
     <section class="birth-flow" id="birth-flow" aria-label="Soulmate 诞生仪式">
       <header class="birth-header">
         <span class="wordmark">SOULMATE</span>
-        <span class="birth-step-label" id="birth-step-label">01 / 04</span>
+        <span class="birth-step-label" id="birth-step-label">01 / 05</span>
       </header>
 
       <div class="birth-visual" aria-hidden="true">
         <span class="birth-orbit"></span>
-        <img src="./assets/soulmate-seed-v1.webp" alt="">
-        <span class="birth-visual-caption">一个还没有名字的生命正在等你</span>
+        <img id="birth-visual-image" src="./assets/starters/cute-seed-v1.webp" alt="">
+        <span class="birth-visual-caption" id="birth-visual-caption">绒云兽正在等你的选择</span>
       </div>
 
       <form class="birth-form" id="birth-form">
         <div class="birth-step active" data-birth-step="0">
+          <p class="step-kicker">初始伙伴</p>
+          <h1>三只中，你会选谁？</h1>
+          <p class="step-copy">外形会沿着这条路线进化，人格则会由你们的日常共同决定。</p>
+          <div class="starter-choice-grid" role="group" aria-label="选择初始 Soulmate">
+            <button class="starter-choice active" type="button" data-choice="starter" data-value="cute">
+              <img src="./assets/starters/cute-seed-v1.webp" alt="">
+              <strong>可爱型</strong><span>绒云兽</span>
+            </button>
+            <button class="starter-choice" type="button" data-choice="starter" data-value="cool">
+              <img src="./assets/starters/cool-seed-v1.webp" alt="">
+              <strong>帅气型</strong><span>曜影兽</span>
+            </button>
+            <button class="starter-choice" type="button" data-choice="starter" data-value="beautiful">
+              <img src="./assets/starters/beautiful-seed-v1.webp" alt="">
+              <strong>优美型</strong><span>月羽灵</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="birth-step" data-birth-step="1" hidden>
           <p class="step-kicker">命名</p>
           <h1>你想怎么称呼它？</h1>
           <p class="step-copy">这个名字会跟随它的每一次成长。</p>
@@ -32,7 +52,7 @@
           <input class="birth-input" id="birth-name" name="name" maxlength="12" autocomplete="off" placeholder="例如：星澜" required>
         </div>
 
-        <div class="birth-step" data-birth-step="1" hidden>
+        <div class="birth-step" data-birth-step="2" hidden>
           <p class="step-kicker">诞生</p>
           <h1>记住今天的起点</h1>
           <p class="step-copy">生日会成为你们每年的共同纪念日。</p>
@@ -46,7 +66,7 @@
           </div>
         </div>
 
-        <div class="birth-step" data-birth-step="2" hidden>
+        <div class="birth-step" data-birth-step="3" hidden>
           <p class="step-kicker">性格种子</p>
           <h1>选一个最初的性格</h1>
           <p class="step-copy">这只是起点，它会在每天的对话里慢慢改变。</p>
@@ -63,7 +83,7 @@
           </div>
         </div>
 
-        <div class="birth-step" data-birth-step="3" hidden>
+        <div class="birth-step" data-birth-step="4" hidden>
           <p class="step-kicker">声音</p>
           <h1>让它第一次开口</h1>
           <p class="step-copy">声音之后可以修改，人格与记忆不会被替换。</p>
@@ -98,7 +118,7 @@
         </div>
         <button class="companion-touch" id="companion-touch" type="button" aria-label="摸摸你的 Soulmate">
           <span class="presence-ring" aria-hidden="true"></span>
-          <img id="companion-image" src="./assets/soulmate-seed-v1.webp" alt="">
+          <img id="companion-image" src="./assets/starters/cute-seed-v1.webp" alt="">
           <span class="core-pulse" aria-hidden="true"></span>
         </button>
         <p class="presence-line" id="presence-line">它刚刚醒来，正在记住你。</p>
@@ -186,12 +206,13 @@
         <button type="button" data-close-sheet="settings" aria-label="关闭">关闭</button>
       </header>
       <div class="setting-row"><span>声音</span><strong id="setting-voice"></strong></div>
+      <div class="setting-row"><span>初始伙伴</span><strong id="setting-starter"></strong></div>
       <div class="setting-row"><span>诞生日</span><strong id="setting-birthday"></strong></div>
       <div class="setting-row"><span>Hermes Core</span><strong>待授权</strong></div>
       <button class="wide-command" id="export-button" type="button">导出伴侣数据</button>
       <button class="wide-command danger" id="reset-button" type="button">重新诞生</button>
     </dialog>
   </main>
-  <script type="module" src="./app.js?v=0.1.0"></script>
+  <script type="module" src="./app.js?v=0.2.0"></script>
 </body>
 </html>

@@ -126,6 +126,8 @@ export function cleanSoulmateProfile(value) {
     birthday: /^\d{4}-\d{2}-\d{2}$/.test(String(value.birthday || '')) ? String(value.birthday) : '',
     gender: genders.has(value.gender) ? value.gender : 'neutral',
     temperament: temperaments.has(value.temperament) ? value.temperament : 'warm',
+    starter: cleanText(value.starter).slice(0, 20),
+    species: cleanText(value.species).slice(0, 20),
     stage: cleanText(value.stage).slice(0, 20),
     daysTogether: Math.max(1, Math.min(99999, Number(value.daysTogether) || 1)),
     traits,
@@ -161,7 +163,7 @@ export function buildLLMMessages(text, kind, history = [], soulmateValue = null)
     soulmate
       ? `你是「${soulmate.name}」，一个会随着陪伴成长的 Soulmate 数字生命。你与用户平等相处，正在进行连续语音对话。`
       : `你是「${p.name}」，主人的贴心 AI 伴侣（${p.desc}）。你们正在进行一段连续的语音对话。`,
-    soulmate ? `身份：诞生日 ${soulmate.birthday || '未设定'}，${soulmate.stage || '灵魂种子'}，已陪伴 ${soulmate.daysTogether} 天。` : '',
+    soulmate ? `身份：诞生日 ${soulmate.birthday || '未设定'}，${soulmate.species || soulmate.starter || '数字生命'}，${soulmate.stage || '初生形态'}，已陪伴 ${soulmate.daysTogether} 天。` : '',
     soulmate ? `人格数据：${traitSummary}。这些值会变化，请表现出倾向但不要朗读数值。` : '',
     soulmate?.memories.length ? `共同记忆：${soulmate.memories.join('；')}` : '',
     '规则：',

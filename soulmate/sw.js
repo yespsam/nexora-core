@@ -1,13 +1,19 @@
-const CACHE_NAME = 'soulmate-shell-v1';
+const CACHE_NAME = 'soulmate-shell-v2';
 const SHELL_ASSETS = [
   './',
   './index.html',
-  './style.css?v=0.1.0',
-  './app.js?v=0.1.0',
+  './style.css?v=0.2.0',
+  './app.js?v=0.2.0',
   './manifest.webmanifest',
-  './assets/soulmate-seed-v1.webp',
-  './assets/soulmate-young-v1.webp',
-  './assets/soulmate-resonance-v1.webp',
+  './assets/starters/cute-seed-v1.webp',
+  './assets/starters/cute-young-v1.webp',
+  './assets/starters/cute-resonance-v1.webp',
+  './assets/starters/cool-seed-v1.webp',
+  './assets/starters/cool-young-v1.webp',
+  './assets/starters/cool-resonance-v1.webp',
+  './assets/starters/beautiful-seed-v1.webp',
+  './assets/starters/beautiful-young-v1.webp',
+  './assets/starters/beautiful-resonance-v1.webp',
   '../shared/soulmate-profile.mjs'
 ];
 
