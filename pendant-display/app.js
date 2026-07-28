@@ -10,7 +10,6 @@ import {
   createPendantDisplaySnapshot,
   pendantDisplayStates
 } from '../shared/pendant-display.mjs';
-import { pendantPoseAssets } from '../shared/pendant-poses.mjs';
 import { observePendantSimulator } from '../shared/pendant-simulator.mjs';
 import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=4';
 import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=2';
@@ -22,7 +21,6 @@ const lab = $('#display-lab');
 const shell = $('#device-shell');
 const roundDisplay = $('#round-display');
 const screenModel = $('#screen-model');
-const character = $('#screen-character');
 const screenName = $('#screen-name');
 const screenConnection = $('#screen-connection');
 const screenBattery = $('#screen-battery');
@@ -30,7 +28,6 @@ const screenState = $('#screen-state');
 const screenBond = $('#screen-bond');
 const starterSelect = $('#starter-select');
 const stageSelect = $('#stage-select');
-const renderSelect = $('#render-select');
 const batteryInput = $('#battery-input');
 const batteryOutput = $('#battery-output');
 const connectionInput = $('#connection-input');
@@ -39,7 +36,7 @@ const demoButton = $('#demo-button');
 const params = new URLSearchParams(location.search);
 const embedded = params.get('embedded') === '1';
 const simulatorMode = params.get('lab') === '1' || params.get('simulator') === '1';
-const explicitPreview = ['starter', 'stage', 'state', 'battery', 'connected', 'render']
+const explicitPreview = ['starter', 'stage', 'state', 'battery', 'connected']
   .some((key) => params.has(key));
 let demoTimer = 0;
 let interactionTimer = 0;
@@ -48,7 +45,6 @@ let holdTimer = 0;
 let holdTriggered = false;
 let lastTapAt = 0;
 let currentSnapshot = null;
-let preloadedIdentity = '';
 let creatureViewer = null;
 
 function ensureCreatureViewer() {
@@ -89,7 +85,6 @@ const state = {
   stage: params.get('stage') || stageProgress(profile).stage.id,
   battery: Math.max(0, Math.min(100, Number(params.get('battery')) || 76)),
   connected: params.get('connected') !== '0',
-  renderMode: params.get('render') === '3d' ? '3d' : 'firmware',
   notice: params.get('notice') || '该休息一下啦'
 };
 
@@ -122,7 +117,6 @@ function render() {
   shell.dataset.starter = snapshot.companion.starter;
   shell.dataset.stage = snapshot.companion.stage;
   shell.dataset.pose = snapshot.companion.pose;
-  shell.dataset.renderMode = state.renderMode;
   shell.style.setProperty('--battery-level', `${snapshot.battery}%`);
   snapshot.lights.forEach((active, index) => {
     const light = $(`.light-guide-${['one', 'two', 'three', 'four'][index]}`);
@@ -134,43 +128,19 @@ function render() {
   screenBond.textContent = `R ${String(snapshot.companion.bond).padStart(2, '0').slice(-2)}`;
   screenConnection.classList.toggle('offline', !snapshot.connected);
   screenConnection.setAttribute('aria-label', snapshot.connected ? '蓝牙已连接' : '蓝牙未连接');
-  if (state.renderMode === '3d') {
-    ensureCreatureViewer()?.load(
-      snapshot.companion.starter,
-      creatureActionForPhase[snapshot.state] || 'idle'
-    );
-  }
-  const poseUrl = new URL(snapshot.companion.asset, location.href).href;
-  if (character.dataset.asset !== poseUrl) {
-    character.classList.remove('pose-enter');
-    character.dataset.asset = poseUrl;
-    character.onload = () => character.classList.add('pose-enter');
-    character.onerror = () => {
-      character.onerror = null;
-      character.src = snapshot.companion.fallbackAsset;
-    };
-    character.src = snapshot.companion.asset;
-    if (character.complete && character.naturalWidth > 0) character.classList.add('pose-enter');
-  }
-  character.alt = `${snapshot.companion.name}的${snapshot.companion.stageName}形象`;
+  ensureCreatureViewer()?.load(
+    snapshot.companion.starter,
+    creatureActionForPhase[snapshot.state] || 'idle'
+  );
   batteryInput.value = String(snapshot.battery);
   batteryOutput.value = `${snapshot.battery}%`;
   connectionInput.checked = snapshot.connected;
   starterSelect.value = snapshot.companion.starter;
-  renderSelect.value = state.renderMode;
   $$('[data-display-state]').forEach((button) => {
     const active = button.dataset.displayState === snapshot.state;
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
-  const poseIdentity = `${snapshot.companion.starter}:${snapshot.companion.stage}`;
-  if (poseIdentity !== preloadedIdentity) {
-    preloadedIdentity = poseIdentity;
-    pendantPoseAssets(snapshot.companion.starter, snapshot.companion.stage).forEach((asset) => {
-      const image = new Image();
-      image.src = asset;
-    });
-  }
 }
 
 function applySimulatorSnapshot(snapshot) {
@@ -243,11 +213,6 @@ starterSelect.addEventListener('change', () => {
 
 stageSelect.addEventListener('change', () => {
   state.stage = stageSelect.value;
-  render();
-});
-
-renderSelect.addEventListener('change', () => {
-  state.renderMode = renderSelect.value === '3d' ? '3d' : 'firmware';
   render();
 });
 
@@ -324,20 +289,15 @@ if (simulatorMode) {
         state.connected = Boolean(value);
         render();
       },
-      setRenderMode(value) {
-        state.renderMode = value === '3d' ? '3d' : 'firmware';
-        render();
-      },
       setState: setDisplayState,
       getSnapshot: () => currentSnapshot ? structuredClone(currentSnapshot) : null,
-      sampleModel: () => state.renderMode === '3d'
-        ? creatureViewer?.samplePixels() || null
-        : {
-            renderMode: 'firmware',
-            width: character.naturalWidth,
-            height: character.naturalHeight,
-            ready: character.complete && character.naturalWidth > 0
-          }
+      getModelState: () => ({
+        starter: creatureViewer?.starter || state.starter,
+        action: creatureViewer?.action || 'idle',
+        identity: creatureViewer?.identity || '',
+        status: screenModel.dataset.modelState || 'loading'
+      }),
+      sampleModel: () => creatureViewer?.samplePixels() || null
     })
   });
   window.dispatchEvent(new CustomEvent('nexora:pendant-lab-ready'));

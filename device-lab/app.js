@@ -121,13 +121,14 @@ async function runAllTests() {
 
   results.push(await check('assets', '角色资源与圆屏尺寸', async () => {
     const phoneImage = phoneFrame.contentDocument.querySelector('#companion-image');
-    const pendantImage = pendantFrame.contentDocument.querySelector('#screen-character');
     const roundDisplay = pendantFrame.contentDocument.querySelector('#round-display');
-    await waitFor(() => phoneImage.complete && phoneImage.naturalWidth > 0
-      && pendantImage.complete && pendantImage.naturalWidth > 0);
+    await waitFor(() => {
+      const pixels = pendant.sampleModel();
+      return phoneImage.complete && phoneImage.naturalWidth > 0 && pixels?.opaque > 100;
+    });
     const size = roundDisplay.getBoundingClientRect();
     assert(Math.abs(size.width - 240) <= 2 && Math.abs(size.height - 240) <= 2, `圆屏为 ${Math.round(size.width)}×${Math.round(size.height)}`);
-    return '资源正常 / 240×240';
+    return '3D 模型正常 / 240×240';
   }));
 
   results.push(await check('pair', '虚拟蓝牙连接', async () => {
@@ -148,17 +149,19 @@ async function runAllTests() {
     return `${snapshot.companion.name} / ${snapshot.companion.stageName}`;
   }));
 
-  results.push(await check('poses', '点击互动姿势', async () => {
+  results.push(await check('poses', '3D 互动动作', async () => {
     pendant.setState('affection');
     const affection = await expectPendantState(pendant, 'affection');
     assert(affection.companion.pose === 'affection', '单击没有切换亲近姿势');
-    assert(/-affection-v1\.webp$/.test(affection.companion.asset), '亲近动作资源不正确');
+    await waitFor(() => pendant.getModelState().status === 'ready'
+      && pendant.getModelState().action === 'affection');
     pendant.setState('happy');
     const happy = await expectPendantState(pendant, 'happy');
     assert(happy.companion.pose === 'happy', '双击没有切换开心姿势');
-    assert(affection.companion.asset !== happy.companion.asset, '互动仍在复用同一张图片');
+    await waitFor(() => pendant.getModelState().status === 'ready'
+      && pendant.getModelState().action === 'wave');
     pendant.setState('idle');
-    return '亲近 / 开心使用独立姿势';
+    return '亲近 / 开心使用独立 3D 动作';
   }));
 
   for (const [id, label, phase] of [

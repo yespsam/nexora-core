@@ -2,7 +2,7 @@
 
 项链端不是手机页面的缩小版。当前 NC-01 CAD 对应非触控版 Waveshare ESP32-S3-LCD-1.28，因此圆屏只显示伙伴和即时状态，交互来自语音、六轴传感器、手机 BLE 网关、震动和四段导光条。
 
-浏览器中的像素级预览位于 `pendant-display/`。默认使用和固件一致的预渲染角色帧；普通模式同时显示 NC-01 外壳与测试信号，`pendant-display/?embedded=1` 只保留实际 `240 x 240` 屏幕内容。`pendant-display/?render=3d` 是产品概念预览，不代表 ESP32-S3 的实际渲染方式。
+浏览器中的交互预览位于 `pendant-display/`，只显示 WebGL 3D 角色，不再提供 2D 造型切换。普通模式同时显示 NC-01 外壳与测试信号，`pendant-display/?embedded=1` 只保留 `240 x 240` 圆屏画面。
 
 ## 屏幕层级
 
