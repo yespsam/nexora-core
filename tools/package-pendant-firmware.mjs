@@ -68,8 +68,8 @@ await writeFile(path.join(bundleDirectory, 'README.txt'), [
   'NEXORA CORE NC-01 firmware prototype',
   '',
   'Factory image (erases and writes from 0x0000):',
-  'python3 -m esptool --chip esp32s3 --port <PORT> erase_flash',
-  'python3 -m esptool --chip esp32s3 --port <PORT> --baud 921600 write_flash 0x0000 nexora-nc01-factory.bin',
+  'python3 ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32s3 --port <PORT> erase_flash',
+  'python3 ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32s3 --port <PORT> --baud 921600 write_flash 0x0000 nexora-nc01-factory.bin',
   '',
   'This image has passed local compilation and packaging only. Verify it on an unassembled bench board before wearable testing.',
   ''
