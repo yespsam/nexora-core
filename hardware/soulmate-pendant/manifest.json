@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "units": "millimeter",
+  "sourceHardware": {
+    "name": "Waveshare ESP32-S3-LCD-1.28",
+    "officialModelBounds": [
+      36.523,
+      39.512,
+      7.9
+    ],
+    "displayDiameter": 32.4,
+    "url": "https://www.waveshare.com/wiki/ESP32-S3-LCD-1.28"
+  },
+  "design": {
+    "mainBodyWithoutLoop": [
+      46.8,
+      48.8,
+      15.2
+    ],
+    "displayOpening": 33.2,
+    "serviceBay": [
+      31.5,
+      28,
+      5.8
+    ],
+    "lanyardHole": 4.8,
+    "faceplateThickness": 2,
+    "boardCavityClearance": [
+      0.877,
+      1.088
+    ]
+  },
+  "printParts": {
+    "soulmate-pendant-body": {
+      "label": "Universal electronics shell",
+      "triangles": 2904,
+      "bounds": [
+        46.8,
+        58.6,
+        15.2
+      ],
+      "min": [
+        -23.4,
+        -24.6,
+        0
+      ],
+      "max": [
+        23.4,
+        34,
+        15.2
+      ],
+      "volumeMm3": 13690,
+      "openEdges": 0,
+      "nonManifoldEdges": 0,
+      "estimatedPlaWeightGrams": 17
+    },
+    "soulmate-face-cute": {
+      "label": "Cloud companion faceplate",
+      "triangles": 2116,
+      "bounds": [
+        57.264,
+        48.8,
+        2.8
+      ],
+      "min": [
+        -28.632,
+        -24.6,
+        0
+      ],
+      "max": [
+        28.632,
+        24.2,
+        2.8
+      ],
+      "volumeMm3": 2140.9,
+      "openEdges": 0,
+      "nonManifoldEdges": 0,
+      "estimatedPlaWeightGrams": 2.7
+    },
+    "soulmate-face-cool": {
+      "label": "Shadow companion faceplate",
+      "triangles": 1464,
+      "bounds": [
+        46.8,
+        56.1,
+        2.8
+      ],
+      "min": [
+        -23.4,
+        -24.6,
+        0
+      ],
+      "max": [
+        23.4,
+        31.5,
+        2.8
+      ],
+      "volumeMm3": 2110.4,
+      "openEdges": 0,
+      "nonManifoldEdges": 0,
+      "estimatedPlaWeightGrams": 2.6
+    },
+    "soulmate-face-beautiful": {
+      "label": "Moon-feather companion faceplate",
+      "triangles": 2148,
+      "bounds": [
+        60.962,
+        48.8,
+        2.8
+      ],
+      "min": [
+        -30.481,
+        -24.6,
+        0
+      ],
+      "max": [
+        30.481,
+        24.2,
+        2.8
+      ],
+      "volumeMm3": 2358.5,
+      "openEdges": 0,
+      "nonManifoldEdges": 0,
+      "estimatedPlaWeightGrams": 2.9
+    }
+  }
+}

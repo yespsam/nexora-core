@@ -24,6 +24,8 @@ Personality is represented by warmth, curiosity, steadiness, courage, and indepe
 - Soulmate Bridge: a local computer service that exposes a small permissioned command API.
 - Hermes Core: the tool and skill orchestration layer. It is not the visible character identity.
 
+The first printable pendant prototype targets the Waveshare ESP32-S3-LCD-1.28 module. A common teardrop shell holds the display, battery, and audio service bay, while three replaceable faceplates carry the cute, cool, and graceful starter silhouettes. The prototype files live in `hardware/soulmate-pendant` and remain parametric until production electronics are frozen.
+
 Bluetooth pairing alone does not imply appliance control. Commands must pass through a configured gateway and return a verified tool result before Soulmate claims success.
 
 ## Conversation Safety
