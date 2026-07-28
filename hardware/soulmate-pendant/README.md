@@ -4,6 +4,10 @@
 
 ![可爱型装配预览](previews/assembly-cute.png)
 
+下图是依据现有 CAD 尺寸、FDM 打印材质和绒云兽屏幕画面制作的实物效果渲染，并非已经打印完成的样机照片。
+
+![可爱型实物效果渲染](previews/physical-mockup-cute-v1.png)
+
 ## 打印文件
 
 | 文件 | 用途 |
