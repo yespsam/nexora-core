@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  createSoulmateExportBundle,
   createSoulmateProfile,
   growSoulmate,
+  normalizeSoulmateExportBundle,
+  normalizeSoulmateHistory,
   normalizeSoulmateProfile,
   soulmateStarters,
   soulmatePromptProfile,
@@ -66,4 +69,33 @@ test('stage progress and prompt data expose only compact personality context', (
   assert.equal(prompt.stage, '绒云幼体');
   assert.equal(prompt.species, '绒云兽');
   assert.ok(!('id' in prompt));
+});
+
+test('export bundles round-trip a profile and only valid recent messages', () => {
+  const now = Date.UTC(2026, 6, 28);
+  const profile = createSoulmateProfile({ name: '星澜', voice: 'bright' }, now);
+  const bundle = createSoulmateExportBundle(profile, [
+    { role: 'system', content: 'discard me' },
+    { role: 'user', content: '  今天 <很好>  ' },
+    { role: 'assistant', content: '我记住了。' }
+  ], now);
+  assert.equal(bundle.format, 'nexora-core-companion');
+  assert.equal(bundle.history.length, 2);
+  assert.equal(bundle.history[0].content, '今天 很好');
+  const restored = normalizeSoulmateExportBundle(bundle, now);
+  assert.equal(restored.profile.name, '星澜');
+  assert.equal(restored.profile.voice, 'bright');
+  assert.deepEqual(restored.history, bundle.history);
+});
+
+test('import rejects foreign formats and bounds conversation history', () => {
+  const profile = createSoulmateProfile({ name: '星澜' }, 1000);
+  assert.equal(normalizeSoulmateExportBundle({ format: 'foreign', profile }), null);
+  assert.equal(normalizeSoulmateExportBundle({ version: 0, profile }), null);
+  const history = normalizeSoulmateHistory(Array.from({ length: 20 }, (_, index) => ({
+    role: index % 2 ? 'assistant' : 'user',
+    content: `message ${index}`
+  })));
+  assert.equal(history.length, 12);
+  assert.equal(history[0].content, 'message 8');
 });

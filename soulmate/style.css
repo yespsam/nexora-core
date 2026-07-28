@@ -1,16 +1,16 @@
 :root {
   color-scheme: light;
   font-family: Inter, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --paper: #f4f6f3;
-  --paper-strong: #ffffff;
-  --ink: #171918;
-  --ink-soft: #626866;
-  --charcoal: #202322;
-  --coral: #f06f85;
-  --coral-strong: #d94f6a;
-  --mint: #63cfc3;
-  --gold: #d9aa56;
-  --line: rgba(23, 25, 24, 0.13);
+  --paper: #edf1f0;
+  --paper-strong: #f9fbfa;
+  --ink: #151a1c;
+  --ink-soft: #5e696d;
+  --charcoal: #182024;
+  --coral: #ff7580;
+  --coral-strong: #d84e5b;
+  --mint: #20bdc5;
+  --metal: #8e9a9e;
+  --line: rgba(21, 26, 28, 0.15);
   --safe-bottom: max(14px, env(safe-area-inset-bottom));
 }
 
@@ -51,6 +51,7 @@ input:focus-visible {
 .app-shell {
   width: 100%;
   min-height: 100svh;
+  box-shadow: inset 0 2px 0 var(--mint);
 }
 
 .wordmark {
@@ -59,6 +60,12 @@ input:focus-visible {
   font-size: 13px;
   font-weight: 850;
   letter-spacing: 0;
+}
+
+.wordmark b {
+  color: var(--mint);
+  font-size: 10px;
+  font-weight: 760;
 }
 
 .birth-flow {
@@ -106,7 +113,7 @@ input:focus-visible {
   position: absolute;
   width: min(78%, 540px);
   aspect-ratio: 1;
-  border: 1px dashed rgba(217, 170, 86, 0.42);
+  border: 1px dashed rgba(32, 189, 197, 0.45);
   border-radius: 50%;
   animation: orbit 24s linear infinite;
 }
@@ -202,7 +209,7 @@ input:focus-visible {
   width: min(100%, 440px);
   min-height: 48px;
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
@@ -239,7 +246,7 @@ input:focus-visible {
   display: grid;
   justify-items: center;
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: 4px;
   padding: 8px 6px 11px;
   background: rgba(255, 255, 255, 0.64);
   color: var(--ink-soft);
@@ -273,7 +280,7 @@ input:focus-visible {
 
 .starter-choice.active {
   border-color: var(--coral);
-  background: #ffffff;
+  background: var(--paper-strong);
   color: var(--coral-strong);
   box-shadow: inset 0 -3px 0 var(--coral);
 }
@@ -316,7 +323,7 @@ input:focus-visible {
   height: 48px;
   margin-top: 18px;
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: 4px;
   background: transparent;
   color: var(--ink);
 }
@@ -333,7 +340,7 @@ input:focus-visible {
 .primary-button {
   height: 48px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 4px;
   padding: 0 24px;
 }
 
@@ -351,6 +358,7 @@ input:focus-visible {
   background: var(--coral);
   color: #221315;
   font-weight: 760;
+  box-shadow: inset -4px 0 0 rgba(24, 32, 36, 0.18);
 }
 
 .companion-view {
@@ -383,8 +391,8 @@ input:focus-visible {
   width: 44px;
   height: 44px;
   border: 1px solid var(--line);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+  background: rgba(249, 251, 250, 0.78);
   color: var(--ink);
   font-size: 10px;
   font-weight: 760;
@@ -465,7 +473,7 @@ input:focus-visible {
   height: 7px;
   top: 8%;
   left: 22%;
-  background: var(--gold);
+  background: var(--metal);
 }
 
 .core-pulse {
@@ -522,7 +530,7 @@ input:focus-visible {
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 0 13px;
-  background: rgba(255, 255, 255, 0.62);
+  background: rgba(249, 251, 250, 0.7);
   color: var(--ink-soft);
   font-size: 12px;
 }
@@ -573,7 +581,7 @@ input:focus-visible {
   margin: 0;
   padding: 8px 11px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(249, 251, 250, 0.88);
   color: var(--ink);
   font-size: 13px;
   line-height: 1.45;
@@ -590,8 +598,8 @@ input:focus-visible {
   height: 34px;
   border: 0;
   border-radius: 6px 6px 0 0;
-  background: var(--gold);
-  color: #251c0e;
+  background: var(--mint);
+  color: #07191a;
   font-size: 12px;
   font-weight: 720;
 }
@@ -603,7 +611,7 @@ input:focus-visible {
   align-items: center;
   gap: 8px;
   padding: 6px;
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--charcoal);
   box-shadow: 0 18px 48px rgba(23, 25, 24, 0.2);
 }
@@ -635,6 +643,11 @@ input:focus-visible {
 .mic-button {
   background: rgba(255, 255, 255, 0.09);
   color: rgba(255, 255, 255, 0.8);
+}
+
+.mic-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
 }
 
 .send-button {
@@ -673,7 +686,7 @@ input:focus-visible {
   max-height: min(720px, calc(100svh - 32px));
   margin: auto;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 22px;
   overflow: auto;
   background: rgba(255, 255, 255, 0.96);
@@ -825,7 +838,7 @@ input:focus-visible {
 .small-command,
 .wide-command {
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 4px;
   background: transparent;
   color: var(--ink);
 }
@@ -857,7 +870,7 @@ input:focus-visible {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 .capability-list span {
@@ -879,6 +892,27 @@ input:focus-visible {
 
 .setting-row strong {
   font-size: 12px;
+}
+
+.voice-settings {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.voice-settings .setting-row {
+  border-bottom: 0;
+}
+
+.settings-voice-selector {
+  width: 100%;
+}
+
+.setting-status {
+  min-height: 18px;
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 @keyframes float {

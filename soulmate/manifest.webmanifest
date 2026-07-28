@@ -1,11 +1,11 @@
 {
-  "name": "Soulmate",
-  "short_name": "Soulmate",
+  "name": "NEXORA CORE",
+  "short_name": "NEXORA",
   "description": "会成长的随身情感伴侣",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f4f6f3",
-  "theme_color": "#f4f6f3",
+  "background_color": "#edf1f0",
+  "theme_color": "#edf1f0",
   "icons": [
     {
       "src": "./assets/soulmate-icon-192.png",

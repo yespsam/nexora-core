@@ -1,4 +1,5 @@
 export const SOULMATE_PROFILE_VERSION = 1;
+export const SOULMATE_EXPORT_VERSION = 1;
 export const SOULMATE_STORAGE_KEY = 'soulmate-profile-v1';
 export const SOULMATE_HISTORY_KEY = 'soulmate-history-v1';
 
@@ -147,6 +148,36 @@ export function normalizeSoulmateProfile(value, now = Date.now()) {
       })).filter((memory) => memory.text).slice(-24)
       : []
   };
+}
+
+export function normalizeSoulmateHistory(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((message) => {
+    const role = message?.role === 'assistant' ? 'assistant' : message?.role === 'user' ? 'user' : '';
+    const content = cleanText(message?.content, 300);
+    return role && content ? { role, content } : null;
+  }).filter(Boolean).slice(-12);
+}
+
+export function createSoulmateExportBundle(profile, history, now = Date.now()) {
+  const normalizedProfile = normalizeSoulmateProfile(profile, now);
+  if (!normalizedProfile) return null;
+  return {
+    format: 'nexora-core-companion',
+    version: SOULMATE_EXPORT_VERSION,
+    exportedAt: new Date(now).toISOString(),
+    profile: normalizedProfile,
+    history: normalizeSoulmateHistory(history)
+  };
+}
+
+export function normalizeSoulmateExportBundle(value, now = Date.now()) {
+  if (!value || typeof value !== 'object') return null;
+  if (value.format && value.format !== 'nexora-core-companion') return null;
+  if (value.version !== undefined && value.version !== SOULMATE_EXPORT_VERSION) return null;
+  const profile = normalizeSoulmateProfile(value.profile, now);
+  if (!profile) return null;
+  return { profile, history: normalizeSoulmateHistory(value.history) };
 }
 
 export function growSoulmate(profile, interaction = {}, now = Date.now()) {

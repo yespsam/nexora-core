@@ -1,6 +1,6 @@
-# Soulmate Product Direction
+# NEXORA CORE Product Direction
 
-Soulmate is a wearable emotional companion that grows from daily interaction. The pendant is the always-near interface; the phone and computer provide networking, memory, model inference, and authorized device control.
+NEXORA CORE is a wearable emotional companion system that grows from daily interaction. Soulmate remains the internal relationship model; NEXORA CORE is the visible product and device brand. The NC-01 pendant is the always-near interface, while the phone and computer provide networking, memory, model inference, and authorized device control.
 
 ## Product Loop
 
@@ -21,12 +21,12 @@ Personality is represented by warmth, curiosity, steadiness, courage, and indepe
 
 - Pendant: microphone, speaker, display, haptics, wake control, Bluetooth, Wi-Fi, and motion sensing.
 - Mobile gateway: authentication, encrypted memory sync, speech pipeline, Matter/Home Assistant/vendor integration, and model access.
-- Soulmate Bridge: a local computer service that exposes a small permissioned command API.
+- NEXORA Bridge: a local computer service that exposes a small permissioned command API.
 - Hermes Core: the tool and skill orchestration layer. It is not the visible character identity.
 
-The first printable pendant prototype targets the Waveshare ESP32-S3-LCD-1.28 module. A common teardrop shell holds the display, battery, and audio service bay, while three replaceable faceplates carry the cute, cool, and graceful starter silhouettes. The prototype files live in `hardware/soulmate-pendant` and remain parametric until production electronics are frozen.
+The first printable pendant prototype targets the Waveshare ESP32-S3-LCD-1.28 module. NC-01 uses a faceted smoke-grey body, a metal-like octagonal front frame, and four independent light-guide bars. One universal frame presents the cute, cool, or graceful starter on the round display; the user does not replace a physical faceplate. The prototype files live in `hardware/soulmate-pendant` and remain parametric until production electronics are frozen.
 
-Bluetooth pairing alone does not imply appliance control. Commands must pass through a configured gateway and return a verified tool result before Soulmate claims success.
+Bluetooth device selection alone does not imply appliance control. Commands must pass through a configured gateway protocol and return a verified tool result before the companion claims success.
 
 ## Conversation Safety
 

@@ -1,8 +1,11 @@
 import {
   SOULMATE_HISTORY_KEY,
   SOULMATE_STORAGE_KEY,
+  createSoulmateExportBundle,
   createSoulmateProfile,
   growSoulmate,
+  normalizeSoulmateExportBundle,
+  normalizeSoulmateHistory,
   normalizeSoulmateProfile,
   soulmatePromptProfile,
   soulmateStarterCatalog,
@@ -48,6 +51,10 @@ const bluetoothButton = $('#bluetooth-button');
 const bluetoothStatus = $('#bluetooth-status');
 const bridgeButton = $('#bridge-button');
 const bridgeStatus = $('#bridge-status');
+const voiceSettingStatus = $('#voice-setting-status');
+const importButton = $('#import-button');
+const importInput = $('#import-input');
+const importStatus = $('#import-status');
 
 const phaseLabels = {
   idle: '待机',
@@ -55,7 +62,8 @@ const phaseLabels = {
   thinking: '正在思考',
   speaking: '正在回答',
   ready: '点击播放',
-  error: '网络未连接'
+  error: '播放失败',
+  offline: '语音暂不可用'
 };
 
 const voiceNames = {
@@ -130,8 +138,7 @@ function loadProfile() {
 }
 
 function loadHistory() {
-  const saved = safeRead(SOULMATE_HISTORY_KEY);
-  return Array.isArray(saved) ? saved.map(cleanMessage).filter(Boolean).slice(-12) : [];
+  return normalizeSoulmateHistory(safeRead(SOULMATE_HISTORY_KEY));
 }
 
 function saveProfile() {
@@ -157,8 +164,13 @@ function setPhase(phase) {
   state.phase = phase;
   companionView.dataset.conversationPhase = phase;
   conversationStateLabel.textContent = phaseLabels[phase] || phaseLabels.idle;
-  micButton.textContent = phase === 'listening' ? '停止' : '说话';
-  micButton.setAttribute('aria-pressed', phase === 'listening' ? 'true' : 'false');
+  if (micButton.disabled) {
+    micButton.textContent = '不可用';
+    micButton.setAttribute('aria-pressed', 'false');
+  } else {
+    micButton.textContent = phase === 'listening' ? '停止' : '说话';
+    micButton.setAttribute('aria-pressed', phase === 'listening' ? 'true' : 'false');
+  }
 }
 
 function showBirthStep(index) {
@@ -262,6 +274,11 @@ function renderCompanion() {
     }, 120);
   }
   $('#setting-voice').textContent = voiceNames[state.profile.voice] || voiceNames.soft;
+  $$('[data-setting-voice]').forEach((button) => {
+    const active = button.dataset.settingVoice === state.profile.voice;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
   $('#setting-starter').textContent = (soulmateStarterCatalog[state.profile.starter] || soulmateStarterCatalog.cute).species;
   $('#setting-birthday').textContent = state.profile.birthday;
   renderGrowth();
@@ -351,7 +368,7 @@ function fallbackReply(text) {
   const name = state.profile.name;
   if (/[累难过压力烦害怕]/.test(text)) return '我听见了。你不用立刻变好，先让我安静地陪你一会儿。';
   if (/[晚安睡觉困]/.test(text)) return `晚安。${name}会把今天记住，明天醒来再继续陪你。`;
-  if (/[你是谁叫什么]/.test(text)) return `我是${name}，是你在 ${state.profile.birthday} 唤醒的 Soulmate。`;
+  if (/[你是谁叫什么]/.test(text)) return `我是${name}，是你在 ${state.profile.birthday} 唤醒的 NEXORA 伙伴。`;
   return '我正在认真记住你刚才说的话。再多告诉我一点，我会越来越懂你。';
 }
 
@@ -459,13 +476,14 @@ async function playAudioBlob(blob, allowQueue = true) {
     stopAudio();
     if (!allowQueue) {
       setPhase('error');
-      return;
+      return false;
     }
     state.queuedAudio = blob;
     state.queuedAudioUrl = URL.createObjectURL(blob);
     queuedAudioButton.hidden = false;
     setPhase('ready');
   }
+  return true;
 }
 
 async function speakText(text, { mood = 'happy', allowQueue = false } = {}) {
@@ -473,16 +491,20 @@ async function speakText(text, { mood = 'happy', allowQueue = false } = {}) {
   setPhase('thinking');
   try {
     const blob = await fetchVoice(text, mood);
-    await playAudioBlob(blob, allowQueue);
+    return await playAudioBlob(blob, allowQueue);
   } catch (error) {
-    setPhase('idle');
+    setPhase('offline');
+    return false;
   }
 }
 
 function setupRecognition() {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) {
-    micButton.title = '当前浏览器不支持语音识别';
+    micButton.disabled = true;
+    micButton.textContent = '不可用';
+    micButton.title = '当前浏览器不支持语音识别，请使用文字输入';
+    micButton.setAttribute('aria-label', '当前浏览器不支持语音识别，请使用文字输入');
     return;
   }
   const recognition = new Recognition();
@@ -545,14 +567,13 @@ async function pairBluetooth() {
     bluetoothStatus.textContent = '此浏览器不支持 Web Bluetooth';
     return;
   }
-  bluetoothStatus.textContent = '等待选择设备';
+  bluetoothStatus.textContent = '等待选择网关';
   try {
     const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true });
-    bluetoothStatus.textContent = `已配对 ${device.name || '未命名设备'}`;
-    bluetoothButton.textContent = '重新配对';
-    updateProfile(growSoulmate(state.profile, { kind: 'device' }));
+    bluetoothStatus.textContent = `已选择 ${device.name || '未命名设备'} · 待配置协议`;
+    bluetoothButton.textContent = '更换';
   } catch (error) {
-    bluetoothStatus.textContent = error?.name === 'NotFoundError' ? '已取消配对' : '配对失败';
+    bluetoothStatus.textContent = error?.name === 'NotFoundError' ? '已取消选择' : '选择失败';
   }
 }
 
@@ -566,20 +587,49 @@ async function detectBridge() {
     bridgeStatus.textContent = '已连接本机服务';
     bridgeButton.textContent = '已连接';
   } catch (error) {
-    bridgeStatus.textContent = '未发现 Soulmate Bridge';
+    bridgeStatus.textContent = '未发现 NEXORA Bridge';
   } finally {
     window.clearTimeout(timer);
   }
 }
 
 function exportProfile() {
-  const payload = JSON.stringify({ profile: state.profile, history: state.history }, null, 2);
+  const bundle = createSoulmateExportBundle(state.profile, state.history);
+  if (!bundle) return;
+  const payload = JSON.stringify(bundle, null, 2);
   const url = URL.createObjectURL(new Blob([payload], { type: 'application/json' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `soulmate-${state.profile.name}.json`;
+  link.download = `nexora-core-${state.profile.name}.json`;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+async function importProfile(file) {
+  importStatus.textContent = '';
+  if (!file || file.size > 1024 * 1024) {
+    importStatus.textContent = '请选择小于 1 MB 的 NEXORA 数据文件。';
+    return;
+  }
+  try {
+    const raw = JSON.parse(await file.text());
+    const bundle = normalizeSoulmateExportBundle(raw);
+    if (!bundle) throw new Error('invalid bundle');
+    if (!window.confirm(`导入「${bundle.profile.name}」会替换当前伴侣和对话记录。确定继续吗？`)) return;
+    state.profile = bundle.profile;
+    state.history = bundle.history.length ? bundle.history : [{
+      role: 'assistant',
+      content: `你回来了。${bundle.profile.name}还记得你。`
+    }];
+    saveProfile();
+    saveHistory();
+    renderMessages();
+    renderCompanion();
+    presenceLine.textContent = `${state.profile.name}的数据已恢复。`;
+    importStatus.textContent = '导入完成';
+  } catch (error) {
+    importStatus.textContent = '无法读取这个文件，请确认它由 NEXORA CORE 导出。';
+  }
 }
 
 birthNext.addEventListener('click', () => {
@@ -601,9 +651,22 @@ $$('[data-choice]').forEach((button) => {
 voicePreview.addEventListener('click', async () => {
   voicePreview.disabled = true;
   voicePreview.textContent = '正在准备声音';
-  await speakText('你好。我正在等你给我一个名字。', { allowQueue: true });
+  const played = await speakText('你好。我正在等你给我一个名字。', { allowQueue: true });
   voicePreview.disabled = false;
-  voicePreview.textContent = '再听一次';
+  voicePreview.textContent = played ? '试听成功，再听一次' : '声音暂不可用，重试';
+});
+
+$$('[data-setting-voice]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    if (!state.profile) return;
+    stopAudio();
+    state.profile = { ...state.profile, voice: button.dataset.settingVoice };
+    saveProfile();
+    renderCompanion();
+    voiceSettingStatus.textContent = `正在试听${voiceNames[state.profile.voice]}声线`;
+    const played = await speakText(`你好，我是${state.profile.name}。这是我现在的声音。`, { allowQueue: true });
+    voiceSettingStatus.textContent = played ? '声线已保存' : '声线已保存，云端语音暂不可用';
+  });
 });
 
 companionTouch.addEventListener('click', () => reactToTouch('touch'));
@@ -644,6 +707,11 @@ $$('[data-device-tab]').forEach((button) => {
 bluetoothButton.addEventListener('click', pairBluetooth);
 bridgeButton.addEventListener('click', detectBridge);
 $('#export-button').addEventListener('click', exportProfile);
+importButton.addEventListener('click', () => importInput.click());
+importInput.addEventListener('change', async () => {
+  await importProfile(importInput.files?.[0]);
+  importInput.value = '';
+});
 $('#reset-button').addEventListener('click', () => {
   if (!window.confirm('这会删除当前伴侣的名字、人格和共同记忆。确定重新诞生吗？')) return;
   localStorage.removeItem(SOULMATE_STORAGE_KEY);

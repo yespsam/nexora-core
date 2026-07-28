@@ -28,6 +28,12 @@ Do not copy these records into either runtime.
 Kimi API keys also stay in browser storage and are sent only with chat
 requests. They are not written to Git or the conversation store.
 
+The NEXORA CORE experience under `soulmate/` stores its versioned identity in
+`soulmate-profile-v1` and its last 12 sanitized turns in
+`soulmate-history-v1`. `shared/soulmate-profile.mjs` owns profile validation,
+growth, evolution, and the versioned export/import bundle. Exported bundles do
+not include model credentials.
+
 `shared/fallback-dialogue.mjs` owns the context-aware reply fallback used by
 both the browser and Netlify. Keep network-failure behavior there so the two
 runtimes do not drift back into different canned replies.
