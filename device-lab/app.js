@@ -8,7 +8,9 @@ import {
 } from '../shared/soulmate-profile.mjs';
 import { creatureVoiceResources } from '../shared/companion-data.mjs';
 
-const RELEASE_ID = 'evolution-voice-regression-v2';
+const RELEASE_ID = 'evolution-voice-regression-v3';
+const FRAME_READY_TIMEOUT_MS = 30000;
+let frameRun = 0;
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const phoneFrame = $('#phone-frame');
@@ -45,22 +47,29 @@ function seedDemoProfile(force = false) {
 }
 
 function loadFrames() {
-  phoneFrame.src = `../soulmate/?lab=1&release=${RELEASE_ID}`;
-  pendantFrame.src = `../pendant-display/?lab=1&state=idle&release=${RELEASE_ID}`;
+  const runId = `${Date.now()}-${frameRun += 1}`;
+  phoneFrame.src = `../soulmate/?lab=1&release=${RELEASE_ID}&run=${runId}`;
+  pendantFrame.src = `../pendant-display/?lab=1&state=idle&release=${RELEASE_ID}&run=${runId}`;
 }
 
 function delay(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-async function waitFor(read, timeout = 8000, interval = 50) {
+async function waitFor(read, timeout = FRAME_READY_TIMEOUT_MS, interval = 100) {
   const started = Date.now();
+  let lastError;
   while (Date.now() - started < timeout) {
-    const value = read();
-    if (value) return value;
+    try {
+      const value = read();
+      if (value) return value;
+    } catch (error) {
+      lastError = error;
+    }
     await delay(interval);
   }
-  throw new Error('等待模拟器响应超时');
+  const detail = String(lastError?.message || '').slice(0, 36);
+  throw new Error(detail ? `双端加载超时：${detail}` : '双端加载超过 30 秒');
 }
 
 function setResult(id, status, detail) {
@@ -119,8 +128,10 @@ async function runAllTests() {
   let phoneModelGeneration = 0;
   const results = [];
   results.push(await check('views', '双端界面加载', async () => {
-    phone = await waitFor(() => phoneFrame.contentWindow?.__NEXORA_LAB__);
-    pendant = await waitFor(() => pendantFrame.contentWindow?.__NEXORA_PENDANT_LAB__);
+    [phone, pendant] = await Promise.all([
+      waitFor(() => phoneFrame.contentWindow?.__NEXORA_LAB__),
+      waitFor(() => pendantFrame.contentWindow?.__NEXORA_PENDANT_LAB__)
+    ]);
     assert(phone.getState().profile, '手机端没有伴侣资料');
     return '双端就绪';
   }));
@@ -267,7 +278,10 @@ async function runAllTests() {
   runButton.textContent = '重新运行';
 }
 
-runButton.addEventListener('click', runAllTests);
+runButton.addEventListener('click', () => {
+  loadFrames();
+  runAllTests();
+});
 resetButton.addEventListener('click', () => {
   if (!window.confirm('这会将当前浏览器里的伴侣替换为电脑测试资料。确定继续吗？')) return;
   seedDemoProfile(true);
@@ -277,8 +291,5 @@ resetButton.addEventListener('click', () => {
 seedDemoProfile();
 loadFrames();
 if (new URLSearchParams(location.search).get('autorun') === '1') {
-  Promise.all([
-    new Promise((resolve) => phoneFrame.addEventListener('load', resolve, { once: true })),
-    new Promise((resolve) => pendantFrame.addEventListener('load', resolve, { once: true }))
-  ]).then(() => runAllTests());
+  runAllTests();
 }
