@@ -18,8 +18,9 @@ import {
   encodePendantBleSnapshot
 } from '../shared/pendant-ble.mjs';
 import { openPendantSimulatorWriter } from '../shared/pendant-simulator.mjs';
-import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=4';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=6';
 import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=2';
+import { shouldBlockRecognizedSpeech } from '../shared/voice-turn.mjs?v=1';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -115,6 +116,9 @@ const state = {
   touchRewards: 0,
   careRewards: 0,
   recognition: null,
+  recognitionSupported: false,
+  recognitionAccepting: false,
+  echoGuardUntil: 0,
   currentAudio: null,
   currentAudioUrl: '',
   queuedAudio: null,
@@ -184,8 +188,8 @@ function saveHistory() {
   safeWrite(SOULMATE_HISTORY_KEY, state.history.slice(-12));
 }
 
-function personaFromGender(gender = state.profile?.gender || state.birthSelections.gender) {
-  return gender === 'male' ? 'male' : 'female';
+function personaFromStarter(starter = state.profile?.starter || state.birthSelections.starter) {
+  return `creature:${['cute', 'cool', 'beautiful'].includes(starter) ? starter : 'cute'}`;
 }
 
 function voiceArchetype(voice = state.profile?.voice || state.birthSelections.voice) {
@@ -201,7 +205,9 @@ function setPhase(phase) {
   if (state.profile) {
     creatureViewer?.load(state.profile.starter, creatureActionForPhase[phase] || 'idle');
   }
-  if (micButton.disabled) {
+  const voiceBusy = ['thinking', 'speaking', 'ready'].includes(phase) || state.busy;
+  micButton.disabled = !state.recognitionSupported || voiceBusy;
+  if (!state.recognitionSupported) {
     micButton.textContent = '不可用';
     micButton.setAttribute('aria-pressed', 'false');
   } else {
@@ -311,7 +317,9 @@ function renderCompanion() {
   const stageIdentity = `${state.profile.starter}:${progress.stage.id}`;
   if (state.currentStageId !== stageIdentity) {
     state.currentStageId = stageIdentity;
-    creatureViewer?.load(state.profile.starter, creatureActionForPhase[state.phase] || 'idle');
+    creatureViewer?.load(state.profile.starter, creatureActionForPhase[state.phase] || 'idle').then((loaded) => {
+      if (loaded) creatureViewer.preload(state.profile.starter, ['nod', 'speaking']);
+    });
   }
   $('#setting-voice').textContent = voiceNames[state.profile.voice] || voiceNames.soft;
   $$('[data-setting-voice]').forEach((button) => {
@@ -397,15 +405,13 @@ function reactToTouch(kind) {
   window.setTimeout(() => companionTouch.classList.remove('interacting'), 700);
 }
 
-function normalizeSpeech(value) {
-  return String(value || '').replace(/[\s，。！？,.!?]/g, '').toLowerCase();
-}
-
 function looksLikeEcho(text) {
-  if (!state.lastAssistantText || Date.now() - state.lastAssistantAt > 12000) return false;
-  const heard = normalizeSpeech(text);
-  const spoken = normalizeSpeech(state.lastAssistantText);
-  return heard.length >= 4 && (spoken.includes(heard) || heard.includes(spoken.slice(0, Math.min(heard.length, spoken.length))));
+  return shouldBlockRecognizedSpeech({
+    text,
+    lastAssistantText: state.lastAssistantText,
+    lastAssistantAt: state.lastAssistantAt,
+    echoGuardUntil: state.echoGuardUntil
+  });
 }
 
 function fallbackReply(text) {
@@ -422,8 +428,8 @@ async function requestReply(text) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       text,
-      persona: personaFromGender(),
-      persona_short: personaFromGender(),
+      persona: personaFromStarter(),
+      persona_short: personaFromStarter(),
       relationship: 'companion',
       scene: 'daily',
       history: state.history.slice(0, -1),
@@ -437,9 +443,9 @@ async function requestReply(text) {
   return { reply, mood: body.emotion?.mood || 'calm' };
 }
 
-async function sendMessage(rawText) {
+async function sendMessage(rawText, { source = 'text' } = {}) {
   const text = String(rawText || '').replace(/\s+/g, ' ').trim().slice(0, 160);
-  if (!text || state.busy || looksLikeEcho(text)) return;
+  if (!text || state.busy || (source === 'voice' && looksLikeEcho(text))) return;
   stopListening();
   stopAudio();
   state.busy = true;
@@ -465,7 +471,7 @@ async function sendMessage(rawText) {
 async function fetchVoice(text, mood = 'happy') {
   const body = JSON.stringify({
     text,
-    persona: personaFromGender(),
+    persona: personaFromStarter(),
     relationship: 'companion',
     mood,
     archetype: voiceArchetype(),
@@ -498,6 +504,7 @@ function clearQueuedAudio() {
 }
 
 function stopAudio() {
+  const wasGuardingOutput = state.echoGuardUntil === Number.MAX_SAFE_INTEGER;
   if (state.currentAudio) {
     state.currentAudio.pause();
     state.currentAudio.removeAttribute('src');
@@ -505,6 +512,7 @@ function stopAudio() {
   if (state.currentAudioUrl) URL.revokeObjectURL(state.currentAudioUrl);
   state.currentAudio = null;
   state.currentAudioUrl = '';
+  if (wasGuardingOutput) state.echoGuardUntil = Date.now() + 1000;
 }
 
 async function playAudioBlob(blob, allowQueue = true) {
@@ -516,11 +524,14 @@ async function playAudioBlob(blob, allowQueue = true) {
   audio.playsInline = true;
   state.currentAudio = audio;
   state.currentAudioUrl = url;
+  state.echoGuardUntil = Number.MAX_SAFE_INTEGER;
   audio.onended = () => {
+    state.echoGuardUntil = Date.now() + 1800;
     stopAudio();
     setPhase('idle');
   };
   audio.onerror = () => {
+    state.echoGuardUntil = Date.now() + 800;
     stopAudio();
     setPhase('error');
   };
@@ -528,6 +539,7 @@ async function playAudioBlob(blob, allowQueue = true) {
   try {
     await audio.play();
   } catch (error) {
+    state.echoGuardUntil = Date.now();
     stopAudio();
     if (!allowQueue) {
       setPhase('error');
@@ -568,39 +580,53 @@ function setupRecognition() {
   recognition.interimResults = false;
   recognition.onresult = (event) => {
     const text = event.results?.[0]?.[0]?.transcript || '';
+    const accepting = state.recognitionAccepting
+      && state.phase === 'listening'
+      && Date.now() >= state.echoGuardUntil;
     stopListening();
-    if (looksLikeEcho(text)) {
+    if (!accepting || looksLikeEcho(text)) {
       presenceLine.textContent = '已阻止语音回声，没有将它当成你的话。';
       return;
     }
-    sendMessage(text);
+    sendMessage(text, { source: 'voice' });
   };
   recognition.onerror = () => {
+    state.recognitionAccepting = false;
     if (state.phase === 'listening') setPhase('idle');
   };
   recognition.onend = () => {
+    state.recognitionAccepting = false;
     if (state.phase === 'listening') setPhase('idle');
   };
   state.recognition = recognition;
+  state.recognitionSupported = true;
+  setPhase(state.phase);
 }
 
 function startListening() {
   if (!state.recognition || state.busy || ['thinking', 'speaking', 'ready'].includes(state.phase)) return;
+  if (Date.now() < state.echoGuardUntil) {
+    presenceLine.textContent = '等声音播放结束后，我再认真听你说。';
+    return;
+  }
   if (state.phase === 'listening') {
     stopListening();
     return;
   }
   stopAudio();
   try {
+    state.recognitionAccepting = true;
     state.recognition.start();
     setPhase('listening');
   } catch (error) {
+    state.recognitionAccepting = false;
     setPhase('idle');
   }
 }
 
 function stopListening() {
   if (!state.recognition) return;
+  state.recognitionAccepting = false;
   try { state.recognition.abort(); } catch (error) {}
   if (state.phase === 'listening') setPhase('idle');
 }
@@ -888,7 +914,8 @@ if (pendantSimulationMode) {
         pendantConnected: Boolean(state.pendantCharacteristic)
       }),
       sampleModel: () => creatureViewer?.samplePixels() || null,
-      sampleBirthModel: () => birthViewer?.samplePixels() || null
+      sampleBirthModel: () => birthViewer?.samplePixels() || null,
+      getModelState: () => creatureViewer?.getState() || null
     })
   });
   window.dispatchEvent(new CustomEvent('nexora:lab-ready'));

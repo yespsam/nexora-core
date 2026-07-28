@@ -1,5 +1,7 @@
 import {
   companionProfiles,
+  creatureKind,
+  creatureProfiles,
   interactionScenes,
   sceneById
 } from './companion-data.mjs';
@@ -41,11 +43,14 @@ export function contextualFallbackReply({
   text,
   kind = 'female',
   scene = 'daily',
-  history = []
+  history = [],
+  companionName = ''
 }) {
   const value = cleanText(text);
-  const personaKind = kind === 'male' ? 'male' : 'female';
-  const profile = companionProfiles[personaKind];
+  const creatureId = creatureKind(kind);
+  const legacyKind = kind === 'male' ? 'male' : 'female';
+  const profile = creatureId ? creatureProfiles[creatureId] : companionProfiles[legacyKind];
+  const displayName = cleanText(companionName, 12) || profile.name;
   const previous = previousUserText(history);
 
   if (/刚才.*(?:说|问)|(?:说|问).*什么|还记得.*(?:说|问)/.test(value)) {
@@ -55,7 +60,7 @@ export function contextualFallbackReply({
   }
 
   if (/你是谁|你叫什么|名字是什么/.test(value)) {
-    return `我是${profile.name}。你打开这里的时候，我会陪你说话。`;
+    return `我是${displayName}。你打开这里的时候，我会陪你说话。`;
   }
 
   if (/在吗|听得见|能听见|能不能.*(?:聊|对话)|可以.*(?:聊|对话)|正常.*(?:聊|对话)/.test(value)) {
@@ -63,14 +68,19 @@ export function contextualFallbackReply({
   }
 
   if (/^(你好|嗨|哈喽|早上好|晚上好)[呀啊。！!，, ]*$/.test(value)) {
-    return personaKind === 'male'
+    if (creatureId) return profile.sceneReplies.daily[0];
+    return legacyKind === 'male'
       ? '你好，我在。今天想从哪里开始聊？'
       : '你好呀，我在这里。今天想先聊什么？';
   }
 
   const resolvedScene = sceneById(inferSceneId(value, scene));
-  const replies = resolvedScene.replies[personaKind] || resolvedScene.replies.female || [];
-  return stablePick(replies, `${value}:${personaKind}:${resolvedScene.id}`)
-    || resolvedScene.opening[personaKind]
+  if (creatureId) {
+    const replies = profile.sceneReplies[resolvedScene.id] || profile.sceneReplies.daily;
+    return stablePick(replies, `${value}:${creatureId}:${resolvedScene.id}`);
+  }
+  const replies = resolvedScene.replies[legacyKind] || resolvedScene.replies.female || [];
+  return stablePick(replies, `${value}:${legacyKind}:${resolvedScene.id}`)
+    || resolvedScene.opening[legacyKind]
     || resolvedScene.opening.female;
 }

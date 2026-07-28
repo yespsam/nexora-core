@@ -40,8 +40,8 @@ function seedDemoProfile(force = false) {
 }
 
 function loadFrames() {
-  phoneFrame.src = '../soulmate/?lab=1&release=3d-only-v2';
-  pendantFrame.src = '../pendant-display/?lab=1&state=idle&release=3d-only-v2';
+  phoneFrame.src = '../soulmate/?lab=1&release=creature-core-v1';
+  pendantFrame.src = '../pendant-display/?lab=1&state=idle&release=creature-core-v1';
 }
 
 function delay(ms) {
@@ -111,6 +111,7 @@ async function runAllTests() {
 
   let phone;
   let pendant;
+  let phoneModelGeneration = 0;
   const results = [];
   results.push(await check('views', '双端界面加载', async () => {
     phone = await waitFor(() => phoneFrame.contentWindow?.__NEXORA_LAB__);
@@ -130,6 +131,7 @@ async function runAllTests() {
       const pendantPixels = pendant.sampleModel();
       return phonePixels?.opaque > 100 && pendantPixels?.opaque > 100;
     });
+    phoneModelGeneration = phone.getModelState().modelGeneration;
     const size = roundDisplay.getBoundingClientRect();
     assert(Math.abs(size.width - 240) <= 2 && Math.abs(size.height - 240) <= 2, `圆屏为 ${Math.round(size.width)}×${Math.round(size.height)}`);
     return '3D 模型正常 / 240×240';
@@ -176,7 +178,13 @@ async function runAllTests() {
     results.push(await check(id, label, async () => {
       phone.setPhase(phase);
       await expectPendantState(pendant, phase);
-      return '手机与圆屏一致';
+      const expectedAction = { listening: 'idle', thinking: 'nod', speaking: 'speaking' }[phase];
+      await waitFor(() => {
+        const model = phone.getModelState();
+        return model.status === 'ready' && model.action === expectedAction;
+      });
+      assert(phone.getModelState().modelGeneration === phoneModelGeneration, '动作切换重新创建了整套模型');
+      return `手机与圆屏一致 / ${expectedAction}`;
     }));
   }
 

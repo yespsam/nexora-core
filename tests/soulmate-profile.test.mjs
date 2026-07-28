@@ -77,6 +77,7 @@ test('stage progress and prompt data expose only compact personality context', (
   assert.equal(progress.progress, 0.5);
   const prompt = soulmatePromptProfile(profile);
   assert.equal(prompt.name, '星澜');
+  assert.equal(prompt.starterId, 'cute');
   assert.equal(prompt.stage, '绒云幼体');
   assert.equal(prompt.species, '绒云兽');
   assert.ok(!('id' in prompt));

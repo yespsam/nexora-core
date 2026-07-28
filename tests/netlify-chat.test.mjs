@@ -55,12 +55,31 @@ test('Soulmate profile customizes identity and keeps memory context compact', ()
     memories: Array.from({ length: 9 }, (_, index) => `记忆 ${index}`)
   });
   assert.equal(profile.name, '星澜script');
+  assert.equal(profile.starterId, 'cool');
   assert.equal(profile.memories.length, 6);
   const messages = buildLLMMessages('你还记得吗？', 'female', [], profile);
   assert.match(messages[0].content, /你是「星澜script」/);
   assert.match(messages[0].content, /已陪伴 3 天/);
   assert.match(messages[0].content, /曜影兽/);
   assert.match(messages[0].content, /不得声称看到/);
+});
+
+test('creature prompt uses the selected route instead of the legacy gender persona', () => {
+  const messages = buildLLMMessages('今天陪我走走吧', 'creature:cool', [], {
+    name: '维尔',
+    starterId: 'cool',
+    starter: '帅气型',
+    species: '曜影兽',
+    stage: '曜影幼体',
+    traits: { warmth: 50, curiosity: 45, steadiness: 76 }
+  });
+  assert.match(messages[0].content, /VEYR \/ 维尔/);
+  assert.match(messages[0].content, /曜影兽/);
+  assert.match(messages[0].content, /不是男友、女友或旧版人类角色/);
+  assert.match(messages[0].content, /不称呼用户为主人/);
+  const unnamed = buildLLMMessages('你好', 'creature:beautiful');
+  assert.match(unnamed[0].content, /AERA \/ 艾拉/);
+  assert.doesNotMatch(unnamed[0].content, /undefined/);
 });
 
 test('handler forwards sanitized history to the cloud model request', async (t) => {
@@ -219,4 +238,32 @@ test('handler keeps conversation available when the LLM provider fails', async (
   assert.equal(body.llm.bound, true);
   assert.ok(body.text);
   assert.ok(body.thinking);
+});
+
+test('handler reports the selected creature identity when the provider fails', async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async () => {
+    throw new Error('provider unavailable');
+  };
+
+  const response = await handler(chatRequest('POST', {
+    text: '今天有点累',
+    persona_short: 'creature:cool',
+    llm_key: 'sk-test-key',
+    soulmate: {
+      name: '维尔',
+      starterId: 'cool',
+      starter: '帅气型',
+      species: '曜影兽',
+      traits: { warmth: 53, steadiness: 72 }
+    }
+  }));
+  const body = await response.json();
+
+  assert.equal(body.persona_id, 'creature_cool');
+  assert.equal(body.creature, 'cool');
+  assert.doesNotMatch(body.text, /小栖|栖安|主人/);
 });

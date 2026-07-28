@@ -31,3 +31,15 @@ test('fallback scene inference follows the current message', () => {
   assert.equal(inferSceneId('今天工作先做哪一步？', 'daily'), 'focus');
   assert.equal(inferSceneId('我有点累', 'daily'), 'comfort');
 });
+
+test('creature fallback keeps its route identity and custom name', () => {
+  assert.match(contextualFallbackReply({
+    text: '你好',
+    kind: 'creature:cool'
+  }), /我在|今天/);
+  assert.equal(contextualFallbackReply({
+    text: '你叫什么名字？',
+    kind: 'creature:beautiful',
+    companionName: '星澜'
+  }), '我是星澜。你打开这里的时候，我会陪你说话。');
+});

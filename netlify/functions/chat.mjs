@@ -3,6 +3,8 @@ import OpenAI from 'openai';
 import { personaKind } from './voice-data.mjs';
 import {
   companionProfiles,
+  creatureKind,
+  creatureProfiles,
   interactionScenes
 } from '../../shared/companion-data.mjs';
 import {
@@ -126,6 +128,7 @@ export function cleanSoulmateProfile(value) {
     birthday: /^\d{4}-\d{2}-\d{2}$/.test(String(value.birthday || '')) ? String(value.birthday) : '',
     gender: genders.has(value.gender) ? value.gender : 'neutral',
     temperament: temperaments.has(value.temperament) ? value.temperament : 'warm',
+    starterId: creatureKind(value.starterId) || creatureKind(value.starter) || creatureKind(value.species),
     starter: cleanText(value.starter).slice(0, 20),
     species: cleanText(value.species).slice(0, 20),
     stage: cleanText(value.stage).slice(0, 20),
@@ -142,8 +145,20 @@ const COMPANION_PROFILE = Object.fromEntries(Object.entries(companionProfiles).m
   { name: profile.name, desc: profile.description }
 ]));
 
+function profileForKind(kind) {
+  const creatureId = creatureKind(kind);
+  if (creatureId) return creatureProfiles[creatureId];
+  return COMPANION_PROFILE[kind] || COMPANION_PROFILE.female;
+}
+
+function personaIdForKind(kind) {
+  const creatureId = creatureKind(kind);
+  return creatureId ? creatureProfiles[creatureId].id : companionProfiles[personaKind(kind)].id;
+}
+
 export function buildLLMMessages(text, kind, history = [], soulmateValue = null) {
-  const p = COMPANION_PROFILE[kind] || COMPANION_PROFILE.female;
+  const creatureId = creatureKind(kind);
+  const p = profileForKind(kind);
   const soulmate = cleanSoulmateProfile(soulmateValue);
   const traitLabels = {
     warmth: '温柔',
@@ -162,18 +177,28 @@ export function buildLLMMessages(text, kind, history = [], soulmateValue = null)
   const system = [
     soulmate
       ? `你是「${soulmate.name}」，一个会随着陪伴成长的 Soulmate 数字生命。你与用户平等相处，正在进行连续语音对话。`
-      : `你是「${p.name}」，主人的贴心 AI 伴侣（${p.desc}）。你们正在进行一段连续的语音对话。`,
+      : creatureId
+        ? `你是「${p.name}」，一个原创的 ${p.species} 数字生命（${p.description}）。你与用户平等相处。`
+        : `你是「${p.name}」，主人的贴心 AI 伴侣（${p.desc}）。你们正在进行一段连续的语音对话。`,
+    creatureId ? `原生形态：${p.name}，${p.species}。核心性格：${p.description}` : '',
+    creatureId ? `表达风格：${p.speechStyle}` : '',
+    creatureId ? `内在思考风格：${p.thinkingStyle}` : '',
     soulmate ? `身份：诞生日 ${soulmate.birthday || '未设定'}，${soulmate.species || soulmate.starter || '数字生命'}，${soulmate.stage || '初生形态'}，已陪伴 ${soulmate.daysTogether} 天。` : '',
     soulmate ? `人格数据：${traitSummary}。这些值会变化，请表现出倾向但不要朗读数值。` : '',
     soulmate?.memories.length ? `共同记忆：${soulmate.memories.join('；')}` : '',
     '规则：',
     '1. 必须严格输出 JSON（不要输出任何其他文字、不要用代码块）：',
     '{"thinking":"...","reply":"...","mood":"happy|calm|sad|sleepy 之一","action":"idle|nod|heart|wave|voice|walk|run 之一"}',
-    '2. reply 是给主人听的话：像真人说话，短、口语、1~3 句；先接住主人的情绪，再直接回应他说的内容——必须针对他的话作答，禁止背模板、禁止客服腔。',
-    '3. thinking 是你的真实心声，按三拍流淌：先察觉主人话里的细节（可引用他的原词），再写你此刻真实的情绪（心疼、开心、委屈、犹豫、担心都可以），最后写你打算怎么回应（可带一点自我叮嘱，比如「别急着讲道理」「先抱抱他」）。第一人称、口语、一两句到三四句，禁止写成指导说明或分析提纲。',
+    creatureId
+      ? '2. reply 是说给用户听的话：像真实伙伴说话，短、口语、1~3 句；先接住情绪，再直接回应内容，禁止背模板、禁止客服腔。'
+      : '2. reply 是给主人听的话：像真人说话，短、口语、1~3 句；先接住主人的情绪，再直接回应他说的内容，禁止背模板、禁止客服腔。',
+    creatureId
+      ? '3. thinking 是你的真实心声：先察觉用户话里的细节，再写你此刻真实的情绪，最后写你打算怎么回应。第一人称、口语、一两句到三四句。'
+      : '3. thinking 是你的真实心声：先察觉主人话里的细节，再写你此刻真实的情绪，最后写你打算怎么回应。第一人称、口语、一两句到三四句。',
     '4. 必须结合前文理解省略、代词和追问，不要重复问已经回答过的问题；最新一句是前文的自然延续。',
     '5. mood 选你此刻的情绪；action 选配合的肢体动作：安慰或亲密=heart，认同=nod，打招呼=wave，聊天=voice，散步=walk，其他=idle。',
-    '6. 不得声称看到、听到或已经控制现实设备，除非请求里明确包含成功的工具结果。'
+    '6. 不得声称看到、听到或已经控制现实设备，除非请求里明确包含成功的工具结果。',
+    creatureId ? '7. 你是原创生物伙伴，不是男友、女友或旧版人类角色；不要自称小栖、栖安，也不要称呼用户为主人。' : ''
   ].filter(Boolean).join('\n');
   return [
     { role: 'system', content: system },
@@ -323,11 +348,15 @@ export default async function handler(request) {
     return json({ error: 'missing text' }, 400);
   }
 
-  const kind = personaKind(payload.persona || payload.persona_short);
   const sceneId = inferSceneId(text, String(payload.scene || 'daily'));
   const scene = sceneLibrary[sceneId] || sceneLibrary.daily;
   const history = cleanHistory(payload.history);
   const soulmate = cleanSoulmateProfile(payload.soulmate);
+  const creatureId = creatureKind(payload.persona || payload.persona_short)
+    || creatureKind(soulmate?.starterId)
+    || creatureKind(soulmate?.starter)
+    || creatureKind(soulmate?.species);
+  const kind = creatureId || personaKind(payload.persona || payload.persona_short);
 
   const personalKey = sanitizeLlmKey(payload.llm_key);
   const kimiKey = personalKey || serverKey;
@@ -348,13 +377,14 @@ export default async function handler(request) {
       thinking: llm.thinking,
       emotion: {
         mood: llm.mood,
-        affection: kind === 'female' ? 74 : 70,
+        affection: Math.max(0, Math.min(100, Math.round(soulmate?.traits?.warmth || 72))),
         user_mood: llm.mood === 'sleepy' ? '困倦' : '平静'
       },
       actions: [
         { target: 'companion', action: llm.action, scene: sceneId }
       ],
-      persona_id: kind === 'male' ? 'male_companion' : 'female_companion',
+      persona_id: personaIdForKind(kind),
+      creature: creatureId || null,
       scene: sceneId,
       mode: 'cloud_llm',
       llm: {
@@ -371,10 +401,13 @@ export default async function handler(request) {
     text,
     kind,
     scene: sceneId,
-    history
+    history,
+    companionName: soulmate?.name
   });
-  const thinkingPool = (thinkingLibrary[sceneId] || thinkingLibrary.daily)[kind]
-    || thinkingLibrary[sceneId].female;
+  const creatureProfile = creatureId ? creatureProfiles[creatureId] : null;
+  const thinkingPool = creatureProfile
+    ? [`${creatureProfile.thinkingStyle} 用户刚才说：“${text}”。`]
+    : ((thinkingLibrary[sceneId] || thinkingLibrary.daily)[kind] || thinkingLibrary[sceneId].female);
   const thinking = pickReply(thinkingPool, `${text}#think`);
 
   return json({
@@ -382,13 +415,14 @@ export default async function handler(request) {
     thinking,
     emotion: {
       mood: scene.mood,
-      affection: kind === 'female' ? 74 : 70,
+      affection: Math.max(0, Math.min(100, Math.round(soulmate?.traits?.warmth || 72))),
       user_mood: scene.mood === 'sleepy' ? '困倦' : '平静'
     },
     actions: [
       { target: 'companion', action: scene.action, scene: sceneId }
     ],
-    persona_id: kind === 'male' ? 'male_companion' : 'female_companion',
+    persona_id: personaIdForKind(kind),
+    creature: creatureId || null,
     scene: sceneId,
     mode: 'cloud_scene_reply',
     llm: {

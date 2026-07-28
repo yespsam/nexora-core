@@ -33,3 +33,17 @@ test('published creature pack contains three compact WebGL-ready characters', ()
     }
   }
 });
+
+test('every action targets the same skeleton so clips can crossfade on one model', () => {
+  for (const creature of Object.values(manifest.creatures)) {
+    let expectedTargets;
+    for (const asset of creature.files.filter((item) => !['model', 'rigged'].includes(item.type))) {
+      const gltf = readGlbJson(resolve(root, asset.path));
+      const targets = [...new Set(gltf.animations[0].channels
+        .map((channel) => gltf.nodes[channel.target.node]?.name)
+        .filter(Boolean))].sort();
+      if (!expectedTargets) expectedTargets = targets;
+      assert.deepEqual(targets, expectedTargets, `${asset.path} does not match the shared skeleton`);
+    }
+  }
+});

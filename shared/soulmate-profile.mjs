@@ -217,6 +217,7 @@ export function soulmatePromptProfile(profile) {
     birthday: current.birthday,
     gender: current.gender,
     temperament: current.temperament,
+    starterId: current.starter,
     starter: starter.name,
     species: starter.species,
     stage: stage.name,

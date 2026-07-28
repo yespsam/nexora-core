@@ -10,6 +10,14 @@ const disposeMaterial = (material) => {
   material?.dispose?.();
 };
 
+const disposeObject = (root) => {
+  root?.traverse?.((object) => {
+    object.geometry?.dispose?.();
+    if (Array.isArray(object.material)) object.material.forEach(disposeMaterial);
+    else disposeMaterial(object.material);
+  });
+};
+
 export class Creature3DViewer {
   constructor(host, options = {}) {
     if (!host) throw new Error('Creature3DViewer requires a host element.');
@@ -21,6 +29,12 @@ export class Creature3DViewer {
     this.requestId = 0;
     this.model = null;
     this.mixer = null;
+    this.activeMixerAction = null;
+    this.actionStopTimer = 0;
+    this.modelGeneration = 0;
+    this.loadedStarter = '';
+    this.clipCache = new Map();
+    this.clipPromises = new Map();
     this.motionRoot = null;
     this.hips = null;
     this.baseHipsYaw = 0;
@@ -119,36 +133,73 @@ export class Creature3DViewer {
     const safeAction = entry.actions[action] ? action : 'idle';
     const identity = `${entry.id}:${safeAction}`;
     if (identity === this.identity) return true;
+    const starterChanged = this.loadedStarter !== entry.id || !this.model;
     this.starter = entry.id;
     this.action = safeAction;
     const requestId = ++this.requestId;
-    this.host.dataset.modelState = 'loading';
+    if (starterChanged) this.host.dataset.modelState = 'loading';
+    else this.host.dataset.modelState = 'transitioning';
     try {
-      const gltf = await this.loader.loadAsync(entry.actions[safeAction]);
-      if (this.disposed || requestId !== this.requestId) return false;
-      this.replaceModel(gltf);
+      if (starterChanged) {
+        const gltf = await this.loader.loadAsync(entry.actions[safeAction]);
+        if (this.disposed || requestId !== this.requestId) {
+          disposeObject(gltf.scene);
+          return false;
+        }
+        this.replaceModel(gltf, entry.id, safeAction);
+      } else {
+        const clip = await this.loadClip(entry, safeAction);
+        if (this.disposed || requestId !== this.requestId) return false;
+        this.playClip(safeAction, clip);
+      }
       this.identity = identity;
       this.host.dataset.modelState = 'ready';
+      this.host.dataset.modelAction = safeAction;
       this.options.onLoad?.({ starter: entry.id, action: safeAction });
       return true;
     } catch (error) {
       if (requestId !== this.requestId) return false;
-      this.host.dataset.modelState = 'error';
+      this.host.dataset.modelState = this.model ? 'ready' : 'error';
       this.options.onError?.(error);
       return false;
     }
   }
 
-  replaceModel(gltf) {
+  async loadClip(entry, action) {
+    const key = `${entry.id}:${action}`;
+    if (this.clipCache.has(key)) return this.clipCache.get(key);
+    if (this.clipPromises.has(key)) return this.clipPromises.get(key);
+    const promise = this.loader.loadAsync(entry.actions[action]).then((gltf) => {
+      const clip = gltf.animations[0];
+      if (!clip) {
+        disposeObject(gltf.scene);
+        throw new Error(`Missing animation clip: ${key}`);
+      }
+      this.clipCache.set(key, clip);
+      disposeObject(gltf.scene);
+      return clip;
+    }).finally(() => {
+      this.clipPromises.delete(key);
+    });
+    this.clipPromises.set(key, promise);
+    return promise;
+  }
+
+  preload(starter = this.starter, actions = ['nod', 'speaking']) {
+    const entry = creature3DEntry(starter);
+    return Promise.allSettled(actions
+      .filter((action) => action !== this.action && entry.actions[action])
+      .map((action) => this.loadClip(entry, action)));
+  }
+
+  replaceModel(gltf, starter, action) {
     if (this.model) {
       this.stage.remove(this.model);
-      this.model.traverse((object) => {
-        object.geometry?.dispose?.();
-        if (Array.isArray(object.material)) object.material.forEach(disposeMaterial);
-        else disposeMaterial(object.material);
-      });
+      disposeObject(this.model);
     }
+    window.clearTimeout(this.actionStopTimer);
     this.mixer?.stopAllAction();
+    this.activeMixerAction = null;
     const animatedModel = gltf.scene;
     animatedModel.traverse((object) => {
       if (!object.isMesh) return;
@@ -158,15 +209,9 @@ export class Creature3DViewer {
     });
 
     this.mixer = new THREE.AnimationMixer(animatedModel);
-    this.proceduralIdle = false;
-    if (gltf.animations[0]) {
-      const clip = this.mixer.clipAction(gltf.animations[0]);
-      clip.setLoop(THREE.LoopRepeat, Infinity);
-      clip.play();
-      this.mixer.update(0.0001);
-      this.proceduralIdle = this.action === 'idle';
-      if (this.proceduralIdle) clip.paused = true;
-    }
+    this.modelGeneration += 1;
+    this.loadedStarter = starter;
+    if (gltf.animations[0]) this.clipCache.set(`${starter}:${action}`, gltf.animations[0]);
     animatedModel.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(animatedModel, true);
     const size = bounds.getSize(new THREE.Vector3());
@@ -186,6 +231,31 @@ export class Creature3DViewer {
       this.hipsEuler.setFromQuaternion(this.hips.quaternion, 'YXZ');
       this.baseHipsYaw = this.hipsEuler.y;
     }
+    if (gltf.animations[0]) this.playClip(action, gltf.animations[0], 0);
+  }
+
+  playClip(action, clip, fadeDuration = 0.24) {
+    if (!this.mixer || !clip) return;
+    window.clearTimeout(this.actionStopTimer);
+    const nextAction = this.mixer.clipAction(clip);
+    const previousAction = this.activeMixerAction;
+    nextAction.enabled = true;
+    nextAction.reset();
+    nextAction.setEffectiveTimeScale(1);
+    nextAction.setEffectiveWeight(1);
+    nextAction.setLoop(THREE.LoopRepeat, Infinity);
+    nextAction.play();
+    if (previousAction && previousAction !== nextAction && fadeDuration > 0) {
+      previousAction.crossFadeTo(nextAction, fadeDuration, true);
+      this.actionStopTimer = window.setTimeout(() => {
+        if (this.activeMixerAction !== previousAction) previousAction.stop();
+      }, fadeDuration * 1000 + 80);
+    } else if (previousAction && previousAction !== nextAction) {
+      previousAction.stop();
+    }
+    this.activeMixerAction = nextAction;
+    this.proceduralIdle = action === 'idle';
+    this.mixer.update(0.0001);
   }
 
   setPhase(phase) {
@@ -194,6 +264,16 @@ export class Creature3DViewer {
 
   resetView() {
     this.targetYaw = 0;
+  }
+
+  getState() {
+    return {
+      status: this.host.dataset.modelState || 'idle',
+      starter: this.loadedStarter || this.starter,
+      action: this.host.dataset.modelAction || this.action,
+      modelGeneration: this.modelGeneration,
+      cachedClips: this.clipCache.size
+    };
   }
 
   samplePixels() {
@@ -232,7 +312,10 @@ export class Creature3DViewer {
   destroy() {
     this.disposed = true;
     this.requestId += 1;
+    window.clearTimeout(this.actionStopTimer);
     this.resizeObserver.disconnect();
+    this.mixer?.stopAllAction();
+    disposeObject(this.model);
     this.renderer.dispose();
     this.canvas.remove();
   }

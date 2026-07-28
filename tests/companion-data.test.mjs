@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {
   SUPPORTED_ACTIONS,
   companionProfiles,
+  creatureKind,
+  creatureProfiles,
   creatureVoiceResources,
   interactionScenes,
   personaKind,
@@ -15,6 +17,20 @@ test('shared companion catalog has complete persona records', () => {
   assert.equal(personaKind(companionProfiles.female.id), 'female');
   assert.equal(personaKind(companionProfiles.male.id), 'male');
   assert.notEqual(companionProfiles.female.name, companionProfiles.male.name);
+});
+
+test('three creature routes own distinct identities and conversation styles', () => {
+  assert.deepEqual(Object.keys(creatureProfiles), ['cute', 'cool', 'beautiful']);
+  assert.equal(creatureKind('creature:cute'), 'cute');
+  assert.equal(creatureKind('VEYR / 维尔'), 'cool');
+  assert.equal(creatureKind('月羽灵'), 'beautiful');
+  for (const profile of Object.values(creatureProfiles)) {
+    assert.match(profile.id, /^creature_/);
+    assert.ok(profile.speechStyle);
+    assert.ok(profile.thinkingStyle);
+    assert.deepEqual(Object.keys(profile.sceneReplies), ['daily', 'walk', 'focus', 'comfort', 'goodnight', 'miss']);
+    assert.ok(Object.values(profile.sceneReplies).every((replies) => replies.length >= 2));
+  }
 });
 
 test('creature voices are route-matched and never use the previous female cast', () => {
