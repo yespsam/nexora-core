@@ -11,6 +11,7 @@
     "build:pendant-firmware-fs": "npm run build:pendant-firmware-assets && python3 -m platformio run -d hardware/soulmate-pendant/firmware -t buildfs",
     "package:pendant-firmware": "npm run build:pendant-firmware && npm run build:pendant-firmware-fs && node tools/package-pendant-firmware.mjs",
     "simulate:pendant": "node tools/simulate-nexora-core.mjs",
+    "test:computer": "npm test && npm run build:pendant-firmware && npm run simulate:pendant",
     "build:model:female-head": "node tools/build-curved-face-texture.mjs && node tools/build-browser-head.mjs",
     "build:model:female": "node tools/build-browser-model.mjs female",
     "build:model:male": "node tools/build-browser-model.mjs male",

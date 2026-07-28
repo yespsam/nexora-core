@@ -17,6 +17,7 @@ import {
   PENDANT_BLE_SNAPSHOT_UUID,
   encodePendantBleSnapshot
 } from '../shared/pendant-ble.mjs';
+import { openPendantSimulatorWriter } from '../shared/pendant-simulator.mjs';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -62,6 +63,8 @@ const voiceSettingStatus = $('#voice-setting-status');
 const importButton = $('#import-button');
 const importInput = $('#import-input');
 const importStatus = $('#import-status');
+const pageParams = new URLSearchParams(location.search);
+const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
 
 const phaseLabels = {
   idle: '待机',
@@ -620,6 +623,16 @@ function queuePendantSync() {
 }
 
 async function connectPendant() {
+  if (pendantSimulationMode) {
+    if (!state.pendantCharacteristic) {
+      state.pendantCharacteristic = openPendantSimulatorWriter();
+      state.pendantDevice = { name: 'NEXORA NC-01 · 电脑模拟器' };
+      pendantButton.textContent = '同步';
+    }
+    await syncPendant();
+    pendantStatus.textContent = `模拟器已同步 ${state.profile.name} · 共鸣 ${state.profile.bond}`;
+    return;
+  }
   if (!navigator.bluetooth) {
     pendantStatus.textContent = '此浏览器不支持 Web Bluetooth';
     return;
@@ -816,6 +829,27 @@ if (state.profile) {
   birthFlow.hidden = false;
   companionView.hidden = true;
   showBirthStep(0);
+}
+
+if (pendantSimulationMode) {
+  pendantStatus.textContent = '电脑模拟设备待连接';
+  pendantButton.textContent = '连接模拟器';
+  Object.defineProperty(window, '__NEXORA_LAB__', {
+    configurable: true,
+    value: Object.freeze({
+      connectPendant,
+      sendMessage,
+      setPhase,
+      getState: () => ({
+        phase: state.phase,
+        busy: state.busy,
+        profile: state.profile ? structuredClone(state.profile) : null,
+        history: structuredClone(state.history),
+        pendantConnected: Boolean(state.pendantCharacteristic)
+      })
+    })
+  });
+  window.dispatchEvent(new CustomEvent('nexora:lab-ready'));
 }
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

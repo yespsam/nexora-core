@@ -10,6 +10,7 @@ import {
   createPendantDisplaySnapshot,
   pendantDisplayStates
 } from '../shared/pendant-display.mjs';
+import { observePendantSimulator } from '../shared/pendant-simulator.mjs';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -31,7 +32,9 @@ const demoButton = $('#demo-button');
 
 const params = new URLSearchParams(location.search);
 const embedded = params.get('embedded') === '1';
+const simulatorMode = params.get('lab') === '1' || params.get('simulator') === '1';
 let demoTimer = 0;
+let currentSnapshot = null;
 
 function storedProfile() {
   try {
@@ -82,6 +85,7 @@ function render() {
     connected: state.connected,
     notice: state.notice
   });
+  currentSnapshot = snapshot;
 
   shell.dataset.state = snapshot.state;
   shell.dataset.tone = snapshot.tone;
@@ -108,6 +112,24 @@ function render() {
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
+}
+
+function applySimulatorSnapshot(snapshot) {
+  state.profile = {
+    ...state.profile,
+    id: snapshot.profileId,
+    name: snapshot.name,
+    starter: snapshot.starter,
+    bond: snapshot.bond
+  };
+  state.starter = snapshot.starter;
+  state.stage = snapshot.stage;
+  state.display = snapshot.state;
+  state.connected = true;
+  if (snapshot.battery !== undefined) state.battery = snapshot.battery;
+  if (snapshot.notice) state.notice = snapshot.notice;
+  syncStageOptions();
+  render();
 }
 
 function setDisplayState(next) {
@@ -169,6 +191,27 @@ demoButton.addEventListener('click', runDemo);
 if (embedded) {
   document.body.classList.add('embedded');
   lab.setAttribute('aria-label', 'NC-01 240×240 嵌入式屏幕');
+}
+
+if (simulatorMode) {
+  observePendantSimulator(applySimulatorSnapshot);
+  Object.defineProperty(window, '__NEXORA_PENDANT_LAB__', {
+    configurable: true,
+    value: Object.freeze({
+      applySnapshot: applySimulatorSnapshot,
+      setBattery(value) {
+        state.battery = Math.max(0, Math.min(100, Number(value) || 0));
+        render();
+      },
+      setConnected(value) {
+        state.connected = Boolean(value);
+        render();
+      },
+      setState: setDisplayState,
+      getSnapshot: () => currentSnapshot ? structuredClone(currentSnapshot) : null
+    })
+  });
+  window.dispatchEvent(new CustomEvent('nexora:pendant-lab-ready'));
 }
 
 syncStageOptions();

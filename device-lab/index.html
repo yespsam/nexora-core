@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1012">
+  <meta name="description" content="NEXORA CORE NC-01 电脑虚拟测试台">
+  <title>NEXORA CORE · 电脑测试台</title>
+  <link rel="icon" href="../soulmate/assets/soulmate-icon-192.png">
+  <link rel="stylesheet" href="./style.css?v=0.1.0">
+</head>
+<body>
+  <header class="lab-header">
+    <div>
+      <span class="lab-kicker">NEXORA CORE / NC-01</span>
+      <h1>电脑虚拟测试台</h1>
+      <p>手机端、虚拟蓝牙与 240×240 项链圆屏同步运行</p>
+    </div>
+    <div class="lab-actions">
+      <button id="reset-button" class="secondary-button" type="button">恢复演示数据</button>
+      <button id="run-button" class="primary-button" type="button">运行全部测试</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="device-workbench" aria-label="跨端设备预览">
+      <article class="device-bay phone-bay">
+        <header><strong>手机网关</strong><span>390 × 844</span></header>
+        <div class="phone-frame">
+          <iframe id="phone-frame" title="Soulmate 手机端模拟器"></iframe>
+        </div>
+      </article>
+
+      <article class="device-bay pendant-bay">
+        <header><strong>项链端</strong><span>NC-01 / 240 × 240</span></header>
+        <iframe id="pendant-frame" title="NEXORA CORE 项链模拟器"></iframe>
+      </article>
+    </section>
+
+    <section class="diagnostics" aria-labelledby="diagnostics-title">
+      <header class="diagnostics-header">
+        <div><span class="lab-kicker">DIGITAL ACCEPTANCE</span><h2 id="diagnostics-title">电脑验收结果</h2></div>
+        <output id="summary" data-status="idle">尚未运行</output>
+      </header>
+      <div class="test-results" id="test-results">
+        <div data-test="views"><span>双端界面加载</span><output>等待</output></div>
+        <div data-test="assets"><span>角色资源与圆屏尺寸</span><output>等待</output></div>
+        <div data-test="pair"><span>虚拟蓝牙连接</span><output>等待</output></div>
+        <div data-test="identity"><span>名字、形态与共鸣同步</span><output>等待</output></div>
+        <div data-test="listening"><span>倾听状态</span><output>等待</output></div>
+        <div data-test="thinking"><span>思考状态</span><output>等待</output></div>
+        <div data-test="speaking"><span>说话状态</span><output>等待</output></div>
+        <div data-test="power"><span>低电量、充电与休眠</span><output>等待</output></div>
+        <div data-test="chat"><span>连续对话与人格成长</span><output>等待</output></div>
+        <div data-test="voice"><span>真实声线接口</span><output>等待</output></div>
+        <div data-test="disconnect"><span>断连显示</span><output>等待</output></div>
+      </div>
+      <div class="event-log" aria-live="polite">
+        <strong>运行记录</strong>
+        <ol id="event-log"></ol>
+      </div>
+    </section>
+
+    <section class="physical-boundary" aria-label="实体测试边界">
+      <strong>必须留到实体样机</strong>
+      <span>电池温升与续航</span>
+      <span>麦克风回声</span>
+      <span>扬声器音质</span>
+      <span>蓝牙距离</span>
+      <span>吊环强度与佩戴安全</span>
+    </section>
+  </main>
+  <script type="module" src="./app.js?v=0.1.0"></script>
+</body>
+</html>
