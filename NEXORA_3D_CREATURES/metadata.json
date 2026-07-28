@@ -1,0 +1,548 @@
+{
+  "project_name": "NEXORA original 3D creature starters",
+  "created_at": "2026-07-28T18:54:55.769946",
+  "updated_at": "2026-07-28T19:08:04.436869",
+  "root_task_id": "019fa85c-f81b-72ff-a3b7-1e788355d17c",
+  "planned_credits": 150,
+  "balance_before": 478,
+  "balance_after": 328,
+  "actual_credits": 150,
+  "creatures": {
+    "cute": {
+      "display": "LUMO / 露莫",
+      "slug": "cute-lumo",
+      "directory": "CUTE_LUMO",
+      "height_meters": 0.72,
+      "references": [
+        "NEXORA_3D_CREATURES/CUTE_LUMO/reference/front.png",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/reference/side.png",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/reference/back.png"
+      ],
+      "texture_prompt": "Exact original LUMO cloud-fox creature from the three orthographic references. Preserve the cream-white sculpted fur, coral inner ears and paw pads, amber eyes, cyan faceted heart energy core, curled cloud forelock, split fluffy tail, four paw digits, compact bipedal anatomy, and clear arms and legs. Premium cel-shaded game PBR, clean material separation, no baked lighting, no clothing, no props."
+    },
+    "cool": {
+      "display": "VEYR / 维尔",
+      "slug": "cool-veyr",
+      "directory": "COOL_VEYR",
+      "height_meters": 1.05,
+      "references": [
+        "NEXORA_3D_CREATURES/COOL_VEYR/reference/front.png",
+        "NEXORA_3D_CREATURES/COOL_VEYR/reference/side.png",
+        "NEXORA_3D_CREATURES/COOL_VEYR/reference/back.png"
+      ],
+      "texture_prompt": "Exact original VEYR storm-lynx dragon creature from the three orthographic references. Preserve midnight indigo sculpted fur planes, cyan luminous eyes and chest core, silver-white angular markings, long lightning ears, segmented lightning tail, four claw digits, athletic bipedal anatomy, and clear arms and digitigrade legs. Premium cel-shaded game PBR, crisp edges, no baked lighting, no armor, clothing, or props."
+    },
+    "beautiful": {
+      "display": "AERA / 艾拉",
+      "slug": "beautiful-aera",
+      "directory": "BEAUTIFUL_AERA",
+      "height_meters": 0.94,
+      "references": [
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/reference/front.png",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/reference/side.png",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/reference/back.png"
+      ],
+      "texture_prompt": "Exact original AERA moon-moth deer spirit from the three orthographic references. Preserve the pearl-white smooth body, subtle short fur at neck and joints, violet eyes, blush opal chest core, long leaf ears, two translucent pink-violet wing fins, teal crescent tail tip, four paw digits, graceful bipedal anatomy, and clear arms and digitigrade legs. Premium cel-shaded game PBR, translucent materials only on fins, no baked lighting, no clothing or props."
+    }
+  },
+  "actions": {
+    "idle": {
+      "action_id": 0,
+      "library_name": "Idle"
+    },
+    "nod": {
+      "action_id": 25,
+      "library_name": "Agree_Gesture"
+    },
+    "affection": {
+      "action_id": 27,
+      "library_name": "Big_Heart_Gesture"
+    },
+    "wave": {
+      "action_id": 28,
+      "library_name": "Big_Wave_Hello"
+    },
+    "speaking": {
+      "action_id": 56,
+      "library_name": "Stand_and_Chat"
+    }
+  },
+  "tasks": [
+    {
+      "task_id": "019fa85c-f81b-72ff-a3b7-1e788355d17c",
+      "type": "multi-image-to-3d",
+      "creature": "cute",
+      "action": "",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T18:54:55.769957",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cute-lumo/model.glb",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/model/model.glb",
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cute-lumo/model.fbx",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/model/model.fbx",
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cute-lumo/thumbnail.png",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png"
+      ],
+      "progress": 100,
+      "consumed_credits": 30,
+      "finished_at": 1785236486689
+    },
+    {
+      "task_id": "019fa85d-0437-7312-81b8-b83fd348c022",
+      "type": "multi-image-to-3d",
+      "creature": "cool",
+      "action": "",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T18:54:59.302994",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cool-veyr/model.glb",
+        "NEXORA_3D_CREATURES/COOL_VEYR/model/model.glb",
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cool-veyr/model.fbx",
+        "NEXORA_3D_CREATURES/COOL_VEYR/model/model.fbx",
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cool-veyr/thumbnail.png",
+        "NEXORA_3D_CREATURES/COOL_VEYR/model/thumbnail.png"
+      ],
+      "progress": 100,
+      "consumed_credits": 30,
+      "finished_at": 1785236556461
+    },
+    {
+      "task_id": "019fa85d-11e6-74db-8ec7-eb3e364c1151",
+      "type": "multi-image-to-3d",
+      "creature": "beautiful",
+      "action": "",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T18:55:02.921341",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/beautiful-aera/model.glb",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/model/model.glb",
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/beautiful-aera/model.fbx",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/model/model.fbx",
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/beautiful-aera/thumbnail.png",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/model/thumbnail.png"
+      ],
+      "progress": 100,
+      "consumed_credits": 30,
+      "finished_at": 1785236454005
+    },
+    {
+      "task_id": "019fa864-a037-74b7-b914-1fdedc92f352",
+      "type": "rigging",
+      "creature": "cute",
+      "action": "",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:03:22.878689",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cute-lumo/rigged.glb",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/model/rigged.glb",
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cute-lumo/walk.glb",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/animations/walk.glb",
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cute-lumo/run.glb",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/animations/run.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 5,
+      "finished_at": 1785236645055
+    },
+    {
+      "task_id": "019fa864-c10f-751e-9553-375c8f25e6dd",
+      "type": "rigging",
+      "creature": "cool",
+      "action": "",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:03:30.675796",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cool-veyr/rigged.glb",
+        "NEXORA_3D_CREATURES/COOL_VEYR/model/rigged.glb",
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cool-veyr/walk.glb",
+        "NEXORA_3D_CREATURES/COOL_VEYR/animations/walk.glb",
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cool-veyr/run.glb",
+        "NEXORA_3D_CREATURES/COOL_VEYR/animations/run.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 5,
+      "finished_at": 1785236656150
+    },
+    {
+      "task_id": "019fa864-df84-7a37-86c4-bc5c241627d9",
+      "type": "rigging",
+      "creature": "beautiful",
+      "action": "",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:03:38.617769",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/beautiful-aera/rigged.glb",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/model/rigged.glb",
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/beautiful-aera/walk.glb",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/walk.glb",
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/beautiful-aera/run.glb",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/run.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 5,
+      "finished_at": 1785236663880
+    },
+    {
+      "task_id": "019fa866-5c1e-7563-bf2a-4bf7072af332",
+      "type": "animation",
+      "creature": "cute",
+      "action": "idle",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:09.262728",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cute-lumo/idle.glb",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/animations/idle.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236743528
+    },
+    {
+      "task_id": "019fa866-609e-76e1-baf5-b2f3b2b99a8d",
+      "type": "animation",
+      "creature": "cute",
+      "action": "nod",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:10.237519",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cute-lumo/nod.glb",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/animations/nod.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236773075
+    },
+    {
+      "task_id": "019fa866-646d-7565-ba9f-03d5e8b5babe",
+      "type": "animation",
+      "creature": "cute",
+      "action": "affection",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:11.167961",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cute-lumo/affection.glb",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/animations/affection.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236757804
+    },
+    {
+      "task_id": "019fa866-6810-76ec-84ec-03fbcc2382fc",
+      "type": "animation",
+      "creature": "cute",
+      "action": "wave",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:12.023992",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cute-lumo/wave.glb",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/animations/wave.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236750671
+    },
+    {
+      "task_id": "019fa866-6b68-76ef-acf6-ccd7e0b4951c",
+      "type": "animation",
+      "creature": "cute",
+      "action": "speaking",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:12.910522",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cute-lumo/speaking.glb",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/animations/speaking.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236754009
+    },
+    {
+      "task_id": "019fa866-6ee3-7505-8a37-3bb144e9f699",
+      "type": "animation",
+      "creature": "cool",
+      "action": "idle",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:14.046444",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cool-veyr/idle.glb",
+        "NEXORA_3D_CREATURES/COOL_VEYR/animations/idle.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236747272
+    },
+    {
+      "task_id": "019fa866-734d-7507-aeb3-a5db85adc0c6",
+      "type": "animation",
+      "creature": "cool",
+      "action": "nod",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:14.984620",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cool-veyr/nod.glb",
+        "NEXORA_3D_CREATURES/COOL_VEYR/animations/nod.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236779197
+    },
+    {
+      "task_id": "019fa866-76f8-7574-af0c-9dd3344ffae6",
+      "type": "animation",
+      "creature": "cool",
+      "action": "affection",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:15.802101",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cool-veyr/affection.glb",
+        "NEXORA_3D_CREATURES/COOL_VEYR/animations/affection.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236766805
+    },
+    {
+      "task_id": "019fa866-7a28-76f2-9c02-da7960730232",
+      "type": "animation",
+      "creature": "cool",
+      "action": "wave",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:17.001773",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cool-veyr/wave.glb",
+        "NEXORA_3D_CREATURES/COOL_VEYR/animations/wave.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236760532
+    },
+    {
+      "task_id": "019fa866-7ed9-76f3-ac22-6c5e1c8118aa",
+      "type": "animation",
+      "creature": "cool",
+      "action": "speaking",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:18.092282",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/cool-veyr/speaking.glb",
+        "NEXORA_3D_CREATURES/COOL_VEYR/animations/speaking.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236762675
+    },
+    {
+      "task_id": "019fa867-12e3-7af2-aa03-657db2e4f069",
+      "type": "animation",
+      "creature": "beautiful",
+      "action": "idle",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:56.144639",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/beautiful-aera/idle.glb",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/idle.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236790376
+    },
+    {
+      "task_id": "019fa867-17c3-7af3-8425-a6b2000542a3",
+      "type": "animation",
+      "creature": "beautiful",
+      "action": "nod",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:57.052389",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/beautiful-aera/nod.glb",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/nod.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236820460
+    },
+    {
+      "task_id": "019fa867-1b4b-7599-888a-0554fe7ea55b",
+      "type": "animation",
+      "creature": "beautiful",
+      "action": "affection",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:57.856172",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/beautiful-aera/affection.glb",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/affection.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236802557
+    },
+    {
+      "task_id": "019fa867-1e71-7af3-89cf-0275e0d52458",
+      "type": "animation",
+      "creature": "beautiful",
+      "action": "wave",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:58.668471",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/beautiful-aera/wave.glb",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/wave.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236805558
+    },
+    {
+      "task_id": "019fa867-219c-770e-bc19-61b119e32c4f",
+      "type": "animation",
+      "creature": "beautiful",
+      "action": "speaking",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T19:05:59.502334",
+      "files": [
+        "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c/beautiful-aera/speaking.glb",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/speaking.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 3,
+      "finished_at": 1785236808420
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/affection.glb",
+      "bytes": 28190588,
+      "sha256": "5cfba870f3b8c17df37c80c2cc423e0a5b8ca332f47ea567953870c11a5fd3a8"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/idle.glb",
+      "bytes": 28164608,
+      "sha256": "cf7483bcb51b7857ac3692b4941cd721475ce1a3d0ae2fa092e2470392e702ea"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/nod.glb",
+      "bytes": 28272620,
+      "sha256": "d35f7ef27c4798190d0ea2a72454dffdd8f56c521a31c41e072cadf163d2ded5"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/run.glb",
+      "bytes": 28123832,
+      "sha256": "b1e57085cde79839edf214333a92db6c86ee3e683f52420808d1965f6cd52cbb"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/speaking.glb",
+      "bytes": 28178584,
+      "sha256": "2d25979b3eb51eb5f25ec4e923666d8a2a7d4324a0d43e3bb92ece66d95b25f1"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/walk.glb",
+      "bytes": 28128432,
+      "sha256": "28b6df2f9f9d935678f9814983040ffbc4ba5eb25e08d85adedc4d21ff19f15a"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/wave.glb",
+      "bytes": 28180624,
+      "sha256": "2f6348ab182b28335534e86ea1d5aadca3fd5665820a6e07150017544633efeb"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/model/model.glb",
+      "bytes": 40856004,
+      "sha256": "32ecde1ca78faca4ea806816ab3f65209b3b4ac4ea64e4b12aadc23f27cea99f"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/model/rigged.glb",
+      "bytes": 28115664,
+      "sha256": "f3838e98ab622afccab3b8307563c6e5ec27f23b757763b89f708c4c8eff636c"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/COOL_VEYR/animations/affection.glb",
+      "bytes": 30603480,
+      "sha256": "6685afa8fb9deec3fede809a069e30771ca2cd922b805395e6a097c2f9e415f2"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/COOL_VEYR/animations/idle.glb",
+      "bytes": 30577492,
+      "sha256": "ce523ba76fa108ab5f84d2d0ae73ffd625fc5b8b0ac0b045337231b1fe47c265"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/COOL_VEYR/animations/nod.glb",
+      "bytes": 30685508,
+      "sha256": "3ff251b1ae02d6d976403fccc4a540f176eda59ce219922cfddbbb7bcf48c328"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/COOL_VEYR/animations/run.glb",
+      "bytes": 30536708,
+      "sha256": "b1942d0689ff3fb14d7ed94b60e70c880f354696b3f370e34a3841b3326c3bef"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/COOL_VEYR/animations/speaking.glb",
+      "bytes": 30591468,
+      "sha256": "ddc03708a6af5d054fcf52c4e907ac9f53b7acdb979ec152fad451ae3242e11a"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/COOL_VEYR/animations/walk.glb",
+      "bytes": 30541320,
+      "sha256": "f20b9c07b230612123c39821eb891b09dd9bc6882b4056f2d2ebc8e3583bd9ae"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/COOL_VEYR/animations/wave.glb",
+      "bytes": 30593500,
+      "sha256": "88b4646d36c16aaa3a8c675be78e655146dc884fa78d36e9a116e03d18f37065"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/COOL_VEYR/model/model.glb",
+      "bytes": 43521324,
+      "sha256": "c45877261a804d2258cf2a98fceb111d8ecad86c0486d5de790c01233170dd43"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/COOL_VEYR/model/rigged.glb",
+      "bytes": 30528544,
+      "sha256": "606f9eb54bd32d7f791f61cce94a1421f72de26eee85ef8d2fed6db9d72ad8bb"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/affection.glb",
+      "bytes": 28134648,
+      "sha256": "0e4591adc1254447a91229cb2beaf37b4f3de6c4770b1d44c54d1d83ca3ef6b8"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/idle.glb",
+      "bytes": 28108660,
+      "sha256": "50836e393f966ddfaa7491905b51cb3c3014b2f1ae78f3b185e81682634ee7ce"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/nod.glb",
+      "bytes": 28216668,
+      "sha256": "f17c58c8643a3f1a03aa3ba33f0f431f27371095bd2a4c796e33cf77230f22ed"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/run.glb",
+      "bytes": 28067884,
+      "sha256": "39a57243526fc375cc47936ab16f81020a54380a3e09503981dbbb7f4e45c6eb"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/speaking.glb",
+      "bytes": 28122636,
+      "sha256": "4114ca2a3ebcf68c26d0a23f71354d6ecc1c176142bc7e5706f24de3db4c665c"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/walk.glb",
+      "bytes": 28072976,
+      "sha256": "40643c9bcd6aa7481e6cea1456df82e3bc6a4ef3e4ac59349ff4e5291d1b0aae"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/wave.glb",
+      "bytes": 28124672,
+      "sha256": "5881c9accbcbc3e27c7431eb5eb2739d7ec05042903440c32883ab7d814a7596"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/CUTE_LUMO/model/model.glb",
+      "bytes": 38744588,
+      "sha256": "ae08b1342595f095c113dd82d6628c872bbdb08c4babb054c1c753b89ec932a5"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/CUTE_LUMO/model/rigged.glb",
+      "bytes": 28059712,
+      "sha256": "fea3c65d49e73bd9786c910a90b75c951453a06e07481e04a9fe7ff4fb527306"
+    }
+  ]
+}

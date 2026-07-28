@@ -1,9 +1,9 @@
-const CACHE_NAME = 'nexora-core-shell-v9';
+const CACHE_NAME = 'nexora-core-shell-v13';
 const SHELL_ASSETS = [
   './',
   './index.html',
-  './style.css?v=0.3.3',
-  './app.js?v=0.3.5',
+  './style.css?v=0.4.0',
+  './app.js?v=0.4.3',
   './manifest.webmanifest',
   './assets/soulmate-icon-192.png',
   './assets/soulmate-icon-512.png',
@@ -19,7 +19,9 @@ const SHELL_ASSETS = [
   '../shared/soulmate-profile.mjs',
   '../shared/pendant-ble.mjs',
   '../shared/pendant-simulator.mjs',
-  '../shared/pendant-poses.mjs'
+  '../shared/pendant-poses.mjs',
+  '../shared/creature-3d-data.mjs',
+  '../shared/creature-3d-viewer.mjs'
 ];
 
 self.addEventListener('install', (event) => {

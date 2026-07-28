@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#edf1f0">
+  <title>NEXORA 3D 伙伴动作检查</title>
+  <link rel="icon" href="./CUTE_LUMO/model/thumbnail.png">
+  <link rel="stylesheet" href="./review.css?v=1">
+</head>
+<body>
+  <main class="review-shell">
+    <header class="review-header">
+      <div>
+        <strong>NEXORA 3D</strong>
+        <span id="model-name">LUMO / 露莫</span>
+      </div>
+      <a href="../soulmate/">手机端</a>
+    </header>
+
+    <section class="model-stage" id="model-stage" aria-label="3D 伙伴，可左右拖动查看">
+      <p class="load-state" id="load-state">正在载入原生 3D 模型</p>
+    </section>
+
+    <nav class="route-tabs" aria-label="伙伴路线">
+      <button type="button" data-starter="cute" class="active">可爱 · LUMO</button>
+      <button type="button" data-starter="cool">帅气 · VEYR</button>
+      <button type="button" data-starter="beautiful">优美 · AERA</button>
+    </nav>
+
+    <nav class="action-tabs" aria-label="动作检查">
+      <button type="button" data-action="idle" class="active">待机</button>
+      <button type="button" data-action="nod">点头</button>
+      <button type="button" data-action="affection">亲近</button>
+      <button type="button" data-action="wave">招手</button>
+      <button type="button" data-action="speaking">说话</button>
+      <button type="button" data-action="walk">行走</button>
+      <button type="button" data-action="run">跑步</button>
+    </nav>
+  </main>
+  <script type="module" src="./review.mjs?v=3"></script>
+</body>
+</html>

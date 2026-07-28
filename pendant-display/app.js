@@ -12,6 +12,8 @@ import {
 } from '../shared/pendant-display.mjs';
 import { pendantPoseAssets } from '../shared/pendant-poses.mjs';
 import { observePendantSimulator } from '../shared/pendant-simulator.mjs';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=4';
+import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=2';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -19,6 +21,7 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const lab = $('#display-lab');
 const shell = $('#device-shell');
 const roundDisplay = $('#round-display');
+const screenModel = $('#screen-model');
 const character = $('#screen-character');
 const screenName = $('#screen-name');
 const screenConnection = $('#screen-connection');
@@ -43,6 +46,13 @@ let holdTriggered = false;
 let lastTapAt = 0;
 let currentSnapshot = null;
 let preloadedIdentity = '';
+let creatureViewer = null;
+
+try {
+  creatureViewer = new Creature3DViewer(screenModel, { compact: true, cameraDistance: 4.55, fov: 34 });
+} catch (error) {
+  screenModel.dataset.modelState = 'error';
+}
 
 function storedProfile() {
   try {
@@ -110,6 +120,10 @@ function render() {
   screenBond.textContent = `R ${String(snapshot.companion.bond).padStart(2, '0').slice(-2)}`;
   screenConnection.classList.toggle('offline', !snapshot.connected);
   screenConnection.setAttribute('aria-label', snapshot.connected ? '蓝牙已连接' : '蓝牙未连接');
+  creatureViewer?.load(
+    snapshot.companion.starter,
+    creatureActionForPhase[snapshot.state] || 'idle'
+  );
   const poseUrl = new URL(snapshot.companion.asset, location.href).href;
   if (character.dataset.asset !== poseUrl) {
     character.classList.remove('pose-enter');
@@ -287,7 +301,8 @@ if (simulatorMode) {
         render();
       },
       setState: setDisplayState,
-      getSnapshot: () => currentSnapshot ? structuredClone(currentSnapshot) : null
+      getSnapshot: () => currentSnapshot ? structuredClone(currentSnapshot) : null,
+      sampleModel: () => creatureViewer?.samplePixels() || null
     })
   });
   window.dispatchEvent(new CustomEvent('nexora:pendant-lab-ready'));

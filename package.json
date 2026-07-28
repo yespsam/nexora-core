@@ -6,6 +6,8 @@
   "scripts": {
     "build:soulmate-assets": "node tools/process-soulmate-starters.mjs",
     "build:pendant-poses": "node tools/process-pendant-poses.mjs",
+    "build:creature-references": "node tools/process-creature-turnarounds.mjs",
+    "build:creature-web": "node tools/optimize-creature-web-models.mjs",
     "build:pendant": "node tools/build-soulmate-pendant.mjs",
     "build:pendant-firmware-assets": "npm run build:pendant-poses && node tools/build-pendant-firmware-assets.mjs",
     "build:pendant-firmware": "npm run build:pendant-firmware-assets && python3 -m platformio run -d hardware/soulmate-pendant/firmware",

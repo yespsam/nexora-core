@@ -1,4 +1,4 @@
-export const COMPANION_DATA_VERSION = '2026-07-23.1';
+export const COMPANION_DATA_VERSION = '2026-07-28.1';
 
 export const SUPPORTED_ACTIONS = Object.freeze([
   'idle',
@@ -75,6 +75,39 @@ export const voiceResources = Object.freeze({
     { id: 'funny', archetype: 'funny', name: '搞笑男', voice: 'zh-CN-YunyangNeural', rate: '+16%', pitch: '+8Hz' }
   ]
 });
+
+export const creatureVoiceResources = Object.freeze([
+  {
+    id: 'sprout',
+    archetype: 'sprout',
+    starter: 'cute',
+    name: '幼灵',
+    description: '轻快、稚气的精灵声线',
+    voice: 'zh-CN-YunxiaNeural',
+    rate: '+9%',
+    pitch: '+14Hz'
+  },
+  {
+    id: 'edge',
+    archetype: 'edge',
+    starter: 'cool',
+    name: '锋鸣',
+    description: '克制、锐利的守护者声线',
+    voice: 'zh-CN-YunjianNeural',
+    rate: '-5%',
+    pitch: '-7Hz'
+  },
+  {
+    id: 'aether',
+    archetype: 'aether',
+    starter: 'beautiful',
+    name: '星语',
+    description: '安静、空灵的中性精灵声线',
+    voice: 'zh-CN-YunxiNeural',
+    rate: '-2%',
+    pitch: '+4Hz'
+  }
+]);
 
 export const interactionScenes = Object.freeze([
   {

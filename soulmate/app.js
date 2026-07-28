@@ -18,6 +18,8 @@ import {
   encodePendantBleSnapshot
 } from '../shared/pendant-ble.mjs';
 import { openPendantSimulatorWriter } from '../shared/pendant-simulator.mjs';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=4';
+import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=2';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -38,6 +40,7 @@ const stageName = $('#stage-name');
 const bondLabel = $('#bond-label');
 const bondTrackValue = $('#bond-track-value');
 const companionTouch = $('#companion-touch');
+const companionModel = $('#companion-model');
 const companionImage = $('#companion-image');
 const presenceLine = $('#presence-line');
 const conversationStateLabel = $('#conversation-state-label');
@@ -79,10 +82,16 @@ const phaseLabels = {
 };
 
 const voiceNames = {
-  soft: '轻柔',
-  bright: '清亮',
-  steady: '安定'
+  soft: '星语',
+  bright: '幼灵',
+  steady: '锋鸣'
 };
+
+const starterVoiceDefaults = Object.freeze({
+  cute: 'bright',
+  cool: 'steady',
+  beautiful: 'soft'
+});
 
 const traitNames = {
   warmth: '温柔',
@@ -119,6 +128,20 @@ const state = {
   pendantSyncTimer: 0,
   presencePhaseTimer: 0
 };
+
+let creatureViewer = null;
+try {
+  creatureViewer = new Creature3DViewer(companionModel, {
+    onLoad() {
+      companionImage.setAttribute('aria-hidden', 'true');
+    },
+    onError() {
+      companionImage.removeAttribute('aria-hidden');
+    }
+  });
+} catch (error) {
+  companionModel.dataset.modelState = 'error';
+}
 
 function safeRead(key) {
   try {
@@ -170,16 +193,18 @@ function personaFromGender(gender = state.profile?.gender || state.birthSelectio
 }
 
 function voiceArchetype(voice = state.profile?.voice || state.birthSelections.voice) {
-  const male = personaFromGender() === 'male';
-  if (voice === 'bright') return male ? 'shonen' : 'loli';
-  if (voice === 'steady') return male ? 'uncle' : 'yujie';
-  return '';
+  if (voice === 'bright') return 'sprout';
+  if (voice === 'steady') return 'edge';
+  return 'aether';
 }
 
 function setPhase(phase) {
   state.phase = phase;
   companionView.dataset.conversationPhase = phase;
   conversationStateLabel.textContent = phaseLabels[phase] || phaseLabels.idle;
+  if (state.profile) {
+    creatureViewer?.load(state.profile.starter, creatureActionForPhase[phase] || 'idle');
+  }
   if (micButton.disabled) {
     micButton.textContent = '不可用';
     micButton.setAttribute('aria-pressed', 'false');
@@ -210,6 +235,12 @@ function selectChoice(group, value) {
   });
   if (group === 'starter') {
     const starter = soulmateStarterCatalog[value] || soulmateStarterCatalog.cute;
+    state.birthSelections.voice = starterVoiceDefaults[value] || 'soft';
+    $$('[data-choice="voice"]').forEach((button) => {
+      const active = button.dataset.value === state.birthSelections.voice;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
     birthVisualImage.src = starter.stages[0].asset;
     birthVisualCaption.textContent = `${starter.species}正在等你的选择`;
   }
@@ -289,6 +320,7 @@ function renderCompanion() {
     companionImage.onload = () => { companionImage.style.opacity = '1'; };
     companionImage.src = progress.stage.asset;
     if (companionImage.complete && companionImage.naturalWidth > 0) companionImage.style.opacity = '1';
+    creatureViewer?.load(state.profile.starter, creatureActionForPhase[state.phase] || 'idle');
   }
   $('#setting-voice').textContent = voiceNames[state.profile.voice] || voiceNames.soft;
   $$('[data-setting-voice]').forEach((button) => {
@@ -449,7 +481,8 @@ async function fetchVoice(text, mood = 'happy') {
       persona: personaFromGender(),
       relationship: 'companion',
       mood,
-      archetype: voiceArchetype()
+      archetype: voiceArchetype(),
+      starter: state.profile?.starter || state.birthSelections.starter
     })
   });
   const type = response.headers.get('content-type') || '';
@@ -853,7 +886,8 @@ if (pendantSimulationMode) {
         profile: state.profile ? structuredClone(state.profile) : null,
         history: structuredClone(state.history),
         pendantConnected: Boolean(state.pendantCharacteristic)
-      })
+      }),
+      sampleModel: () => creatureViewer?.samplePixels() || null
     })
   });
   window.dispatchEvent(new CustomEvent('nexora:lab-ready'));

@@ -1,8 +1,9 @@
-import { jsonResponse, personaKind, voiceResources } from './voice-data.mjs';
+import { creatureVoiceResources, jsonResponse, personaKind, voiceResources } from './voice-data.mjs';
 
 export const handler = async (event) => {
   const params = new URLSearchParams(event.rawQuery || '');
   const kind = personaKind(params.get('persona'));
+  const creatureMode = ['cute', 'cool', 'beautiful'].includes(params.get('starter'));
   return jsonResponse({
     enabled: true,
     pipeline_ready: true,
@@ -12,8 +13,10 @@ export const handler = async (event) => {
       gender: kind,
       display_name: kind === 'male' ? '栖安' : '小栖'
     },
-    active_archetype: '',
-    resources: voiceResources[kind],
+    active_archetype: creatureMode
+      ? creatureVoiceResources.find((item) => item.starter === params.get('starter'))?.archetype || 'aether'
+      : '',
+    resources: creatureMode ? creatureVoiceResources : voiceResources[kind],
     providers: [
       {
         id: 'edge_tts',

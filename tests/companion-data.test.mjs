@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   SUPPORTED_ACTIONS,
   companionProfiles,
+  creatureVoiceResources,
   interactionScenes,
   personaKind,
   voiceResources
@@ -14,6 +15,15 @@ test('shared companion catalog has complete persona records', () => {
   assert.equal(personaKind(companionProfiles.female.id), 'female');
   assert.equal(personaKind(companionProfiles.male.id), 'male');
   assert.notEqual(companionProfiles.female.name, companionProfiles.male.name);
+});
+
+test('creature voices are route-matched and never use the previous female cast', () => {
+  assert.deepEqual(creatureVoiceResources.map((voice) => voice.starter), ['cute', 'cool', 'beautiful']);
+  assert.deepEqual(creatureVoiceResources.map((voice) => voice.archetype), ['sprout', 'edge', 'aether']);
+  creatureVoiceResources.forEach((voice) => {
+    assert.match(voice.voice, /^zh-CN-Yun/);
+    assert.doesNotMatch(voice.voice, /Xiaoxiao|Xiaoyi/);
+  });
 });
 
 test('every interaction scene supports both companions', () => {

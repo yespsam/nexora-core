@@ -12,6 +12,17 @@ function cleanText(value) {
     .slice(0, 300);
 }
 
+async function synthesize(text, cast) {
+  const tts = new EdgeTTS();
+  await tts.synthesize(text, cast.voice, {
+    outputFormat,
+    rate: cast.rate,
+    pitch: cast.pitch,
+    volume: '90%'
+  });
+  return tts.toBuffer();
+}
+
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return jsonResponse({ error: 'method not allowed' }, 405);
@@ -29,16 +40,24 @@ export const handler = async (event) => {
     return jsonResponse({ error: 'missing text' }, 400);
   }
 
-  const cast = resolveVoice(payload.persona, payload.archetype || payload.voice || '');
+  const cast = resolveVoice(
+    payload.persona,
+    payload.archetype || payload.voice || '',
+    payload.starter || ''
+  );
   try {
-    const tts = new EdgeTTS();
-    await tts.synthesize(text, cast.voice, {
-      outputFormat,
-      rate: cast.rate,
-      pitch: cast.pitch,
-      volume: '90%'
-    });
-    const buffer = tts.toBuffer();
+    let buffer;
+    let lastError;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        buffer = await synthesize(text, cast);
+        break;
+      } catch (error) {
+        lastError = error;
+        if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+    }
+    if (!buffer) throw lastError;
     return {
       statusCode: 200,
       headers: {

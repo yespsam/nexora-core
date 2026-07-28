@@ -1,0 +1,193 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-28T11:09:54.492Z",
+  "sourceArchive": "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c",
+  "optimization": {
+    "geometry": "meshopt",
+    "texture": "webp",
+    "maxTextureSize": 1024,
+    "meshSimplified": false
+  },
+  "creatures": {
+    "cute": {
+      "name": "LUMO / 露莫",
+      "directory": "CUTE_LUMO",
+      "files": [
+        {
+          "type": "model",
+          "path": "NEXORA_3D_CREATURES/CUTE_LUMO/model/model.glb",
+          "bytes": 845044,
+          "sha256": "a9a9548400263d164edecf1932a49ee31f6eb73f28d20a7140d4c88f10d72ee7"
+        },
+        {
+          "type": "rigged",
+          "path": "NEXORA_3D_CREATURES/CUTE_LUMO/model/rigged.glb",
+          "bytes": 943728,
+          "sha256": "1176527c11dd6734388c9acb0705edf091e27f17ca409d1b64ad2bb2f07343a3"
+        },
+        {
+          "type": "idle",
+          "path": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/idle.glb",
+          "bytes": 965312,
+          "sha256": "238651b0b1c94535353b376bb153d505090f367b80dbe87e2f38e1582611647c"
+        },
+        {
+          "type": "nod",
+          "path": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/nod.glb",
+          "bytes": 1003612,
+          "sha256": "3452939f47c1beb057fbd9ec6d3280a558b29802942515d40c7c86c3ed2c7eb8"
+        },
+        {
+          "type": "affection",
+          "path": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/affection.glb",
+          "bytes": 973104,
+          "sha256": "2c455e920a10081e05b0e897e2904f5ecf856027288f48ba93101e98de07925c"
+        },
+        {
+          "type": "wave",
+          "path": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/wave.glb",
+          "bytes": 969076,
+          "sha256": "2a142e5fff5d6d1e8841b7c4f0f5c0c1e82a4973426dda4f5f827913040d1ca8"
+        },
+        {
+          "type": "speaking",
+          "path": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/speaking.glb",
+          "bytes": 969032,
+          "sha256": "134720ebfbe7904f606092f579e51ed94ffe2770099a64161a246f50284cc0fc"
+        },
+        {
+          "type": "walk",
+          "path": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/walk.glb",
+          "bytes": 948376,
+          "sha256": "7e040de02eccaf6d347bebc26504231a49a4563ec6b897392f1fd864e4e9d0c0"
+        },
+        {
+          "type": "run",
+          "path": "NEXORA_3D_CREATURES/CUTE_LUMO/animations/run.glb",
+          "bytes": 946676,
+          "sha256": "1ac759e5b4a3e1d818969bcc33e12e7941537f5aba22574f13f5ff9a5c242d8d"
+        }
+      ]
+    },
+    "cool": {
+      "name": "VEYR / 维尔",
+      "directory": "COOL_VEYR",
+      "files": [
+        {
+          "type": "model",
+          "path": "NEXORA_3D_CREATURES/COOL_VEYR/model/model.glb",
+          "bytes": 1076652,
+          "sha256": "bb4841177c49658f9da6dbbbffda613b91164c0d930e3c06f232c6665d0bd71e"
+        },
+        {
+          "type": "rigged",
+          "path": "NEXORA_3D_CREATURES/COOL_VEYR/model/rigged.glb",
+          "bytes": 1082912,
+          "sha256": "74ab7e5e1debece7af417f08403a3f2181c41d3078ba27a53841f94c107c55f7"
+        },
+        {
+          "type": "idle",
+          "path": "NEXORA_3D_CREATURES/COOL_VEYR/animations/idle.glb",
+          "bytes": 1104560,
+          "sha256": "c3a249da7d79c79f5690e0695853b4a1dd2bd2f539b52344b2060d6496874cb7"
+        },
+        {
+          "type": "nod",
+          "path": "NEXORA_3D_CREATURES/COOL_VEYR/animations/nod.glb",
+          "bytes": 1143492,
+          "sha256": "496e594f61806b62b03bd2eb6965277fd56ce5ab6b2d40b4e84d839e90cc75f9"
+        },
+        {
+          "type": "affection",
+          "path": "NEXORA_3D_CREATURES/COOL_VEYR/animations/affection.glb",
+          "bytes": 1112620,
+          "sha256": "72dcf67f2183335136e7575ea8eee3ef1555de84d38b988f34422bf80741df4c"
+        },
+        {
+          "type": "wave",
+          "path": "NEXORA_3D_CREATURES/COOL_VEYR/animations/wave.glb",
+          "bytes": 1108716,
+          "sha256": "dd6b6069ddae5acaeffd4e84029d7ad278b83be836604536fb593cbbdb3bbdae"
+        },
+        {
+          "type": "speaking",
+          "path": "NEXORA_3D_CREATURES/COOL_VEYR/animations/speaking.glb",
+          "bytes": 1108304,
+          "sha256": "0fa6f9a33aac2f1c921127623e1c3ace577c20ceb92a1ec4f0f7e5951033d08b"
+        },
+        {
+          "type": "walk",
+          "path": "NEXORA_3D_CREATURES/COOL_VEYR/animations/walk.glb",
+          "bytes": 1087836,
+          "sha256": "9fba83a8847ee505575d160b3f0883de9244dcec13a801a543dce1e0de5bf622"
+        },
+        {
+          "type": "run",
+          "path": "NEXORA_3D_CREATURES/COOL_VEYR/animations/run.glb",
+          "bytes": 1086000,
+          "sha256": "ccd578bb8e023d8be40a9da67061b6196f996aad3d378359698e318ad24ad340"
+        }
+      ]
+    },
+    "beautiful": {
+      "name": "AERA / 艾拉",
+      "directory": "BEAUTIFUL_AERA",
+      "files": [
+        {
+          "type": "model",
+          "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/model/model.glb",
+          "bytes": 1035236,
+          "sha256": "ed998b4fe4ab4c6a7177e519722cfeaff9a37dc0f19b1281a805e96609c83c26"
+        },
+        {
+          "type": "rigged",
+          "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/model/rigged.glb",
+          "bytes": 1024200,
+          "sha256": "bf2f44ab4467fc811a8fa5f3b316be8e6b31cdd28688ce64f647af6e839e6c9b"
+        },
+        {
+          "type": "idle",
+          "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/idle.glb",
+          "bytes": 1044892,
+          "sha256": "4610b1fae585a1f86d31cc9d1b7757aba4b90ad4f8b4e489aad8f8a6d659a860"
+        },
+        {
+          "type": "nod",
+          "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/nod.glb",
+          "bytes": 1082736,
+          "sha256": "cc442132326af295cd16741d5972b61bdebf18fb69bcfd4200f13cb38b928f00"
+        },
+        {
+          "type": "affection",
+          "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/affection.glb",
+          "bytes": 1053028,
+          "sha256": "8e371f4dccbe9114f49494649449815719b3342db4afddc98c84c92d04968edb"
+        },
+        {
+          "type": "wave",
+          "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/wave.glb",
+          "bytes": 1049016,
+          "sha256": "3ba0d9039be67e27cceda08581ad40159dcf960a782524d9836415917a88da5b"
+        },
+        {
+          "type": "speaking",
+          "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/speaking.glb",
+          "bytes": 1049048,
+          "sha256": "22995651b4ea0da40d8d9b27cb53481f9b644cfe025475d91af0daf10714941d"
+        },
+        {
+          "type": "walk",
+          "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/walk.glb",
+          "bytes": 1029104,
+          "sha256": "8f2d918e3ec7a601673c30d31b23152bd7371362f2b06eab98d94ea326335258"
+        },
+        {
+          "type": "run",
+          "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/animations/run.glb",
+          "bytes": 1027392,
+          "sha256": "d8575dee821843546317f905d9c7d1fc18f5b4567269e66c7e3bb3f2293e0115"
+        }
+      ]
+    }
+  }
+}
