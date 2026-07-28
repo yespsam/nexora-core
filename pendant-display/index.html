@@ -7,7 +7,7 @@
   <meta name="description" content="NEXORA CORE NC-01 240×240 圆屏运行界面">
   <title>NEXORA CORE · NC-01 圆屏</title>
   <link rel="icon" href="../soulmate/assets/soulmate-icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=0.4.0">
+  <link rel="stylesheet" href="./style.css?v=0.5.0">
 </head>
 <body>
   <main class="display-lab" id="display-lab">
@@ -53,10 +53,10 @@
       <header class="control-header">
         <span class="control-kicker">NEXORA CORE / NC-01</span>
         <h1>圆屏运行台</h1>
-        <p>240×240 · 单击亲近 · 双击开心 · 长按倾听</p>
+        <p>240×240 · 非触控实机 · 浏览器输入模拟</p>
       </header>
 
-      <div class="control-row control-row-two">
+      <div class="control-row control-row-three">
         <label>伙伴路线
           <select id="starter-select">
             <option value="cute">可爱型</option>
@@ -66,6 +66,12 @@
         </label>
         <label>成长形态
           <select id="stage-select"></select>
+        </label>
+        <label>画面引擎
+          <select id="render-select">
+            <option value="firmware">固件帧（实机）</option>
+            <option value="3d">3D 概念预览</option>
+          </select>
         </label>
       </div>
 
@@ -93,21 +99,21 @@
       </div>
 
       <div class="command-row">
-        <button class="primary-command" id="demo-button" type="button">运行完整交互</button>
+        <button class="primary-command" id="demo-button" type="button">模拟完整语音回合</button>
         <a class="secondary-command" href="./?embedded=1&state=idle" target="_blank" rel="noreferrer">仅查看圆屏</a>
         <a class="secondary-command" href="../soulmate/">返回手机端</a>
         <a class="secondary-command" href="../device-lab/">电脑测试台</a>
       </div>
 
       <dl class="trigger-map">
-        <div><dt>单击 / 双击 / 长按</dt><dd>亲近 / 开心 / 倾听</dd></div>
-        <div><dt>抬腕 / 拿起</dt><dd>唤醒角色</dd></div>
+        <div><dt>浏览器调试手势</dt><dd>亲近 / 开心 / 倾听</dd></div>
+        <div><dt>实物抬腕 / 拿起</dt><dd>唤醒角色</dd></div>
         <div><dt>唤醒词 / 麦克风</dt><dd>进入倾听</dd></div>
         <div><dt>模型响应</dt><dd>思考 → 说话</dd></div>
         <div><dt>四段导光条</dt><dd>同步状态反馈</dd></div>
       </dl>
     </aside>
   </main>
-  <script type="module" src="./app.js?v=0.4.2"></script>
+  <script type="module" src="./app.js?v=0.5.0"></script>
 </body>
 </html>

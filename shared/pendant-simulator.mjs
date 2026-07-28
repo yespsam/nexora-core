@@ -80,15 +80,21 @@ export function openPendantSimulatorWriter(storage = globalThis.localStorage) {
   };
 }
 
-export function observePendantSimulator(onSnapshot, storage = globalThis.localStorage) {
+export function observePendantSimulator(
+  onSnapshot,
+  storage = globalThis.localStorage,
+  { replayStored = true } = {}
+) {
   const deliver = (value) => {
     const snapshot = normalizePendantSimulatorSnapshot(value?.snapshot || value);
     if (snapshot) onSnapshot(snapshot);
   };
-  try {
-    const saved = JSON.parse(storage?.getItem(PENDANT_SIMULATOR_STORAGE_KEY) || 'null');
-    if (saved) queueMicrotask(() => deliver(saved));
-  } catch (error) {}
+  if (replayStored) {
+    try {
+      const saved = JSON.parse(storage?.getItem(PENDANT_SIMULATOR_STORAGE_KEY) || 'null');
+      if (saved) queueMicrotask(() => deliver(saved));
+    } catch (error) {}
+  }
 
   const channel = typeof BroadcastChannel === 'function'
     ? new BroadcastChannel(PENDANT_SIMULATOR_CHANNEL)

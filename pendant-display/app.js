@@ -30,6 +30,7 @@ const screenState = $('#screen-state');
 const screenBond = $('#screen-bond');
 const starterSelect = $('#starter-select');
 const stageSelect = $('#stage-select');
+const renderSelect = $('#render-select');
 const batteryInput = $('#battery-input');
 const batteryOutput = $('#battery-output');
 const connectionInput = $('#connection-input');
@@ -38,6 +39,8 @@ const demoButton = $('#demo-button');
 const params = new URLSearchParams(location.search);
 const embedded = params.get('embedded') === '1';
 const simulatorMode = params.get('lab') === '1' || params.get('simulator') === '1';
+const explicitPreview = ['starter', 'stage', 'state', 'battery', 'connected', 'render']
+  .some((key) => params.has(key));
 let demoTimer = 0;
 let interactionTimer = 0;
 let tapTimer = 0;
@@ -48,10 +51,18 @@ let currentSnapshot = null;
 let preloadedIdentity = '';
 let creatureViewer = null;
 
-try {
-  creatureViewer = new Creature3DViewer(screenModel, { compact: true, cameraDistance: 4.55, fov: 34 });
-} catch (error) {
-  screenModel.dataset.modelState = 'error';
+function ensureCreatureViewer() {
+  if (creatureViewer) return creatureViewer;
+  try {
+    creatureViewer = new Creature3DViewer(screenModel, {
+      compact: true,
+      frustumHeight: 2.78,
+      cameraDistance: 4.55
+    });
+  } catch (error) {
+    screenModel.dataset.modelState = 'error';
+  }
+  return creatureViewer;
 }
 
 function storedProfile() {
@@ -78,6 +89,7 @@ const state = {
   stage: params.get('stage') || stageProgress(profile).stage.id,
   battery: Math.max(0, Math.min(100, Number(params.get('battery')) || 76)),
   connected: params.get('connected') !== '0',
+  renderMode: params.get('render') === '3d' ? '3d' : 'firmware',
   notice: params.get('notice') || '该休息一下啦'
 };
 
@@ -108,7 +120,9 @@ function render() {
   shell.dataset.state = snapshot.state;
   shell.dataset.tone = snapshot.tone;
   shell.dataset.starter = snapshot.companion.starter;
+  shell.dataset.stage = snapshot.companion.stage;
   shell.dataset.pose = snapshot.companion.pose;
+  shell.dataset.renderMode = state.renderMode;
   shell.style.setProperty('--battery-level', `${snapshot.battery}%`);
   snapshot.lights.forEach((active, index) => {
     const light = $(`.light-guide-${['one', 'two', 'three', 'four'][index]}`);
@@ -120,10 +134,12 @@ function render() {
   screenBond.textContent = `R ${String(snapshot.companion.bond).padStart(2, '0').slice(-2)}`;
   screenConnection.classList.toggle('offline', !snapshot.connected);
   screenConnection.setAttribute('aria-label', snapshot.connected ? '蓝牙已连接' : '蓝牙未连接');
-  creatureViewer?.load(
-    snapshot.companion.starter,
-    creatureActionForPhase[snapshot.state] || 'idle'
-  );
+  if (state.renderMode === '3d') {
+    ensureCreatureViewer()?.load(
+      snapshot.companion.starter,
+      creatureActionForPhase[snapshot.state] || 'idle'
+    );
+  }
   const poseUrl = new URL(snapshot.companion.asset, location.href).href;
   if (character.dataset.asset !== poseUrl) {
     character.classList.remove('pose-enter');
@@ -141,6 +157,7 @@ function render() {
   batteryOutput.value = `${snapshot.battery}%`;
   connectionInput.checked = snapshot.connected;
   starterSelect.value = snapshot.companion.starter;
+  renderSelect.value = state.renderMode;
   $$('[data-display-state]').forEach((button) => {
     const active = button.dataset.displayState === snapshot.state;
     button.classList.toggle('active', active);
@@ -229,6 +246,11 @@ stageSelect.addEventListener('change', () => {
   render();
 });
 
+renderSelect.addEventListener('change', () => {
+  state.renderMode = renderSelect.value === '3d' ? '3d' : 'firmware';
+  render();
+});
+
 batteryInput.addEventListener('input', () => {
   state.battery = Number(batteryInput.value);
   render();
@@ -287,7 +309,9 @@ if (embedded) {
 }
 
 if (simulatorMode) {
-  observePendantSimulator(applySimulatorSnapshot);
+  observePendantSimulator(applySimulatorSnapshot, globalThis.localStorage, {
+    replayStored: !explicitPreview
+  });
   Object.defineProperty(window, '__NEXORA_PENDANT_LAB__', {
     configurable: true,
     value: Object.freeze({
@@ -300,9 +324,20 @@ if (simulatorMode) {
         state.connected = Boolean(value);
         render();
       },
+      setRenderMode(value) {
+        state.renderMode = value === '3d' ? '3d' : 'firmware';
+        render();
+      },
       setState: setDisplayState,
       getSnapshot: () => currentSnapshot ? structuredClone(currentSnapshot) : null,
-      sampleModel: () => creatureViewer?.samplePixels() || null
+      sampleModel: () => state.renderMode === '3d'
+        ? creatureViewer?.samplePixels() || null
+        : {
+            renderMode: 'firmware',
+            width: character.naturalWidth,
+            height: character.naturalHeight,
+            ready: character.complete && character.naturalWidth > 0
+          }
     })
   });
   window.dispatchEvent(new CustomEvent('nexora:pendant-lab-ready'));

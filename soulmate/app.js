@@ -473,21 +473,31 @@ async function sendMessage(rawText) {
 }
 
 async function fetchVoice(text, mood = 'happy') {
-  const response = await fetch('/api/voice/speak', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      text,
-      persona: personaFromGender(),
-      relationship: 'companion',
-      mood,
-      archetype: voiceArchetype(),
-      starter: state.profile?.starter || state.birthSelections.starter
-    })
+  const body = JSON.stringify({
+    text,
+    persona: personaFromGender(),
+    relationship: 'companion',
+    mood,
+    archetype: voiceArchetype(),
+    starter: state.profile?.starter || state.birthSelections.starter
   });
-  const type = response.headers.get('content-type') || '';
-  if (!response.ok || !type.includes('audio')) throw new Error(`voice ${response.status}`);
-  return response.blob();
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch('/api/voice/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body
+      });
+      const type = response.headers.get('content-type') || '';
+      if (response.ok && type.includes('audio')) return response.blob();
+      lastError = new Error(`voice ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt === 0) await new Promise((resolve) => window.setTimeout(resolve, 320));
+  }
+  throw lastError || new Error('voice unavailable');
 }
 
 function clearQueuedAudio() {

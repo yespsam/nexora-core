@@ -249,8 +249,8 @@ a:focus-visible {
 
 .screen-model {
   position: absolute;
-  z-index: 2;
-  inset: 28px 13px 24px;
+  z-index: 1;
+  inset: 25px 8px 24px;
   display: block;
   pointer-events: none;
 }
@@ -261,12 +261,20 @@ a:focus-visible {
   height: 100%;
 }
 
-.screen-model[data-model-state="ready"] + #screen-character {
+[data-render-mode="firmware"] .screen-model {
+  display: none;
+}
+
+[data-render-mode="firmware"] #screen-character {
+  opacity: 1;
+}
+
+[data-render-mode="3d"] .screen-model[data-model-state="ready"] + #screen-character {
   opacity: 0 !important;
 }
 
-.screen-model[data-model-state="loading"] + #screen-character,
-.screen-model[data-model-state="error"] + #screen-character {
+[data-render-mode="3d"] .screen-model[data-model-state="loading"] + #screen-character,
+[data-render-mode="3d"] .screen-model[data-model-state="error"] + #screen-character {
   opacity: 1 !important;
 }
 
@@ -280,6 +288,12 @@ a:focus-visible {
   top: 30px;
   width: 186px;
   height: 186px;
+}
+
+[data-stage="resonance"] #screen-character {
+  top: 34px;
+  width: 158px;
+  height: 158px;
 }
 
 .pose-enter { opacity: 1; }
@@ -500,6 +514,12 @@ a:focus-visible {
   gap: 12px;
 }
 
+.control-row-three {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .control-row label,
 .state-controls legend {
   color: var(--muted);
@@ -670,6 +690,7 @@ select {
   transform: none;
   border: 0;
   box-shadow: none;
+  cursor: default;
 }
 
 @keyframes pendant-idle {
@@ -760,6 +781,10 @@ select {
 
   .display-controls {
     padding: 30px 20px 34px;
+  }
+
+  .control-row-three {
+    grid-template-columns: 1fr;
   }
 
   .state-grid {

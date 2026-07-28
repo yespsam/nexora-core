@@ -4,7 +4,8 @@ import test from 'node:test';
 import {
   createPendantSimulatorEnvelope,
   decodePendantSimulatorPayload,
-  normalizePendantSimulatorSnapshot
+  normalizePendantSimulatorSnapshot,
+  observePendantSimulator
 } from '../shared/pendant-simulator.mjs';
 
 const validSnapshot = {
@@ -47,4 +48,16 @@ test('pendant simulator envelope is versioned and deterministic', () => {
     sentAt: 123456,
     snapshot: validSnapshot
   });
+});
+
+test('explicit preview can ignore the previously stored simulator snapshot', async () => {
+  const stored = createPendantSimulatorEnvelope(JSON.stringify(validSnapshot), 123456);
+  const storage = { getItem: () => JSON.stringify(stored) };
+  const delivered = [];
+  const stop = observePendantSimulator((snapshot) => delivered.push(snapshot), storage, {
+    replayStored: false
+  });
+  await Promise.resolve();
+  stop();
+  assert.deepEqual(delivered, []);
 });

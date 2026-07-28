@@ -3,7 +3,7 @@ const SHELL_ASSETS = [
   './',
   './index.html',
   './style.css?v=0.4.0',
-  './app.js?v=0.4.3',
+  './app.js?v=0.4.4',
   './manifest.webmanifest',
   './assets/soulmate-icon-192.png',
   './assets/soulmate-icon-512.png',
