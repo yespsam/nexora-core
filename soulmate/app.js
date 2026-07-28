@@ -3,6 +3,7 @@ import {
   SOULMATE_STORAGE_KEY,
   createSoulmateExportBundle,
   createSoulmateProfile,
+  defaultVoiceForStarter,
   growSoulmate,
   normalizeSoulmateExportBundle,
   normalizeSoulmateHistory,
@@ -87,12 +88,6 @@ const voiceNames = {
   steady: '锋鸣'
 };
 
-const starterVoiceDefaults = Object.freeze({
-  cute: 'bright',
-  cool: 'steady',
-  beautiful: 'soft'
-});
-
 const traitNames = {
   warmth: '温柔',
   curiosity: '好奇',
@@ -107,7 +102,8 @@ const state = {
     starter: 'cute',
     gender: 'neutral',
     temperament: 'warm',
-    voice: 'soft'
+    voice: defaultVoiceForStarter('cute'),
+    voiceCustomized: false
   },
   profile: null,
   history: [],
@@ -232,13 +228,15 @@ function showBirthStep(index) {
 
 function selectChoice(group, value) {
   state.birthSelections[group] = value;
+  if (group === 'voice') state.birthSelections.voiceCustomized = true;
   $$(`[data-choice="${group}"]`).forEach((button) => {
     button.classList.toggle('active', button.dataset.value === value);
     button.setAttribute('aria-pressed', button.dataset.value === value ? 'true' : 'false');
   });
   if (group === 'starter') {
     const starter = soulmateStarterCatalog[value] || soulmateStarterCatalog.cute;
-    state.birthSelections.voice = starterVoiceDefaults[value] || 'soft';
+    state.birthSelections.voice = defaultVoiceForStarter(value);
+    state.birthSelections.voiceCustomized = false;
     $$('[data-choice="voice"]').forEach((button) => {
       const active = button.dataset.value === state.birthSelections.voice;
       button.classList.toggle('active', active);
@@ -819,7 +817,7 @@ $$('[data-setting-voice]').forEach((button) => {
   button.addEventListener('click', async () => {
     if (!state.profile) return;
     stopAudio();
-    state.profile = { ...state.profile, voice: button.dataset.settingVoice };
+    state.profile = { ...state.profile, voice: button.dataset.settingVoice, voiceCustomized: true };
     saveProfile();
     renderCompanion();
     voiceSettingStatus.textContent = `正在试听${voiceNames[state.profile.voice]}声线`;
@@ -892,6 +890,7 @@ birthDate.value = new Date().toISOString().slice(0, 10);
 setupRecognition();
 state.profile = loadProfile();
 if (state.profile) {
+  saveProfile();
   state.history = loadHistory();
   if (!state.history.length) {
     state.history = [{ role: 'assistant', content: `你回来了。${state.profile.name}一直在等你。` }];

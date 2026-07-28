@@ -1,9 +1,9 @@
-const CACHE_NAME = 'nexora-core-shell-v17';
+const CACHE_NAME = 'nexora-core-shell-v18';
 const SHELL_ASSETS = [
   './',
   './index.html',
   './style.css?v=0.5.0',
-  './app.js?v=0.7.5',
+  './app.js?v=0.7.6',
   './manifest.webmanifest',
   './assets/soulmate-icon-192.png',
   './assets/soulmate-icon-512.png',

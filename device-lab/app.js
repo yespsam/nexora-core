@@ -2,9 +2,13 @@ import {
   SOULMATE_HISTORY_KEY,
   SOULMATE_STORAGE_KEY,
   createSoulmateProfile,
+  defaultVoiceForStarter,
   normalizeSoulmateProfile,
   stageProgress
 } from '../shared/soulmate-profile.mjs';
+import { creatureVoiceResources } from '../shared/companion-data.mjs';
+
+const RELEASE_ID = 'evolution-voice-regression-v2';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const phoneFrame = $('#phone-frame');
@@ -28,7 +32,8 @@ function seedDemoProfile(force = false) {
     gender: 'neutral',
     starter: 'cute',
     temperament: 'warm',
-    voice: 'soft'
+    voice: defaultVoiceForStarter('cute'),
+    voiceCustomized: false
   });
   profile.bond = 88;
   profile.interactions = 11;
@@ -40,8 +45,8 @@ function seedDemoProfile(force = false) {
 }
 
 function loadFrames() {
-  phoneFrame.src = '../soulmate/?lab=1&release=creature-core-v1';
-  pendantFrame.src = '../pendant-display/?lab=1&state=idle&release=creature-core-v1';
+  phoneFrame.src = `../soulmate/?lab=1&release=${RELEASE_ID}`;
+  pendantFrame.src = `../pendant-display/?lab=1&state=idle&release=${RELEASE_ID}`;
 }
 
 function delay(ms) {
@@ -131,10 +136,16 @@ async function runAllTests() {
       const pendantPixels = pendant.sampleModel();
       return phonePixels?.opaque > 100 && pendantPixels?.opaque > 100;
     });
+    const manifestResponse = await fetch(`../NEXORA_3D_CREATURES/asset-manifest.json?release=${RELEASE_ID}`);
+    assert(manifestResponse.ok, `形态清单返回 ${manifestResponse.status}`);
+    const manifest = await manifestResponse.json();
+    const formCount = Object.values(manifest.creatures || {})
+      .reduce((total, creature) => total + Object.keys(creature.forms || {}).length, 0);
+    assert(manifest.version >= 2 && formCount === 9, `仅发现 ${formCount} 个原生形态`);
     phoneModelGeneration = phone.getModelState().modelGeneration;
     const size = roundDisplay.getBoundingClientRect();
     assert(Math.abs(size.width - 240) <= 2 && Math.abs(size.height - 240) <= 2, `圆屏为 ${Math.round(size.width)}×${Math.round(size.height)}`);
-    return '3D 模型正常 / 240×240';
+    return '9 个原生 3D 形态 / 240×240';
   }));
 
   results.push(await check('pair', '虚拟蓝牙连接', async () => {
@@ -152,6 +163,10 @@ async function runAllTests() {
     });
     assert(snapshot.companion.bond === phoneState.profile.bond, '共鸣值没有同步');
     assert(snapshot.companion.stage === stageProgress(phoneState.profile).stage.id, '成长形态没有同步');
+    assert(
+      phoneState.profile.voice === defaultVoiceForStarter(phoneState.profile.starter),
+      '初始形象与默认声线不匹配'
+    );
     return `${snapshot.companion.name} / ${snapshot.companion.stageName}`;
   }));
 
@@ -212,22 +227,30 @@ async function runAllTests() {
   }));
 
   results.push(await check('voice', '真实声线接口', async () => {
-    const response = await fetch('/api/voice/speak', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: '我在这里，慢慢说。',
-        persona: 'female',
-        relationship: 'companion',
-        mood: 'calm'
-      })
-    });
-    const type = response.headers.get('content-type') || '';
-    assert(response.ok, `接口返回 ${response.status}`);
-    assert(type.includes('audio'), '接口没有返回音频');
-    const audio = await response.blob();
-    assert(audio.size > 1000, '音频内容为空');
-    return `${Math.round(audio.size / 1024)} KB 音频`;
+    let totalBytes = 0;
+    for (const cast of creatureVoiceResources) {
+      const response = await fetch('/api/voice/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: '我在这里，慢慢说。',
+          persona: `creature:${cast.starter}`,
+          relationship: 'companion',
+          mood: 'calm',
+          archetype: cast.archetype,
+          starter: cast.starter
+        })
+      });
+      const type = response.headers.get('content-type') || '';
+      assert(response.ok, `${cast.name}接口返回 ${response.status}`);
+      assert(type.includes('audio'), `${cast.name}没有返回音频`);
+      assert(response.headers.get('x-qiban-archetype') === cast.archetype, `${cast.name}路由错误`);
+      assert(response.headers.get('x-qiban-voice') === cast.voice, `${cast.name}声线错误`);
+      const audio = await response.blob();
+      assert(audio.size > 1000, `${cast.name}音频内容为空`);
+      totalBytes += audio.size;
+    }
+    return `三路线匹配 / ${Math.round(totalBytes / 1024)} KB 音频`;
   }));
 
   results.push(await check('disconnect', '断连显示', async () => {

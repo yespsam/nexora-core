@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   createSoulmateExportBundle,
   createSoulmateProfile,
+  defaultVoiceForStarter,
   growSoulmate,
   normalizeSoulmateExportBundle,
   normalizeSoulmateHistory,
@@ -49,6 +50,29 @@ test('offers three original starters with independent evolution assets', () => {
     assert.equal(stages.length, 3);
     assert.ok(stages.every((stage) => stage.asset.includes(`/starters/${starter.id}-`)));
   });
+});
+
+test('new companions default to the voice designed for their starter route', () => {
+  assert.equal(defaultVoiceForStarter('cute'), 'bright');
+  assert.equal(createSoulmateProfile({ name: '露莫', starter: 'cute' }, 1000).voice, 'bright');
+  assert.equal(createSoulmateProfile({ name: '维尔', starter: 'cool' }, 1000).voice, 'steady');
+  assert.equal(createSoulmateProfile({ name: '艾拉', starter: 'beautiful' }, 1000).voice, 'soft');
+  assert.equal(createSoulmateProfile({ name: '自定义', starter: 'cute', voice: 'soft' }, 1000).voice, 'soft');
+});
+
+test('legacy default voices migrate while explicit voice choices remain stable', () => {
+  const legacy = createSoulmateProfile({ name: '旧露莫', starter: 'cute', voice: 'soft' }, 1000);
+  delete legacy.voiceCustomized;
+  assert.equal(normalizeSoulmateProfile(legacy, 1000).voice, 'bright');
+
+  const customized = createSoulmateProfile({
+    name: '自定义露莫',
+    starter: 'cute',
+    voice: 'soft',
+    voiceCustomized: true
+  }, 1000);
+  assert.equal(normalizeSoulmateProfile(customized, 1000).voice, 'soft');
+  assert.equal(normalizeSoulmateProfile(customized, 1000).voiceCustomized, true);
 });
 
 test('chat grows bond, traits, and bounded memories', () => {

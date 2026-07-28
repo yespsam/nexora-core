@@ -89,9 +89,9 @@
           <h1>让它第一次开口</h1>
           <p class="step-copy">声音之后可以修改，人格与记忆不会被替换。</p>
           <div class="segmented voice-segmented" role="group" aria-label="声音风格">
-            <button type="button" data-choice="voice" data-value="soft" class="active">星语</button>
-            <button type="button" data-choice="voice" data-value="bright">幼灵</button>
-            <button type="button" data-choice="voice" data-value="steady">锋鸣</button>
+            <button type="button" data-choice="voice" data-value="bright" class="active" aria-pressed="true">LUMO · 幼灵</button>
+            <button type="button" data-choice="voice" data-value="steady" aria-pressed="false">VEYR · 锋鸣</button>
+            <button type="button" data-choice="voice" data-value="soft" aria-pressed="false">AERA · 星语</button>
           </div>
           <button class="voice-preview" id="voice-preview" type="button">试听它的第一句话</button>
         </div>
@@ -222,9 +222,9 @@
       <section class="voice-settings" aria-labelledby="voice-settings-title">
         <div class="setting-row"><span id="voice-settings-title">声音</span><strong id="setting-voice"></strong></div>
         <div class="segmented settings-voice-selector" role="group" aria-label="修改声音风格">
-          <button type="button" data-setting-voice="soft">星语</button>
-          <button type="button" data-setting-voice="bright">幼灵</button>
-          <button type="button" data-setting-voice="steady">锋鸣</button>
+          <button type="button" data-setting-voice="bright">LUMO · 幼灵</button>
+          <button type="button" data-setting-voice="steady">VEYR · 锋鸣</button>
+          <button type="button" data-setting-voice="soft">AERA · 星语</button>
         </div>
         <p class="setting-status" id="voice-setting-status" aria-live="polite"></p>
       </section>
@@ -238,6 +238,6 @@
       <button class="wide-command danger" id="reset-button" type="button">重新诞生</button>
     </dialog>
   </main>
-  <script type="module" src="./app.js?v=0.7.5"></script>
+  <script type="module" src="./app.js?v=0.7.6"></script>
 </body>
 </html>

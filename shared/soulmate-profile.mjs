@@ -74,6 +74,16 @@ const voiceIds = new Set(['soft', 'bright', 'steady']);
 const temperamentIds = new Set(['warm', 'curious', 'steady']);
 const starterIds = new Set(Object.keys(soulmateStarterCatalog));
 
+export const soulmateDefaultVoiceByStarter = Object.freeze({
+  cute: 'bright',
+  cool: 'steady',
+  beautiful: 'soft'
+});
+
+export function defaultVoiceForStarter(starter = 'cute') {
+  return soulmateDefaultVoiceByStarter[starter] || soulmateDefaultVoiceByStarter.cute;
+}
+
 function cleanText(value, limit) {
   return String(value || '')
     .replace(/[<>&]/g, '')
@@ -104,6 +114,9 @@ export function stageForBond(bond, starter = 'cute') {
 export function createSoulmateProfile(input = {}, now = Date.now()) {
   const today = new Date(now).toISOString().slice(0, 10);
   const temperament = temperamentIds.has(input.temperament) ? input.temperament : 'warm';
+  const starter = starterIds.has(input.starter) ? input.starter : 'cute';
+  const suppliedVoice = voiceIds.has(input.voice) ? input.voice : '';
+  const voiceCustomized = input.voiceCustomized === false ? false : Boolean(suppliedVoice);
   const traitSeeds = {
     warm: { warmth: 66, curiosity: 42, steadiness: 54, courage: 40, independence: 34 },
     curious: { warmth: 48, curiosity: 70, steadiness: 38, courage: 52, independence: 42 },
@@ -115,8 +128,9 @@ export function createSoulmateProfile(input = {}, now = Date.now()) {
     name: cleanText(input.name, 12) || '未命名',
     birthday: cleanDate(input.birthday, today),
     gender: genderIds.has(input.gender) ? input.gender : 'neutral',
-    voice: voiceIds.has(input.voice) ? input.voice : 'soft',
-    starter: starterIds.has(input.starter) ? input.starter : 'cute',
+    voice: voiceCustomized ? suppliedVoice : defaultVoiceForStarter(starter),
+    voiceCustomized,
+    starter,
     temperament,
     createdAt: now,
     lastActiveAt: now,
@@ -132,7 +146,11 @@ export function normalizeSoulmateProfile(value, now = Date.now()) {
   if (!value || typeof value !== 'object' || value.version !== SOULMATE_PROFILE_VERSION) return null;
   const createdAt = numeric(value.createdAt, now, 0, now);
   const daysTogether = Math.max(1, Math.floor((now - createdAt) / 86400000) + 1);
-  const base = createSoulmateProfile(value, createdAt);
+  const base = createSoulmateProfile({
+    ...value,
+    // Profiles written before this marker used the wrong generic default.
+    voiceCustomized: value.voiceCustomized === true
+  }, createdAt);
   return {
     ...base,
     id: cleanText(value.id, 64) || base.id,
