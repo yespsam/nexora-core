@@ -11,7 +11,9 @@ const bundleDirectory = path.join(outputRoot, 'nc01-flash-bundle');
 const zipPath = path.join(outputRoot, 'nexora-nc01-flash-bundle.zip');
 const platformioRoot = path.join(process.env.HOME || '', '.platformio');
 const esptool = path.join(platformioRoot, 'packages', 'tool-esptoolpy', 'esptool.py');
+const mklittlefs = path.join(platformioRoot, 'packages', 'tool-mklittlefs', 'mklittlefs');
 const bootAppSource = path.join(platformioRoot, 'packages', 'framework-arduinoespressif32', 'tools', 'partitions', 'boot_app0.bin');
+const characterManifestPath = path.join(root, 'hardware', 'soulmate-pendant', 'firmware', 'data', 'characters', 'manifest.json');
 
 const inputs = [
   { name: 'bootloader.bin', source: path.join(buildDirectory, 'bootloader.bin'), offset: '0x0000' },
@@ -25,7 +27,18 @@ async function sha256(file) {
   return createHash('sha256').update(await readFile(file)).digest('hex');
 }
 
-await Promise.all([esptool, ...inputs.map((input) => input.source)].map((file) => stat(file)));
+await Promise.all([esptool, mklittlefs, characterManifestPath, ...inputs.map((input) => input.source)].map((file) => stat(file)));
+const characterManifest = JSON.parse(await readFile(characterManifestPath, 'utf8'));
+const filesystemListing = spawnSync(mklittlefs, [
+  '-b', '4096', '-p', '256', '-s', '8388608', '-l', inputs.at(-1).source
+], { encoding: 'utf8' });
+if (filesystemListing.status !== 0) throw new Error('Unable to inspect NC-01 LittleFS image');
+for (const frame of characterManifest.frames) {
+  if (!filesystemListing.stdout.includes(`/characters/${frame.file}`)) {
+    throw new Error(`NC-01 LittleFS image is missing ${frame.file}`);
+  }
+}
+if (characterManifest.frames.length !== 54) throw new Error('NC-01 LittleFS image must contain 54 interaction frames');
 await rm(bundleDirectory, { recursive: true, force: true });
 await rm(zipPath, { force: true });
 await mkdir(bundleDirectory, { recursive: true });

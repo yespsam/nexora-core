@@ -56,7 +56,7 @@ test('pendant kit includes a slicer-ready 3MF plate and source model', async () 
   assert.ok((await stat(new URL('source/soulmate-pendant.scad', root))).size > 4_000);
 });
 
-test('NC-01 firmware has a BLE contract and nine RGB565 character frames', async () => {
+test('NC-01 firmware has a BLE contract and 54 RGB565 interaction frames', async () => {
   const contract = JSON.parse(await readFile(new URL('display/display-contract.json', root), 'utf8'));
   const firmwareManifest = JSON.parse(await readFile(new URL('firmware/data/characters/manifest.json', root), 'utf8'));
   const platformio = await readFile(new URL('firmware/platformio.ini', root), 'utf8');
@@ -66,10 +66,15 @@ test('NC-01 firmware has a BLE contract and nine RGB565 character frames', async
   assert.match(platformio, /GC9A01_DRIVER=1/);
   assert.match(platformio, /TFT_BL=40/);
   assert.equal(firmwareManifest.format, 'NXR1');
-  assert.equal(firmwareManifest.frames.length, 9);
+  assert.equal(firmwareManifest.frames.length, 54);
   assert.deepEqual(new Set(firmwareManifest.frames.map((frame) => frame.route)), new Set(['cute', 'cool', 'beautiful']));
   assert.deepEqual(new Set(firmwareManifest.frames.map((frame) => frame.stage)), new Set(['seed', 'young', 'resonance']));
+  assert.deepEqual(
+    new Set(firmwareManifest.frames.map((frame) => frame.pose)),
+    new Set(['idle', 'affection', 'listening', 'thinking', 'speaking', 'happy'])
+  );
   for (const frame of firmwareManifest.frames) {
+    assert.ok(frame.file.length <= 31, `${frame.file} exceeds the LittleFS filename limit`);
     assert.equal(frame.bytes, 8 + 240 * 240 * 2);
     const file = await readFile(new URL(`firmware/data/characters/${frame.file}`, root));
     assert.equal(file.subarray(0, 4).toString('ascii'), 'NXR1');

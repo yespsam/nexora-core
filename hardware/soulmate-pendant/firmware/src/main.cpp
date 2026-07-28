@@ -14,9 +14,11 @@ namespace {
 enum class DisplayState : uint8_t {
   Boot,
   Idle,
+  Affection,
   Listening,
   Thinking,
   Speaking,
+  Happy,
   Notice,
   Charging,
   LowPower,
@@ -66,9 +68,11 @@ const char* stateName(DisplayState state) {
   switch (state) {
     case DisplayState::Boot: return "boot";
     case DisplayState::Idle: return "idle";
+    case DisplayState::Affection: return "affection";
     case DisplayState::Listening: return "listening";
     case DisplayState::Thinking: return "thinking";
     case DisplayState::Speaking: return "speaking";
+    case DisplayState::Happy: return "happy";
     case DisplayState::Notice: return "notice";
     case DisplayState::Charging: return "charging";
     case DisplayState::LowPower: return "low-power";
@@ -79,9 +83,11 @@ const char* stateName(DisplayState state) {
 
 DisplayState parseState(const String& value) {
   if (value == "boot") return DisplayState::Boot;
+  if (value == "affection") return DisplayState::Affection;
   if (value == "listening") return DisplayState::Listening;
   if (value == "thinking") return DisplayState::Thinking;
   if (value == "speaking") return DisplayState::Speaking;
+  if (value == "happy") return DisplayState::Happy;
   if (value == "notice") return DisplayState::Notice;
   if (value == "charging") return DisplayState::Charging;
   if (value == "low-power") return DisplayState::LowPower;
@@ -105,7 +111,17 @@ String compactText(const char* value, size_t maxBytes) {
 }
 
 String framePath() {
-  return "/characters/" + snapshot.starter + "-" + snapshot.stage + ".nxr";
+  String poseCode = "i";
+  switch (snapshot.state) {
+    case DisplayState::Affection: poseCode = "a"; break;
+    case DisplayState::Listening: poseCode = "l"; break;
+    case DisplayState::Thinking: poseCode = "t"; break;
+    case DisplayState::Speaking: poseCode = "s"; break;
+    case DisplayState::Happy:
+    case DisplayState::Notice: poseCode = "h"; break;
+    default: break;
+  }
+  return "/characters/" + snapshot.starter + "-" + snapshot.stage + "-" + poseCode + ".nxr";
 }
 
 void setBacklight(bool enabled) {

@@ -7,7 +7,7 @@
   <meta name="description" content="NEXORA CORE NC-01 240×240 圆屏运行界面">
   <title>NEXORA CORE · NC-01 圆屏</title>
   <link rel="icon" href="../soulmate/assets/soulmate-icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=0.2.0">
+  <link rel="stylesheet" href="./style.css?v=0.3.1">
 </head>
 <body>
   <main class="display-lab" id="display-lab">
@@ -21,7 +21,7 @@
         <span class="light-guide light-guide-three" aria-hidden="true"></span>
         <span class="light-guide light-guide-four" aria-hidden="true"></span>
 
-        <section class="round-display" id="round-display" aria-label="240×240 圆形显示内容" aria-live="polite">
+        <section class="round-display" id="round-display" tabindex="0" aria-label="240×240 圆形显示内容，可单击、双击或长按模拟互动" aria-live="polite">
           <div class="boot-layer" id="boot-layer">
             <span>NEXORA</span>
             <strong>CORE</strong>
@@ -35,7 +35,8 @@
               <span class="screen-battery" id="screen-battery">76</span>
             </header>
             <span class="listening-ring" aria-hidden="true"></span>
-            <img id="screen-character" src="../soulmate/assets/starters/cute-seed-v1.webp" alt="星澜的绒云幼体形象">
+            <img id="screen-character" alt="星澜的绒云幼体形象">
+            <span class="interaction-pulse" aria-hidden="true"></span>
             <div class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></div>
             <div class="voice-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
             <footer class="screen-footer">
@@ -51,7 +52,7 @@
       <header class="control-header">
         <span class="control-kicker">NEXORA CORE / NC-01</span>
         <h1>圆屏运行台</h1>
-        <p>240×240 · GC9A01A · 非触控原型</p>
+        <p>240×240 · 单击亲近 · 双击开心 · 长按倾听</p>
       </header>
 
       <div class="control-row control-row-two">
@@ -71,9 +72,11 @@
         <legend>屏幕状态</legend>
         <div class="state-grid">
           <button type="button" data-display-state="idle">待机</button>
+          <button type="button" data-display-state="affection">亲近</button>
           <button type="button" data-display-state="listening">倾听</button>
           <button type="button" data-display-state="thinking">思考</button>
           <button type="button" data-display-state="speaking">说话</button>
+          <button type="button" data-display-state="happy">开心</button>
           <button type="button" data-display-state="notice">主动提醒</button>
           <button type="button" data-display-state="charging">充电</button>
           <button type="button" data-display-state="low-power">低电量</button>
@@ -96,6 +99,7 @@
       </div>
 
       <dl class="trigger-map">
+        <div><dt>单击 / 双击 / 长按</dt><dd>亲近 / 开心 / 倾听</dd></div>
         <div><dt>抬腕 / 拿起</dt><dd>唤醒角色</dd></div>
         <div><dt>唤醒词 / 麦克风</dt><dd>进入倾听</dd></div>
         <div><dt>模型响应</dt><dd>思考 → 说话</dd></div>
@@ -103,6 +107,6 @@
       </dl>
     </aside>
   </main>
-  <script type="module" src="./app.js?v=0.2.0"></script>
+  <script type="module" src="./app.js?v=0.3.1"></script>
 </body>
 </html>

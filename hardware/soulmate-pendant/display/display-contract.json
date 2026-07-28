@@ -12,19 +12,17 @@
   },
   "safeArea": {
     "status": [62, 22, 116, 16],
-    "characterBounds": {
-      "cute": [27, 30, 186, 186],
-      "cool": [41, 43, 158, 158],
-      "beautiful": [36, 38, 168, 168]
-    },
+    "characterBounds": [15, 15, 210, 210],
     "footer": [66, 195, 108, 17]
   },
   "states": [
     "boot",
     "idle",
+    "affection",
     "listening",
     "thinking",
     "speaking",
+    "happy",
     "notice",
     "charging",
     "low-power",

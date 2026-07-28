@@ -68,9 +68,11 @@ const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('s
 
 const phaseLabels = {
   idle: '待机',
+  affection: '正在靠近你',
   listening: '正在听你说',
   thinking: '正在思考',
   speaking: '正在回答',
+  happy: '很开心',
   ready: '点击播放',
   error: '播放失败',
   offline: '语音暂不可用'
@@ -114,7 +116,8 @@ const state = {
   currentStageId: '',
   pendantDevice: null,
   pendantCharacteristic: null,
-  pendantSyncTimer: 0
+  pendantSyncTimer: 0,
+  presencePhaseTimer: 0
 };
 
 function safeRead(key) {
@@ -283,10 +286,9 @@ function renderCompanion() {
   if (state.currentStageId !== stageIdentity) {
     state.currentStageId = stageIdentity;
     companionImage.style.opacity = '0';
-    window.setTimeout(() => {
-      companionImage.src = progress.stage.asset;
-      companionImage.onload = () => { companionImage.style.opacity = '1'; };
-    }, 120);
+    companionImage.onload = () => { companionImage.style.opacity = '1'; };
+    companionImage.src = progress.stage.asset;
+    if (companionImage.complete && companionImage.naturalWidth > 0) companionImage.style.opacity = '1';
   }
   $('#setting-voice').textContent = voiceNames[state.profile.voice] || voiceNames.soft;
   $$('[data-setting-voice]').forEach((button) => {
@@ -365,6 +367,11 @@ function reactToTouch(kind) {
     ? ['它认真地看着你。', '它把这份关心收进了心里。']
     : ['它轻轻贴近了你。', '它舒服地眯起眼睛。', '它记住了你的触碰。'];
   presenceLine.textContent = lines[(state.profile.interactions + lines.length) % lines.length];
+  if (!state.busy && !['listening', 'thinking', 'speaking', 'ready'].includes(state.phase)) {
+    window.clearTimeout(state.presencePhaseTimer);
+    setPhase(kind === 'care' ? 'happy' : 'affection');
+    state.presencePhaseTimer = window.setTimeout(() => setPhase('idle'), kind === 'care' ? 1350 : 1050);
+  }
   window.setTimeout(() => companionTouch.classList.remove('interacting'), 700);
 }
 

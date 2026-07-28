@@ -1,22 +1,20 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const sourceDirectory = path.join(root, 'soulmate', 'assets', 'starters');
+const sourceDirectory = path.join(root, 'soulmate', 'assets', 'starters', 'poses');
 const outputDirectory = path.join(root, 'hardware', 'soulmate-pendant', 'firmware', 'data', 'characters');
 const reviewDirectory = path.join(root, 'output', 'pendant-firmware');
 const routes = ['cute', 'cool', 'beautiful'];
 const stages = ['seed', 'young', 'resonance'];
+const poses = ['idle', 'affection', 'listening', 'thinking', 'speaking', 'happy'];
+const poseCodes = { idle: 'i', affection: 'a', listening: 'l', thinking: 't', speaking: 's', happy: 'h' };
 const screenSize = 240;
 const background = { r: 239, g: 243, b: 242, alpha: 1 };
-const bounds = {
-  cute: { left: 27, top: 30, width: 186, height: 186 },
-  cool: { left: 41, top: 43, width: 158, height: 158 },
-  beautiful: { left: 36, top: 38, width: 168, height: 168 }
-};
+const frameBounds = { left: 15, top: 15, width: 210, height: 210 };
 
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
@@ -40,10 +38,9 @@ function encodeNxr(raw, channels) {
   return output;
 }
 
-async function buildFrame(route, stage) {
-  const sourcePath = path.join(sourceDirectory, `${route}-${stage}-v1.webp`);
+async function buildFrame(route, stage, pose) {
+  const sourcePath = path.join(sourceDirectory, `${route}-${stage}-${pose}-v1.webp`);
   const source = await readFile(sourcePath);
-  const frameBounds = bounds[route];
   const character = await sharp(source)
     .resize({
       width: frameBounds.width,
@@ -68,49 +65,54 @@ async function buildFrame(route, stage) {
   const png = await frame.clone().png().toBuffer();
   const { data, info } = await frame.raw().toBuffer({ resolveWithObject: true });
   const encoded = encodeNxr(data, info.channels);
-  const file = `${route}-${stage}.nxr`;
+  const file = `${route}-${stage}-${poseCodes[pose]}.nxr`;
   await writeFile(path.join(outputDirectory, file), encoded);
   return {
-    id: `${route}-${stage}`,
+    id: `${route}-${stage}-${pose}`,
     route,
     stage,
+    pose,
     file,
     width: screenSize,
     height: screenSize,
     bytes: encoded.length,
     bounds: [frameBounds.left, frameBounds.top, frameBounds.width, frameBounds.height],
-    source: `soulmate/assets/starters/${route}-${stage}-v1.webp`,
+    source: `soulmate/assets/starters/poses/${route}-${stage}-${pose}-v1.webp`,
     sourceSha256: sha256(source),
     outputSha256: sha256(encoded),
     png
   };
 }
 
+await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(outputDirectory, { recursive: true });
 await mkdir(reviewDirectory, { recursive: true });
 
 const frames = [];
 for (const route of routes) {
-  for (const stage of stages) frames.push(await buildFrame(route, stage));
+  for (const stage of stages) {
+    for (const pose of poses) frames.push(await buildFrame(route, stage, pose));
+  }
 }
 
 const manifest = {
-  version: 1,
+  version: 2,
   format: 'NXR1',
   byteOrder: 'little-endian',
   pixelFormat: 'RGB565',
   screen: [screenSize, screenSize],
   background: '#eff3f2',
+  poses,
   frames: frames.map(({ png, ...frame }) => frame)
 };
 await writeFile(path.join(outputDirectory, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
 await sharp({
-  create: { width: screenSize * 3, height: screenSize * 3, channels: 4, background }
+  create: { width: screenSize * poses.length, height: screenSize * routes.length * stages.length, channels: 4, background }
 }).composite(frames.map((frame, index) => ({
   input: frame.png,
-  left: (index % 3) * screenSize,
-  top: Math.floor(index / 3) * screenSize
+  left: (index % poses.length) * screenSize,
+  top: Math.floor(index / poses.length) * screenSize
 }))).png().toFile(path.join(reviewDirectory, 'nc01-firmware-character-contact-sheet.png'));
 
 console.log(`Built ${frames.length} NXR1 frames (${frames.reduce((sum, frame) => sum + frame.bytes, 0)} bytes).`);

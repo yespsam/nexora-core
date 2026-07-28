@@ -4,9 +4,9 @@
 
 ## 当前已接通
 
-- GC9A01A 圆屏：显示三条出生路线、三个进化阶段，共九套角色帧。
+- GC9A01A 圆屏：显示三条出生路线、三个进化阶段，每个形态含六种互动姿势，共 54 套角色帧。
 - BLE GATT：手机可同步名字、伙伴路线、进化阶段、共鸣值、电量和交互状态。
-- 运行状态：`boot`、`idle`、`listening`、`thinking`、`speaking`、`notice`、`charging`、`low-power`、`sleep`。
+- 运行状态：`boot`、`idle`、`affection`、`listening`、`thinking`、`speaking`、`happy`、`notice`、`charging`、`low-power`、`sleep`。
 - 本地身份：断电后通过 ESP32 `Preferences` 恢复角色资料。
 - 电池 ADC：按官方 GPIO 1 与三倍分压公式读取，首件上板后仍需校准曲线。
 - 串口台架：没有手机时也可直接发送一行 JSON 检查完整状态机。
@@ -24,7 +24,7 @@ npm run build:pendant-firmware-fs
 npm run package:pendant-firmware
 ```
 
-第一条命令会把九张透明 WebP 转为圆屏可流式读取的 `NXR1 / RGB565` 帧，再编译应用。第二条命令生成 LittleFS 镜像。第三条命令重做两项构建并生成工厂镜像与 ZIP 刷机包。构建产物位于：
+第一条命令会把 54 张透明 WebP 互动姿势转为圆屏可流式读取的 `NXR1 / RGB565` 帧，再编译应用。第二条命令生成 8 MB LittleFS 镜像。第三条命令重做两项构建并生成工厂镜像与 ZIP 刷机包。构建产物位于：
 
 ```text
 .pio/build/nc01/firmware.bin

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "format": "NXR1",
   "byteOrder": "little-endian",
   "pixelFormat": "RGB565",
@@ -8,168 +8,1040 @@
     240
   ],
   "background": "#eff3f2",
+  "poses": [
+    "idle",
+    "affection",
+    "listening",
+    "thinking",
+    "speaking",
+    "happy"
+  ],
   "frames": [
     {
-      "id": "cute-seed",
+      "id": "cute-seed-idle",
       "route": "cute",
       "stage": "seed",
-      "file": "cute-seed.nxr",
+      "pose": "idle",
+      "file": "cute-seed-i.nxr",
       "width": 240,
       "height": 240,
       "bytes": 115208,
       "bounds": [
-        27,
-        30,
-        186,
-        186
+        15,
+        15,
+        210,
+        210
       ],
-      "source": "soulmate/assets/starters/cute-seed-v1.webp",
-      "sourceSha256": "a765c46862ec79da7a524d15b9dfcd42e0c944b725d5dffd0f57a416c97fc3ab",
-      "outputSha256": "ca3cfba1f36b65bf9a4dbb2123e0054c5b98be780caf42155f717106e24ef996"
+      "source": "soulmate/assets/starters/poses/cute-seed-idle-v1.webp",
+      "sourceSha256": "9ec0b970c2efe1b2b929d8426edfb46f065361a78419d90e4a7b16c3aab1580b",
+      "outputSha256": "1c3fd35b68f9d3251c587d59d57b2e51a6b97004df6949c181928100e9a9a8fa"
     },
     {
-      "id": "cute-young",
+      "id": "cute-seed-affection",
+      "route": "cute",
+      "stage": "seed",
+      "pose": "affection",
+      "file": "cute-seed-a.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-seed-affection-v1.webp",
+      "sourceSha256": "9b44137fbed5086bac796ef6a29347521cc633737e5355004485bb0a8ee2f2c2",
+      "outputSha256": "325d9bb8350e6b9412b1b41bba8bf86b88660603ce05ff33f302340b5620441c"
+    },
+    {
+      "id": "cute-seed-listening",
+      "route": "cute",
+      "stage": "seed",
+      "pose": "listening",
+      "file": "cute-seed-l.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-seed-listening-v1.webp",
+      "sourceSha256": "e8547d38856bb42066c967fcc4f583cc1110fbbec95e28ab10de86319281a48c",
+      "outputSha256": "b7b1a1e7b5b66c32010b57d301cf5833aa8af8659a00b88d65f0fbd209d36c83"
+    },
+    {
+      "id": "cute-seed-thinking",
+      "route": "cute",
+      "stage": "seed",
+      "pose": "thinking",
+      "file": "cute-seed-t.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-seed-thinking-v1.webp",
+      "sourceSha256": "06848f66b98932d9a3ebc98c7d3333ac6495e197fbc408f1a3a38f85dc72299f",
+      "outputSha256": "31f790b1eeb026ddc1be2201117d3473114f8eadd9f47cba5e5f8b10f3874d62"
+    },
+    {
+      "id": "cute-seed-speaking",
+      "route": "cute",
+      "stage": "seed",
+      "pose": "speaking",
+      "file": "cute-seed-s.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-seed-speaking-v1.webp",
+      "sourceSha256": "944cfdd486a03bab03c156d6275c50646a4495d236b118e7d3467dcf211679db",
+      "outputSha256": "bd2ca40b46753b010db0438652e7393015dd42bf7112b1e3f3fe64a85811a9a3"
+    },
+    {
+      "id": "cute-seed-happy",
+      "route": "cute",
+      "stage": "seed",
+      "pose": "happy",
+      "file": "cute-seed-h.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-seed-happy-v1.webp",
+      "sourceSha256": "9f3c5865e6fa89153606eebe9a66136c2ecd8ee9e0135c333078d8b48688d082",
+      "outputSha256": "3e7762e07c7f3a6268aecc4caf35c61644fa2cf8a6345be4f9790b7352831f65"
+    },
+    {
+      "id": "cute-young-idle",
       "route": "cute",
       "stage": "young",
-      "file": "cute-young.nxr",
+      "pose": "idle",
+      "file": "cute-young-i.nxr",
       "width": 240,
       "height": 240,
       "bytes": 115208,
       "bounds": [
-        27,
-        30,
-        186,
-        186
+        15,
+        15,
+        210,
+        210
       ],
-      "source": "soulmate/assets/starters/cute-young-v1.webp",
-      "sourceSha256": "0736337b115ea8c97094031f9dd7cf5bf85dd249f55dda2dcb7e46c6d29479be",
-      "outputSha256": "1025ddd91c87cc334b443fbd4064a1fb44c5a19acbd03e7ec6f6e1cd7874d219"
+      "source": "soulmate/assets/starters/poses/cute-young-idle-v1.webp",
+      "sourceSha256": "49887a4ce0aa85e76480416d9ac3123ea54e486bf0c5f30970dafc4c2ff4e101",
+      "outputSha256": "1199745bbb0e4d2dd477d942264feaee69e0a81933a38c0ceb712ec696a0ac4d"
     },
     {
-      "id": "cute-resonance",
+      "id": "cute-young-affection",
+      "route": "cute",
+      "stage": "young",
+      "pose": "affection",
+      "file": "cute-young-a.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-young-affection-v1.webp",
+      "sourceSha256": "346a66de7611ca279bcb2a63c53809c5581364ed305b4c40864e3fc60d77e389",
+      "outputSha256": "34ca7d3f46e041dc04a617fa01e8195672629c1af3ee3fe42c95ef4821d4c2c2"
+    },
+    {
+      "id": "cute-young-listening",
+      "route": "cute",
+      "stage": "young",
+      "pose": "listening",
+      "file": "cute-young-l.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-young-listening-v1.webp",
+      "sourceSha256": "fe228149fa267de643e3081c091c565fd1de50bce28e90944a3b38ce601a9d30",
+      "outputSha256": "2be339bdd4ea1e2383038c38c3cf1506d9fde44ef52df097e80b3af4033dc337"
+    },
+    {
+      "id": "cute-young-thinking",
+      "route": "cute",
+      "stage": "young",
+      "pose": "thinking",
+      "file": "cute-young-t.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-young-thinking-v1.webp",
+      "sourceSha256": "e2be23a681334abebac5dea1c92f8cdb4a6a51b264fae09386142a6417a0ea4c",
+      "outputSha256": "a78645db71f946a8de80fab5740335847aff3cad0ec078a03251afeeb69e69ce"
+    },
+    {
+      "id": "cute-young-speaking",
+      "route": "cute",
+      "stage": "young",
+      "pose": "speaking",
+      "file": "cute-young-s.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-young-speaking-v1.webp",
+      "sourceSha256": "306a1c305889338c08c6af4ec356829bedc376ec37fe5e1b7bbefd9b476a0b66",
+      "outputSha256": "e8e10d61ee8e7ec48d4b749e2bf38a837391ff777e2f79722e2cbc5efb737382"
+    },
+    {
+      "id": "cute-young-happy",
+      "route": "cute",
+      "stage": "young",
+      "pose": "happy",
+      "file": "cute-young-h.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-young-happy-v1.webp",
+      "sourceSha256": "957a0f7755e9ca42712b231865a4a60e4bfea73b2417dc27ab3fc85ea8ba7d60",
+      "outputSha256": "f845101317b36bd65e3c2982ab5552e2aa1141e3fe5f2032f0aec2e65f6da003"
+    },
+    {
+      "id": "cute-resonance-idle",
       "route": "cute",
       "stage": "resonance",
-      "file": "cute-resonance.nxr",
+      "pose": "idle",
+      "file": "cute-resonance-i.nxr",
       "width": 240,
       "height": 240,
       "bytes": 115208,
       "bounds": [
-        27,
-        30,
-        186,
-        186
+        15,
+        15,
+        210,
+        210
       ],
-      "source": "soulmate/assets/starters/cute-resonance-v1.webp",
-      "sourceSha256": "6075d55f67a1a5b32b0bef8d299cd64fcc7b12dc310e9d8e990b9effc5a9485d",
-      "outputSha256": "1a9748c6fc844ee3e7ebfe9d4a772465842b3d1fe8bb9a17d2c97db14c9bec88"
+      "source": "soulmate/assets/starters/poses/cute-resonance-idle-v1.webp",
+      "sourceSha256": "12dd32cc98d485adff862fc230706e3917c9a63c5f76e6dc258734f52a45f187",
+      "outputSha256": "8b4cb99b66d6e774c4c6a84e0f0d688b48f915135a7f1454c1190167450721b7"
     },
     {
-      "id": "cool-seed",
+      "id": "cute-resonance-affection",
+      "route": "cute",
+      "stage": "resonance",
+      "pose": "affection",
+      "file": "cute-resonance-a.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-resonance-affection-v1.webp",
+      "sourceSha256": "bd569a779a180ce74b10a45058589065942493bb77c1a90fecebd27de6701d3d",
+      "outputSha256": "ab1fd37fcfbe9977bd3732960f8bccb2b6733807cf91b4ae12ae3ddaaab0ba9f"
+    },
+    {
+      "id": "cute-resonance-listening",
+      "route": "cute",
+      "stage": "resonance",
+      "pose": "listening",
+      "file": "cute-resonance-l.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-resonance-listening-v1.webp",
+      "sourceSha256": "173b473b007623a227df31014c4476730f8a31e4bfb09d04dbb55947fbc23ea3",
+      "outputSha256": "c816a4f233305556f3abec2cd48493dfb80ba3cd354b47b6454817d68e6768f7"
+    },
+    {
+      "id": "cute-resonance-thinking",
+      "route": "cute",
+      "stage": "resonance",
+      "pose": "thinking",
+      "file": "cute-resonance-t.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-resonance-thinking-v1.webp",
+      "sourceSha256": "bf472a3601f8a306635ff58ca070760fe0325643858b3e35ee7d118c408bbf66",
+      "outputSha256": "4be742754c269c5021992250ca8b005329881025b82606a4bb55ab276de19570"
+    },
+    {
+      "id": "cute-resonance-speaking",
+      "route": "cute",
+      "stage": "resonance",
+      "pose": "speaking",
+      "file": "cute-resonance-s.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-resonance-speaking-v1.webp",
+      "sourceSha256": "5c3260590a0f4292825be34725d4b32838908a07e556c26c23a69e3a06c25222",
+      "outputSha256": "c2ff289294c5f54ea045ebe462349f063c263714cf752d3d284544ebccb87997"
+    },
+    {
+      "id": "cute-resonance-happy",
+      "route": "cute",
+      "stage": "resonance",
+      "pose": "happy",
+      "file": "cute-resonance-h.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cute-resonance-happy-v1.webp",
+      "sourceSha256": "70dfb4516a0090e339a609b4e0695e48cdff436631c0c69443af63583e0bbb9f",
+      "outputSha256": "d7562ee1ba18845af9eb767e8ebaec796de204d6e4a32ce613aadf6673eaeb92"
+    },
+    {
+      "id": "cool-seed-idle",
       "route": "cool",
       "stage": "seed",
-      "file": "cool-seed.nxr",
+      "pose": "idle",
+      "file": "cool-seed-i.nxr",
       "width": 240,
       "height": 240,
       "bytes": 115208,
       "bounds": [
-        41,
-        43,
-        158,
-        158
+        15,
+        15,
+        210,
+        210
       ],
-      "source": "soulmate/assets/starters/cool-seed-v1.webp",
-      "sourceSha256": "9ff53fd0c685f7adf26929329de7162464e87d91392c68df05cbe6580918d4c6",
-      "outputSha256": "64bba2a504d631366650591a9bdfdaeeea87dc9eae7a37fda042c86d2c0bc5dc"
+      "source": "soulmate/assets/starters/poses/cool-seed-idle-v1.webp",
+      "sourceSha256": "e63ab412b33f59172e04fbaab12b81ab3a1bb68b194649659bf99f13b4acaddc",
+      "outputSha256": "4948b9a57f191d6fc119a0d92006fea9212a73f7738a35fce892c264f00787c2"
     },
     {
-      "id": "cool-young",
+      "id": "cool-seed-affection",
+      "route": "cool",
+      "stage": "seed",
+      "pose": "affection",
+      "file": "cool-seed-a.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-seed-affection-v1.webp",
+      "sourceSha256": "89b8b96226db307bf3deeefebcb0ed59f675cada4c10f984f50f5969e2f7bc98",
+      "outputSha256": "3f83ffb8071ca65ca8ae2117fc2cc713e62a1f10c002ab028d7e98fe62c31927"
+    },
+    {
+      "id": "cool-seed-listening",
+      "route": "cool",
+      "stage": "seed",
+      "pose": "listening",
+      "file": "cool-seed-l.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-seed-listening-v1.webp",
+      "sourceSha256": "e5685936c746a6cfe35a9faabe6570f1cb34b9cdf336f76d81776c5efe186772",
+      "outputSha256": "49b14b912a1ffe9a9e94c935eae816d7e15ee41719337e1db5da7dd4c8420d6c"
+    },
+    {
+      "id": "cool-seed-thinking",
+      "route": "cool",
+      "stage": "seed",
+      "pose": "thinking",
+      "file": "cool-seed-t.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-seed-thinking-v1.webp",
+      "sourceSha256": "1b55d293f05b2741cd963676e40d33ae25b9733c8e7b0d2b8260c751eb36fe5c",
+      "outputSha256": "db2babdeebe463d43fd9d62e0391d25a2afca57ce60010268b4613c3e9f3268c"
+    },
+    {
+      "id": "cool-seed-speaking",
+      "route": "cool",
+      "stage": "seed",
+      "pose": "speaking",
+      "file": "cool-seed-s.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-seed-speaking-v1.webp",
+      "sourceSha256": "c43f488d61c1e8bd92fa1e789c8446b91f8f12241e142e30734858e7f28f440e",
+      "outputSha256": "ce5678bd3b2faed3de605b0a9095050ecb4e663182829946940380c084186c25"
+    },
+    {
+      "id": "cool-seed-happy",
+      "route": "cool",
+      "stage": "seed",
+      "pose": "happy",
+      "file": "cool-seed-h.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-seed-happy-v1.webp",
+      "sourceSha256": "b1d23b01605c56d5c2c2d4b11a36baa55897538a44942806fab2a86f29b9d031",
+      "outputSha256": "6b6d6f6406c4895134a936f1fd6feb6f0000c0a5aa8ec9a1c6c0ddd11935f9ee"
+    },
+    {
+      "id": "cool-young-idle",
       "route": "cool",
       "stage": "young",
-      "file": "cool-young.nxr",
+      "pose": "idle",
+      "file": "cool-young-i.nxr",
       "width": 240,
       "height": 240,
       "bytes": 115208,
       "bounds": [
-        41,
-        43,
-        158,
-        158
+        15,
+        15,
+        210,
+        210
       ],
-      "source": "soulmate/assets/starters/cool-young-v1.webp",
-      "sourceSha256": "f1c24386856546ad6c3742544c9d05ee69837af935f46ea002c532e29675c246",
-      "outputSha256": "0fa4240e1d97b794d12812a1a5fa2abf0f461eba72b35b1a919fd97e0933e9fe"
+      "source": "soulmate/assets/starters/poses/cool-young-idle-v1.webp",
+      "sourceSha256": "34fc2e7de35c003954391e0c241d2e44dcedb31540c9bae07932dce318862ee9",
+      "outputSha256": "cb7c5a7a1e3abe9ab404d55b89fe83f2095ee981e0544aa26e5eee3fa61e0b6a"
     },
     {
-      "id": "cool-resonance",
+      "id": "cool-young-affection",
+      "route": "cool",
+      "stage": "young",
+      "pose": "affection",
+      "file": "cool-young-a.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-young-affection-v1.webp",
+      "sourceSha256": "6ff328be6dc4ec20d9a8cfade304f3888c18b0c8d33b3d685a3d971c69b019ed",
+      "outputSha256": "a8f10743c48067f5d6c2b58dfdff4befefed1a0f68e84875fadcf2bf990034d4"
+    },
+    {
+      "id": "cool-young-listening",
+      "route": "cool",
+      "stage": "young",
+      "pose": "listening",
+      "file": "cool-young-l.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-young-listening-v1.webp",
+      "sourceSha256": "91808e0f594cdba61877aaae84ce7a5b1fdb98f6da741a1fffdbb35f3e482779",
+      "outputSha256": "85b09b01311436399ebed6b67f7fd2673624324d7f593dfb78586fa9332a40f2"
+    },
+    {
+      "id": "cool-young-thinking",
+      "route": "cool",
+      "stage": "young",
+      "pose": "thinking",
+      "file": "cool-young-t.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-young-thinking-v1.webp",
+      "sourceSha256": "7a55daf597b9a400f53afe5c4d5b0509217a429fad5ae42a489163e4fd2075d2",
+      "outputSha256": "0282116048e0fb67ae13b492c8b244a52ffb58dbd64892005961a205101ba97d"
+    },
+    {
+      "id": "cool-young-speaking",
+      "route": "cool",
+      "stage": "young",
+      "pose": "speaking",
+      "file": "cool-young-s.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-young-speaking-v1.webp",
+      "sourceSha256": "19f7d86357693b5cfedd6376fe536f77c4b8ac53df4131d71f458aacda934790",
+      "outputSha256": "2b600c5fb04c87aed95b78856e4406e11f00214415c32629de739749b7553d8b"
+    },
+    {
+      "id": "cool-young-happy",
+      "route": "cool",
+      "stage": "young",
+      "pose": "happy",
+      "file": "cool-young-h.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-young-happy-v1.webp",
+      "sourceSha256": "cae5feb8e9732539841dda816fcdd9e6591f5e59bc0cd7a71df26197ce145aba",
+      "outputSha256": "88bc8c56a97672598c641f81e6b59ca89505a4332214981edee593c6348dbecb"
+    },
+    {
+      "id": "cool-resonance-idle",
       "route": "cool",
       "stage": "resonance",
-      "file": "cool-resonance.nxr",
+      "pose": "idle",
+      "file": "cool-resonance-i.nxr",
       "width": 240,
       "height": 240,
       "bytes": 115208,
       "bounds": [
-        41,
-        43,
-        158,
-        158
+        15,
+        15,
+        210,
+        210
       ],
-      "source": "soulmate/assets/starters/cool-resonance-v1.webp",
-      "sourceSha256": "18e616515f43e7220ccbd393cdfea659442fd390d1a5db664576ef1ced0ef6cb",
-      "outputSha256": "b4c511d187b382d5a6eb422180dd738f8e46a6e60556ff2846fd6f345cf4281e"
+      "source": "soulmate/assets/starters/poses/cool-resonance-idle-v1.webp",
+      "sourceSha256": "d6ecada3bca8da0d1cc4d94a1a20d6576947a701e71d02bab7713572a0555ca7",
+      "outputSha256": "f94ae6191fd68a0caf0274962f94186be2270f9e1e552acb28e9a628ef4e2c48"
     },
     {
-      "id": "beautiful-seed",
+      "id": "cool-resonance-affection",
+      "route": "cool",
+      "stage": "resonance",
+      "pose": "affection",
+      "file": "cool-resonance-a.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-resonance-affection-v1.webp",
+      "sourceSha256": "61bdd8ee120c144732edb26f273216abdadff63d87fca93f98103ce2cf0b2d3b",
+      "outputSha256": "b78664b80517de0bad2fe777dc4715e0490c97db7e2351dcaca210d5cb01e28b"
+    },
+    {
+      "id": "cool-resonance-listening",
+      "route": "cool",
+      "stage": "resonance",
+      "pose": "listening",
+      "file": "cool-resonance-l.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-resonance-listening-v1.webp",
+      "sourceSha256": "94cef17ed59769c48f1bb89a1563716bda8955cc1a1f98cf19d1a61bbd255a90",
+      "outputSha256": "954ed67cc0ee864badcc102ad3a0a525ebe1375f7f16e9b96f69fd35b81db121"
+    },
+    {
+      "id": "cool-resonance-thinking",
+      "route": "cool",
+      "stage": "resonance",
+      "pose": "thinking",
+      "file": "cool-resonance-t.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-resonance-thinking-v1.webp",
+      "sourceSha256": "109d714d65f1f236e75377cf44ec03aec3efa6bc8f6ab5af8fac6509be3fd5bd",
+      "outputSha256": "54aeae797dffa032afa154125e6f382032fc2ae3f2a5c6bea1d61fc6ad1e6b8f"
+    },
+    {
+      "id": "cool-resonance-speaking",
+      "route": "cool",
+      "stage": "resonance",
+      "pose": "speaking",
+      "file": "cool-resonance-s.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-resonance-speaking-v1.webp",
+      "sourceSha256": "842f685e52a0a81847a9542e6e38fe8712dcd2c0a11654f163c44dbe9bfdbea2",
+      "outputSha256": "41f01f186bf81fa38f3d29688c9fac37c906f920f7304004ba5129421843d9ac"
+    },
+    {
+      "id": "cool-resonance-happy",
+      "route": "cool",
+      "stage": "resonance",
+      "pose": "happy",
+      "file": "cool-resonance-h.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/cool-resonance-happy-v1.webp",
+      "sourceSha256": "2d6df3313d45b571250c21dd0970329fdf2a23680af92be14d8bc6ed3e0ca496",
+      "outputSha256": "536360864728aa5b3a0b76c2a4ec4b6ddc271512b873152d2d6ab10033d0ce94"
+    },
+    {
+      "id": "beautiful-seed-idle",
       "route": "beautiful",
       "stage": "seed",
-      "file": "beautiful-seed.nxr",
+      "pose": "idle",
+      "file": "beautiful-seed-i.nxr",
       "width": 240,
       "height": 240,
       "bytes": 115208,
       "bounds": [
-        36,
-        38,
-        168,
-        168
+        15,
+        15,
+        210,
+        210
       ],
-      "source": "soulmate/assets/starters/beautiful-seed-v1.webp",
-      "sourceSha256": "0c19deaa74f23beeef34c2b12bfe67a1948e276a2f6e23aa954269eb39214c6d",
-      "outputSha256": "ea24a1431515d00e386361d85fe4acf520cfc009ee7e2d9ba275fe0afdf841cc"
+      "source": "soulmate/assets/starters/poses/beautiful-seed-idle-v1.webp",
+      "sourceSha256": "6ea7bd15b176bdf042a9003cc7be1aa4f0db120ade4868a7f5ac350c8b7c661e",
+      "outputSha256": "a377e2143e7b48db8867a3e15c5f55b58cb3c6d302ddfa119f2c471ccae27331"
     },
     {
-      "id": "beautiful-young",
+      "id": "beautiful-seed-affection",
+      "route": "beautiful",
+      "stage": "seed",
+      "pose": "affection",
+      "file": "beautiful-seed-a.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-seed-affection-v1.webp",
+      "sourceSha256": "aee6f58ea2d5ae6d40d628f7ab0bbe9a763eb26ca73bd62e84eb20f2778e9467",
+      "outputSha256": "b0e6b93ff49029bb2c1a543d111ca6bc707f95f5e6c65498d3666713340987f8"
+    },
+    {
+      "id": "beautiful-seed-listening",
+      "route": "beautiful",
+      "stage": "seed",
+      "pose": "listening",
+      "file": "beautiful-seed-l.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-seed-listening-v1.webp",
+      "sourceSha256": "d72f49c2e38046099d26f14fd029782af8cb4f39dd5034a1d7d391286a231a06",
+      "outputSha256": "57a500d7bf417821ccf436cfef1be7cb9935d0852ae4ed0862d8cb4bf86e46b3"
+    },
+    {
+      "id": "beautiful-seed-thinking",
+      "route": "beautiful",
+      "stage": "seed",
+      "pose": "thinking",
+      "file": "beautiful-seed-t.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-seed-thinking-v1.webp",
+      "sourceSha256": "74252c9d40a395fd7a4b676082ac640e0f5e2b57914a967408daed516004d794",
+      "outputSha256": "342b10b296bdfa53d628ad4f7433326c2d5b5af32d71f6becab330d4de6a9842"
+    },
+    {
+      "id": "beautiful-seed-speaking",
+      "route": "beautiful",
+      "stage": "seed",
+      "pose": "speaking",
+      "file": "beautiful-seed-s.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-seed-speaking-v1.webp",
+      "sourceSha256": "e2edb11cd94d5fead123154e3ee29025ec7c88c1eb0750268b677fdfef44549d",
+      "outputSha256": "2afc90498c16f86984619dc06fdc39b820213462120ed3184271ea821d3b6eb4"
+    },
+    {
+      "id": "beautiful-seed-happy",
+      "route": "beautiful",
+      "stage": "seed",
+      "pose": "happy",
+      "file": "beautiful-seed-h.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-seed-happy-v1.webp",
+      "sourceSha256": "6be318a119b0f6ee7193c5bdb84f3f3cefe4fb8faf0a2b280c04ae2c623c0d31",
+      "outputSha256": "c1f3dcff899e4f58ae17577638727dca02b8720a4db9abb41e832174294d12ba"
+    },
+    {
+      "id": "beautiful-young-idle",
       "route": "beautiful",
       "stage": "young",
-      "file": "beautiful-young.nxr",
+      "pose": "idle",
+      "file": "beautiful-young-i.nxr",
       "width": 240,
       "height": 240,
       "bytes": 115208,
       "bounds": [
-        36,
-        38,
-        168,
-        168
+        15,
+        15,
+        210,
+        210
       ],
-      "source": "soulmate/assets/starters/beautiful-young-v1.webp",
-      "sourceSha256": "7c233cf8b2790a243bb72acd35677de653536fa3da84bbb4ca56d13b0c027f85",
-      "outputSha256": "07872c42a7f3722da19e213e23df33f82a4d38ead0b793704e2722525b4bcd86"
+      "source": "soulmate/assets/starters/poses/beautiful-young-idle-v1.webp",
+      "sourceSha256": "87be2d5523297e689d3033c93bd7b3c0f692cbffb4051e3e5adaaf6c770e0b11",
+      "outputSha256": "f93cb852665a86f85180571a6c83f6d4c800e174fcf7bb9cb816dcb5f0db5e78"
     },
     {
-      "id": "beautiful-resonance",
+      "id": "beautiful-young-affection",
       "route": "beautiful",
-      "stage": "resonance",
-      "file": "beautiful-resonance.nxr",
+      "stage": "young",
+      "pose": "affection",
+      "file": "beautiful-young-a.nxr",
       "width": 240,
       "height": 240,
       "bytes": 115208,
       "bounds": [
-        36,
-        38,
-        168,
-        168
+        15,
+        15,
+        210,
+        210
       ],
-      "source": "soulmate/assets/starters/beautiful-resonance-v1.webp",
-      "sourceSha256": "7963e7be8578297004155dbbf18485ef5bcf8795f0684896b1c11505a47cad31",
-      "outputSha256": "19796be2b116f29ccfaabec1e65dff2965c68184c4845fdbc39819295a009b43"
+      "source": "soulmate/assets/starters/poses/beautiful-young-affection-v1.webp",
+      "sourceSha256": "4590581b84b534d173331722ef22e1ec81038f8c155765987d6a9d5579104fa4",
+      "outputSha256": "16de588cbd69c02e7a12efd07bb3f17e1da92218f0efbeb9d0e29d8a7663e5ef"
+    },
+    {
+      "id": "beautiful-young-listening",
+      "route": "beautiful",
+      "stage": "young",
+      "pose": "listening",
+      "file": "beautiful-young-l.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-young-listening-v1.webp",
+      "sourceSha256": "753789b67ce9630aa9d74e1235af7e9b03eb26023e8b28d3368082a2de1d8d01",
+      "outputSha256": "eb2ca90383fb89f5ed1896c6724d58081dbbddab83fdde05bc9ec72118470f30"
+    },
+    {
+      "id": "beautiful-young-thinking",
+      "route": "beautiful",
+      "stage": "young",
+      "pose": "thinking",
+      "file": "beautiful-young-t.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-young-thinking-v1.webp",
+      "sourceSha256": "7d739b6e58fe292ac571b3a7036d52689dd5bc524348df42ad8e90b669616728",
+      "outputSha256": "69727680388b892f547177c476ed41d10a7cf1e35fd086b670aca3bd1fd3dd0c"
+    },
+    {
+      "id": "beautiful-young-speaking",
+      "route": "beautiful",
+      "stage": "young",
+      "pose": "speaking",
+      "file": "beautiful-young-s.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-young-speaking-v1.webp",
+      "sourceSha256": "c0453a8eaa6dd979b4eb205a65c92a1ea90f7bce74eaee1f7c7728a643d71dd2",
+      "outputSha256": "ab306c1c65ed7e508de0cae6afae9e1516c04ff5b5dbc668d394568802247438"
+    },
+    {
+      "id": "beautiful-young-happy",
+      "route": "beautiful",
+      "stage": "young",
+      "pose": "happy",
+      "file": "beautiful-young-h.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-young-happy-v1.webp",
+      "sourceSha256": "d5f8e179424030257ff22a9cfbcefcbc0eb2cd0e85c79c3ff414a1fb5a7151a2",
+      "outputSha256": "632589cd88622d311f95c72e42e4b232a4980084406b56f53f64f3269304ce31"
+    },
+    {
+      "id": "beautiful-resonance-idle",
+      "route": "beautiful",
+      "stage": "resonance",
+      "pose": "idle",
+      "file": "beautiful-resonance-i.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-resonance-idle-v1.webp",
+      "sourceSha256": "5c9523180fef90a2a0034d58baee8d33c03617becda7d8988663f29edaa5e54f",
+      "outputSha256": "cd9168d926533e61a08fd8668ef55264f8bf588de1be1d41aad80c4182f743e1"
+    },
+    {
+      "id": "beautiful-resonance-affection",
+      "route": "beautiful",
+      "stage": "resonance",
+      "pose": "affection",
+      "file": "beautiful-resonance-a.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-resonance-affection-v1.webp",
+      "sourceSha256": "d404a859d317d50fae1f2245fd67618c874c8dd7c21773aea259ec8a04b64a0c",
+      "outputSha256": "14d5dd61ea5e335bfbc0a76b86b36d3f35c468463874fd9a8ed0b6b74c43b3e8"
+    },
+    {
+      "id": "beautiful-resonance-listening",
+      "route": "beautiful",
+      "stage": "resonance",
+      "pose": "listening",
+      "file": "beautiful-resonance-l.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-resonance-listening-v1.webp",
+      "sourceSha256": "77b5b1217c2a3bbf6d96ba5102782bac335ebe2ea74dc3a73dbd23870e6b5fa9",
+      "outputSha256": "d0f6b49716a3e2483f748c72ec80b4450d74e4f63f21521cf05a08bdb5fb5533"
+    },
+    {
+      "id": "beautiful-resonance-thinking",
+      "route": "beautiful",
+      "stage": "resonance",
+      "pose": "thinking",
+      "file": "beautiful-resonance-t.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-resonance-thinking-v1.webp",
+      "sourceSha256": "090bc79154be1cde3d64d71b24846502958f3f6939b49f7585ace4f8055bd398",
+      "outputSha256": "9cd298aa4f820994968d7bea9d951472e2cf95427096d20ec14f4ff08b2cc101"
+    },
+    {
+      "id": "beautiful-resonance-speaking",
+      "route": "beautiful",
+      "stage": "resonance",
+      "pose": "speaking",
+      "file": "beautiful-resonance-s.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-resonance-speaking-v1.webp",
+      "sourceSha256": "c28a1f6c9ccb7f50ef12c791e60a645a641c3c0daa115916c8b7e9dccbb4d5a6",
+      "outputSha256": "cf0442a2b852d3a72f07006617b6a3a865eedd19c753f3afc16649e475dca37c"
+    },
+    {
+      "id": "beautiful-resonance-happy",
+      "route": "beautiful",
+      "stage": "resonance",
+      "pose": "happy",
+      "file": "beautiful-resonance-h.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        15,
+        15,
+        210,
+        210
+      ],
+      "source": "soulmate/assets/starters/poses/beautiful-resonance-happy-v1.webp",
+      "sourceSha256": "20fb9677792eb0319da4804ebdfdf3ee3662cc11a2d62aac44f476de081f8342",
+      "outputSha256": "7e1b49679ca46fe45a8a6cff3c4ceb23cf057ed758ec0a905b389d0fdb22fb9b"
     }
   ]
 }

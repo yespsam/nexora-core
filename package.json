@@ -1,12 +1,13 @@
 {
   "name": "qiban-companion",
-  "version": "0.2.20",
+  "version": "0.2.21",
   "private": true,
   "type": "module",
   "scripts": {
     "build:soulmate-assets": "node tools/process-soulmate-starters.mjs",
+    "build:pendant-poses": "node tools/process-pendant-poses.mjs",
     "build:pendant": "node tools/build-soulmate-pendant.mjs",
-    "build:pendant-firmware-assets": "node tools/build-pendant-firmware-assets.mjs",
+    "build:pendant-firmware-assets": "npm run build:pendant-poses && node tools/build-pendant-firmware-assets.mjs",
     "build:pendant-firmware": "npm run build:pendant-firmware-assets && python3 -m platformio run -d hardware/soulmate-pendant/firmware",
     "build:pendant-firmware-fs": "npm run build:pendant-firmware-assets && python3 -m platformio run -d hardware/soulmate-pendant/firmware -t buildfs",
     "package:pendant-firmware": "npm run build:pendant-firmware && npm run build:pendant-firmware-fs && node tools/package-pendant-firmware.mjs",

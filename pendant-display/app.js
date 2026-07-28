@@ -10,6 +10,7 @@ import {
   createPendantDisplaySnapshot,
   pendantDisplayStates
 } from '../shared/pendant-display.mjs';
+import { pendantPoseAssets } from '../shared/pendant-poses.mjs';
 import { observePendantSimulator } from '../shared/pendant-simulator.mjs';
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -17,6 +18,7 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 const lab = $('#display-lab');
 const shell = $('#device-shell');
+const roundDisplay = $('#round-display');
 const character = $('#screen-character');
 const screenName = $('#screen-name');
 const screenConnection = $('#screen-connection');
@@ -34,7 +36,13 @@ const params = new URLSearchParams(location.search);
 const embedded = params.get('embedded') === '1';
 const simulatorMode = params.get('lab') === '1' || params.get('simulator') === '1';
 let demoTimer = 0;
+let interactionTimer = 0;
+let tapTimer = 0;
+let holdTimer = 0;
+let holdTriggered = false;
+let lastTapAt = 0;
 let currentSnapshot = null;
+let preloadedIdentity = '';
 
 function storedProfile() {
   try {
@@ -90,6 +98,7 @@ function render() {
   shell.dataset.state = snapshot.state;
   shell.dataset.tone = snapshot.tone;
   shell.dataset.starter = snapshot.companion.starter;
+  shell.dataset.pose = snapshot.companion.pose;
   shell.style.setProperty('--battery-level', `${snapshot.battery}%`);
   snapshot.lights.forEach((active, index) => {
     const light = $(`.light-guide-${['one', 'two', 'three', 'four'][index]}`);
@@ -101,7 +110,18 @@ function render() {
   screenBond.textContent = `R ${String(snapshot.companion.bond).padStart(2, '0').slice(-2)}`;
   screenConnection.classList.toggle('offline', !snapshot.connected);
   screenConnection.setAttribute('aria-label', snapshot.connected ? '蓝牙已连接' : '蓝牙未连接');
-  if (character.src !== new URL(snapshot.companion.asset, location.href).href) character.src = snapshot.companion.asset;
+  const poseUrl = new URL(snapshot.companion.asset, location.href).href;
+  if (character.dataset.asset !== poseUrl) {
+    character.classList.remove('pose-enter');
+    character.dataset.asset = poseUrl;
+    character.onload = () => character.classList.add('pose-enter');
+    character.onerror = () => {
+      character.onerror = null;
+      character.src = snapshot.companion.fallbackAsset;
+    };
+    character.src = snapshot.companion.asset;
+    if (character.complete && character.naturalWidth > 0) character.classList.add('pose-enter');
+  }
   character.alt = `${snapshot.companion.name}的${snapshot.companion.stageName}形象`;
   batteryInput.value = String(snapshot.battery);
   batteryOutput.value = `${snapshot.battery}%`;
@@ -112,6 +132,14 @@ function render() {
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
+  const poseIdentity = `${snapshot.companion.starter}:${snapshot.companion.stage}`;
+  if (poseIdentity !== preloadedIdentity) {
+    preloadedIdentity = poseIdentity;
+    pendantPoseAssets(snapshot.companion.starter, snapshot.companion.stage).forEach((asset) => {
+      const image = new Image();
+      image.src = asset;
+    });
+  }
 }
 
 function applySimulatorSnapshot(snapshot) {
@@ -134,8 +162,21 @@ function applySimulatorSnapshot(snapshot) {
 
 function setDisplayState(next) {
   window.clearTimeout(demoTimer);
+  window.clearTimeout(interactionTimer);
   state.display = next;
   render();
+}
+
+function setTransientState(next, duration = 1100) {
+  setDisplayState(next);
+  roundDisplay.classList.remove('interaction-fired');
+  void roundDisplay.offsetWidth;
+  roundDisplay.classList.add('interaction-fired');
+  interactionTimer = window.setTimeout(() => {
+    roundDisplay.classList.remove('interaction-fired');
+    state.display = 'idle';
+    render();
+  }, duration);
 }
 
 function runDemo() {
@@ -143,9 +184,11 @@ function runDemo() {
   const sequence = [
     ['boot', 1200],
     ['idle', 1800],
+    ['affection', 1300],
     ['listening', 2200],
     ['thinking', 1800],
     ['speaking', 2600],
+    ['happy', 1500],
     ['notice', 1800],
     ['idle', 0]
   ];
@@ -187,6 +230,42 @@ $$('[data-display-state]').forEach((button) => {
 });
 
 demoButton.addEventListener('click', runDemo);
+
+roundDisplay.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0) return;
+  holdTriggered = false;
+  roundDisplay.setPointerCapture?.(event.pointerId);
+  holdTimer = window.setTimeout(() => {
+    holdTriggered = true;
+    setTransientState('listening', 1500);
+  }, 560);
+});
+
+roundDisplay.addEventListener('pointerup', () => {
+  window.clearTimeout(holdTimer);
+  if (holdTriggered) return;
+  const now = Date.now();
+  if (now - lastTapAt < 320) {
+    window.clearTimeout(tapTimer);
+    lastTapAt = 0;
+    setTransientState('happy', 1300);
+    return;
+  }
+  lastTapAt = now;
+  tapTimer = window.setTimeout(() => {
+    lastTapAt = 0;
+    setTransientState('affection', 1100);
+  }, 330);
+});
+
+roundDisplay.addEventListener('pointercancel', () => window.clearTimeout(holdTimer));
+roundDisplay.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') setTransientState('affection', 1100);
+  if (event.key === ' ') {
+    event.preventDefault();
+    setTransientState('listening', 1500);
+  }
+});
 
 if (embedded) {
   document.body.classList.add('embedded');

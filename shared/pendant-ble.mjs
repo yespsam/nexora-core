@@ -5,7 +5,7 @@ export const PENDANT_BLE_SERVICE_UUID = 'c8a10000-5101-4e58-9a18-8f352dc80101';
 export const PENDANT_BLE_SNAPSHOT_UUID = 'c8a10001-5101-4e58-9a18-8f352dc80101';
 export const PENDANT_BLE_MAX_BYTES = 384;
 
-const pendantConversationStates = new Set(['listening', 'thinking', 'speaking']);
+const pendantConversationStates = new Set(['affection', 'listening', 'thinking', 'speaking', 'happy']);
 
 export function createPendantBleSnapshot(profile, phase = 'idle') {
   const current = normalizeSoulmateProfile(profile);

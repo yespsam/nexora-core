@@ -4,9 +4,11 @@ export const PENDANT_SIMULATOR_STORAGE_KEY = 'nexora-nc01-simulator-snapshot-v1'
 const allowedStates = new Set([
   'boot',
   'idle',
+  'affection',
   'listening',
   'thinking',
   'speaking',
+  'happy',
   'notice',
   'charging',
   'low-power',

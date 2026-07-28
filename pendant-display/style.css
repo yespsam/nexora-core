@@ -141,6 +141,8 @@ a:focus-visible {
   background: var(--screen);
   color: var(--ink);
   box-shadow: 0 0 0 6px var(--metal), 0 0 0 10px #20282c;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 .boot-layer,
@@ -238,20 +240,39 @@ a:focus-visible {
   height: 186px;
   transform: translateX(-50%);
   object-fit: contain;
-  filter: drop-shadow(0 8px 7px rgba(19, 27, 29, 0.12));
+  opacity: 0;
+  filter: drop-shadow(0 7px 6px rgba(19, 27, 29, 0.11));
   animation: pendant-idle 3.4s ease-in-out infinite;
+  transition: opacity 120ms ease;
+  will-change: transform;
 }
 
 [data-starter="cool"] #screen-character {
-  top: 43px;
-  width: 158px;
-  height: 158px;
+  top: 30px;
+  width: 186px;
+  height: 186px;
 }
 
 [data-starter="beautiful"] #screen-character {
-  top: 38px;
-  width: 168px;
-  height: 168px;
+  top: 30px;
+  width: 186px;
+  height: 186px;
+}
+
+.pose-enter { opacity: 1; }
+
+.interaction-pulse {
+  position: absolute;
+  z-index: 0;
+  inset: 33px;
+  border: 2px solid var(--coral);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.interaction-fired .interaction-pulse {
+  animation: interaction-pulse 760ms ease-out;
 }
 
 .screen-footer {
@@ -337,8 +358,16 @@ a:focus-visible {
   animation: pendant-think 1.5s ease-in-out infinite;
 }
 
+[data-state="affection"] #screen-character {
+  animation: pendant-affection 850ms ease-in-out both;
+}
+
 [data-state="speaking"] #screen-character {
   animation: pendant-speak 480ms ease-in-out infinite;
+}
+
+[data-state="happy"] #screen-character {
+  animation: pendant-happy 760ms cubic-bezier(0.22, 0.75, 0.25, 1) both;
 }
 
 [data-state="notice"] #screen-character {
@@ -468,7 +497,7 @@ select {
 
 .state-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-top: 9px;
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -485,8 +514,8 @@ select {
   font-size: 11px;
 }
 
-.state-grid button:nth-child(4n) { border-right: 0; }
-.state-grid button:nth-last-child(-n + 4) { border-bottom: 0; }
+.state-grid button:nth-child(5n) { border-right: 0; }
+.state-grid button:nth-last-child(-n + 5) { border-bottom: 0; }
 
 .state-grid button.active {
   background: var(--cyan);
@@ -625,6 +654,12 @@ select {
   50% { transform: translateX(-50%) rotate(2deg) translateY(-2px); }
 }
 
+@keyframes pendant-affection {
+  0% { transform: translateX(-50%) scale(0.94); }
+  55% { transform: translateX(-50%) translateY(4px) scale(1.045); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
 @keyframes pendant-speak {
   0%, 100% { transform: translateX(-50%) scale(1); }
   50% { transform: translateX(-50%) scale(1.025, 0.985); }
@@ -634,6 +669,18 @@ select {
   0% { transform: translateX(-50%) scale(0.92); }
   55% { transform: translateX(-50%) scale(1.05); }
   100% { transform: translateX(-50%) scale(1); }
+}
+
+@keyframes pendant-happy {
+  0% { transform: translateX(-50%) translateY(7px) scale(0.94); }
+  45% { transform: translateX(-50%) translateY(-9px) scale(1.04); }
+  72% { transform: translateX(-50%) translateY(2px) scale(0.99); }
+  100% { transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@keyframes interaction-pulse {
+  0% { opacity: 0.7; transform: scale(0.75); }
+  100% { opacity: 0; transform: scale(1.2); }
 }
 
 @keyframes listening-pulse {
@@ -692,8 +739,8 @@ select {
   }
 
   .state-grid button:nth-child(2n) { border-right: 0; }
-  .state-grid button:nth-child(4n) { border-right: 0; }
-  .state-grid button:nth-last-child(-n + 4) { border-bottom: 1px solid var(--line); }
+  .state-grid button:nth-child(5n) { border-right: 1px solid var(--line); }
+  .state-grid button:nth-last-child(-n + 5) { border-bottom: 1px solid var(--line); }
   .state-grid button:nth-last-child(-n + 2) { border-bottom: 0; }
 }
 

@@ -121,7 +121,8 @@ test('pendant display uses a round 240px contract and the selected evolution sta
   assert.equal(PENDANT_DISPLAY_SIZE, 240);
   assert.deepEqual(snapshot.display, { width: 240, height: 240, shape: 'round' });
   assert.equal(snapshot.companion.stage, 'young');
-  assert.match(snapshot.companion.asset, /cool-young-v1/);
+  assert.equal(snapshot.companion.pose, 'listening');
+  assert.match(snapshot.companion.asset, /cool-young-listening-v1/);
   assert.deepEqual(snapshot.lights, [1, 1, 1, 1]);
 });
 
@@ -142,6 +143,6 @@ test('pendant display prioritizes low battery and follows the voice interaction 
   const snapshot = createPendantDisplaySnapshot(profile, { state: 'speaking', battery: 8 }, 1000);
   assert.equal(snapshot.state, 'low-power');
   assert.equal(snapshot.stateLabel, '需要充电');
-  assert.equal(nextPendantInteractionState('idle'), 'listening');
+  assert.equal(nextPendantInteractionState('idle'), 'affection');
   assert.equal(nextPendantInteractionState('thinking'), 'speaking');
 });

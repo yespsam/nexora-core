@@ -41,7 +41,7 @@ function seedDemoProfile(force = false) {
 
 function loadFrames() {
   phoneFrame.src = '../soulmate/?lab=1&release=computer-lab-v1';
-  pendantFrame.src = '../pendant-display/?lab=1&state=idle';
+  pendantFrame.src = '../pendant-display/?lab=1&state=idle&release=interactive-poses-v1';
 }
 
 function delay(ms) {
@@ -146,6 +146,19 @@ async function runAllTests() {
     assert(snapshot.companion.bond === phoneState.profile.bond, '共鸣值没有同步');
     assert(snapshot.companion.stage === stageProgress(phoneState.profile).stage.id, '成长形态没有同步');
     return `${snapshot.companion.name} / ${snapshot.companion.stageName}`;
+  }));
+
+  results.push(await check('poses', '点击互动姿势', async () => {
+    pendant.setState('affection');
+    const affection = await expectPendantState(pendant, 'affection');
+    assert(affection.companion.pose === 'affection', '单击没有切换亲近姿势');
+    assert(/-affection-v1\.webp$/.test(affection.companion.asset), '亲近动作资源不正确');
+    pendant.setState('happy');
+    const happy = await expectPendantState(pendant, 'happy');
+    assert(happy.companion.pose === 'happy', '双击没有切换开心姿势');
+    assert(affection.companion.asset !== happy.companion.asset, '互动仍在复用同一张图片');
+    pendant.setState('idle');
+    return '亲近 / 开心使用独立姿势';
   }));
 
   for (const [id, label, phase] of [
