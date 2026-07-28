@@ -20,6 +20,12 @@ test('NC-01 hides front fasteners and includes a segmented light guide', () => {
   assert.equal(manifest.design.frontFastenersVisible, false);
   assert.equal(manifest.design.lightGuideSegments, 4);
   assert.deepEqual(manifest.design.outerEnvelope, [50, 67, 17]);
+  const clearances = manifest.design.assemblyClearances;
+  assert.ok(clearances.framePostDiametral >= 0.25 && clearances.framePostDiametral <= 0.5);
+  assert.ok(clearances.lightGuideOuterRadial >= 0.12 && clearances.lightGuideOuterRadial <= 0.3);
+  assert.ok(clearances.lightGuideInnerRadial >= 0.1 && clearances.lightGuideInnerRadial <= 0.3);
+  assert.ok(clearances.screwBossWall >= 2);
+  assert.ok(clearances.lanyardTopLigament >= 2);
 });
 
 test('pendant exports three closed functional print parts', async () => {
@@ -30,7 +36,7 @@ test('pendant exports three closed functional print parts', async () => {
     ['nexora-core-body', 'nexora-core-front-frame', 'nexora-core-light-guide']
   );
   for (const [name, part] of parts) {
-    assert.equal(part.shells, 1, `${name} contains disconnected geometry`);
+    assert.equal(part.shells, part.expectedShells, `${name} has an unexpected shell count`);
     assert.equal(part.openEdges, 0, `${name} has open edges`);
     assert.equal(part.nonManifoldEdges, 0, `${name} has non-manifold edges`);
     assert.ok(part.triangles > 200, `${name} is unexpectedly coarse`);

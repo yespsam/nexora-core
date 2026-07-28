@@ -135,18 +135,31 @@ module frame_posts() {
       cylinder(h = post_depth + 0.08, r = 3.0, $fn = 44);
 }
 
+module frame_light_bridges() {
+  for (angle = [0, 90, 180, 270])
+    rotate(angle)
+      translate([light_inner_radius - 0.35, -1.5, frame_depth - 0.6])
+        cube([light_outer_radius - light_inner_radius + 0.7, 3.0, 0.62]);
+}
+
 module front_frame_model() {
   difference() {
     union() {
-      faceted_frame_plate();
-      frame_posts();
+      difference() {
+        union() {
+          faceted_frame_plate();
+          frame_posts();
+        }
+        translate([0, 0, -post_depth - 0.3])
+          linear_extrude(height = post_depth + frame_depth + 0.6)
+            octagonal_ring_2d(light_outer_radius + 0.18, light_inner_radius - 0.12);
+      }
+      frame_light_bridges();
     }
     translate([0, 0, -post_depth - 0.3])
       cylinder(h = post_depth + frame_depth + 0.7, r = display_opening / 2, $fn = 112);
     translate([0, 28.9, -post_depth - 0.3])
       cylinder(h = post_depth + frame_depth + 0.7, r = lanyard_hole / 2, $fn = 56);
-    translate([0, 0, frame_depth - 0.88])
-      linear_extrude(height = 1.1) octagonal_ring_2d(light_outer_radius + 0.18, light_inner_radius - 0.12);
     translate([0, 0, frame_depth - 0.48])
       linear_extrude(height = 0.7) frame_technical_grooves();
     for (point = screw_points)
@@ -155,21 +168,20 @@ module front_frame_model() {
   }
 }
 
-module segmented_light_ring_2d() {
+module segmented_octagonal_ring_2d(outer_radius, inner_radius, gap_width = 3.4) {
   difference() {
-    octagonal_ring_2d(light_outer_radius, light_inner_radius);
+    octagonal_ring_2d(outer_radius, inner_radius);
     for (angle = [0, 90, 180, 270])
-      rotate(angle) translate([-0.7, light_inner_radius - 0.4]) square([1.4, 5.3]);
+      rotate(angle) translate([-gap_width / 2, inner_radius - 0.4]) square([gap_width, outer_radius - inner_radius + 1.0]);
   }
 }
 
+module segmented_light_ring_2d() {
+  segmented_octagonal_ring_2d(light_outer_radius, light_inner_radius);
+}
+
 module light_guide() {
-  union() {
-    linear_extrude(height = 0.34)
-      octagonal_ring_2d(light_outer_radius, light_inner_radius);
-    translate([0, 0, 0.34]) linear_extrude(height = 0.46)
-      segmented_light_ring_2d();
-  }
+  linear_extrude(height = 0.8) segmented_light_ring_2d();
 }
 
 module front_frame_print() {

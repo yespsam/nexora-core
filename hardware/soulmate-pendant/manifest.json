@@ -38,11 +38,19 @@
     "boardCavityClearance": [
       0.877,
       1.088
-    ]
+    ],
+    "assemblyClearances": {
+      "framePostDiametral": 0.36,
+      "lightGuideOuterRadial": 0.18,
+      "lightGuideInnerRadial": 0.12,
+      "screwBossWall": 2.18,
+      "lanyardTopLigament": 2.2
+    }
   },
   "printParts": {
     "nexora-core-body": {
       "label": "Faceted electronics shell",
+      "expectedShells": 1,
       "triangles": 3516,
       "shells": 1,
       "bounds": [
@@ -67,32 +75,34 @@
     },
     "nexora-core-front-frame": {
       "label": "Octagonal display frame with rear screw posts",
-      "triangles": 2676,
+      "expectedShells": 1,
+      "triangles": 2816,
       "shells": 1,
       "bounds": [
         50,
         67,
-        7
+        7.02
       ],
       "min": [
         -25,
         -33.5,
-        0
+        -0.02
       ],
       "max": [
         25,
         33.5,
         7
       ],
-      "volumeMm3": 3740.9,
+      "volumeMm3": 3345.8,
       "openEdges": 0,
       "nonManifoldEdges": 0,
-      "estimatedPlaWeightGrams": 4.6
+      "estimatedPlaWeightGrams": 4.1
     },
     "nexora-core-light-guide": {
-      "label": "Four-segment translucent status light guide",
-      "triangles": 576,
-      "shells": 1,
+      "label": "Four-piece translucent status light guide set",
+      "expectedShells": 4,
+      "triangles": 480,
+      "shells": 4,
       "bounds": [
         38.249,
         38.249,
@@ -108,10 +118,10 @@
         19.124,
         0.8
       ],
-      "volumeMm3": 217.2,
+      "volumeMm3": 201.3,
       "openEdges": 0,
       "nonManifoldEdges": 0,
-      "estimatedPlaWeightGrams": 0.3
+      "estimatedPlaWeightGrams": 0.2
     }
   }
 }

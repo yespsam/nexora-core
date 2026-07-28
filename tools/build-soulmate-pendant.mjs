@@ -98,11 +98,11 @@ function analyzeBinaryStl(buffer) {
   };
 }
 
-async function exportStl(part, filename, directory = output.stl) {
+async function exportStl(part, filename, directory = output.stl, expectedShells = 1) {
   const path = `${directory}/${filename}.stl`;
   runOpenScad(['--export-format', 'binstl', '-D', `part="${part}"`, '-o', path, source]);
   const analysis = analyzeBinaryStl(await readFile(path));
-  if (analysis.openEdges || analysis.nonManifoldEdges || analysis.shells !== 1) {
+  if (analysis.openEdges || analysis.nonManifoldEdges || analysis.shells !== expectedShells) {
     throw new Error(`${filename} failed mesh checks (${analysis.shells} shells, ${analysis.openEdges} open, ${analysis.nonManifoldEdges} non-manifold edges)`);
   }
   return analysis;
@@ -137,9 +137,9 @@ for (const legacyArtifact of ['soulmate-pendant-kit.3mf', 'soulmate-pendant-prin
 }
 
 const printParts = [
-  ['body', 'nexora-core-body', 'Faceted electronics shell'],
-  ['front-frame', 'nexora-core-front-frame', 'Octagonal display frame with rear screw posts'],
-  ['light-guide', 'nexora-core-light-guide', 'Four-segment translucent status light guide']
+  ['body', 'nexora-core-body', 'Faceted electronics shell', 1],
+  ['front-frame', 'nexora-core-front-frame', 'Octagonal display frame with rear screw posts', 1],
+  ['light-guide', 'nexora-core-light-guide', 'Four-piece translucent status light guide set', 4]
 ];
 const manifest = {
   version: 2,
@@ -166,15 +166,23 @@ const manifest = {
     lightGuideSegments: 4,
     fastenerAccess: 'rear',
     frontFastenersVisible: false,
-    boardCavityClearance: [0.877, 1.088]
+    boardCavityClearance: [0.877, 1.088],
+    assemblyClearances: {
+      framePostDiametral: 0.36,
+      lightGuideOuterRadial: 0.18,
+      lightGuideInnerRadial: 0.12,
+      screwBossWall: 2.18,
+      lanyardTopLigament: 2.2
+    }
   },
   printParts: {}
 };
 
-for (const [part, filename, label] of printParts) {
-  const analysis = await exportStl(part, filename);
+for (const [part, filename, label, expectedShells] of printParts) {
+  const analysis = await exportStl(part, filename, output.stl, expectedShells);
   manifest.printParts[filename] = {
     label,
+    expectedShells,
     ...analysis,
     estimatedPlaWeightGrams: Number((analysis.volumeMm3 * 0.00124).toFixed(1))
   };
@@ -197,4 +205,4 @@ runCommand('zip', [
   'README.md', 'manifest.json', 'source', 'stl', kitFilename
 ], { cwd: outputRoot });
 
-console.log(`Built ${printParts.length} single-shell manifold NC-01 STL files, five previews, a 3MF plate, and a ZIP pack.`);
+console.log(`Built ${printParts.length} validated manifold NC-01 STL files, five previews, a 3MF plate, and a ZIP pack.`);

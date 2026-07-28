@@ -1,0 +1,114 @@
+{
+  "generatedAt": "2026-07-28T08:27:43.899Z",
+  "product": {
+    "brand": "NEXORA",
+    "name": "NEXORA CORE",
+    "model": "NC-01",
+    "designLanguage": "faceted-shield"
+  },
+  "slicer": "PrusaSlicer-2.9.6 based on Slic3r (with GUI support)",
+  "assumptions": {
+    "printerEnvelope": "180 x 180 mm",
+    "nozzle": "0.4 mm",
+    "layerHeight": "0.2 mm",
+    "material": "Generic PETG, 1.27 g/cm3",
+    "perimeters": 3,
+    "infill": "25% gyroid；导光条 100% rectilinear",
+    "supports": false,
+    "filamentReferenceCost": "USD 25/kg"
+  },
+  "sliceResults": [
+    {
+      "name": "后壳",
+      "file": "nexora-core-body.stl",
+      "fillDensity": "25%",
+      "fillPattern": "gyroid",
+      "layers": 74,
+      "filamentGrams": 19.09,
+      "costUsd": 0.48,
+      "durationSeconds": 8107,
+      "duration": "2h 15m 7s",
+      "warnings": [],
+      "status": "pass"
+    },
+    {
+      "name": "前框",
+      "file": "nexora-core-front-frame.stl",
+      "fillDensity": "25%",
+      "fillPattern": "gyroid",
+      "layers": 35,
+      "filamentGrams": 4.31,
+      "costUsd": 0.11,
+      "durationSeconds": 1970,
+      "duration": "32m 50s",
+      "warnings": [],
+      "status": "pass"
+    },
+    {
+      "name": "导光条",
+      "file": "nexora-core-light-guide.stl",
+      "fillDensity": "100%",
+      "fillPattern": "rectilinear",
+      "layers": 4,
+      "filamentGrams": 0.26,
+      "costUsd": 0.01,
+      "durationSeconds": 135,
+      "duration": "2m 15s",
+      "warnings": [],
+      "status": "pass"
+    }
+  ],
+  "fitChecks": [
+    {
+      "name": "主板 X/Y 总间隙",
+      "actual": "0.877 / 1.088 mm",
+      "target": ">= 0.8 mm",
+      "pass": true
+    },
+    {
+      "name": "前框定位柱直径间隙",
+      "actual": "0.36 mm",
+      "target": "0.25-0.50 mm",
+      "pass": true
+    },
+    {
+      "name": "导光条外侧径向间隙",
+      "actual": "0.18 mm",
+      "target": "0.12-0.30 mm",
+      "pass": true
+    },
+    {
+      "name": "导光条内侧径向间隙",
+      "actual": "0.12 mm",
+      "target": "0.10-0.30 mm",
+      "pass": true
+    },
+    {
+      "name": "M2 螺丝柱最小壁厚",
+      "actual": "2.18 mm",
+      "target": ">= 2.0 mm",
+      "pass": true
+    },
+    {
+      "name": "吊环顶部最小连接宽度",
+      "actual": "2.2 mm",
+      "target": ">= 2.0 mm (prototype)",
+      "pass": true
+    }
+  ],
+  "totals": {
+    "filamentGrams": 23.66,
+    "costUsd": 0.6,
+    "durationSeconds": 10212,
+    "duration": "2h 50m 12s"
+  },
+  "digitalPass": true,
+  "physicalValidationRequired": [
+    "实际圆屏主板、USB-C 插头和电池装配",
+    "PETG 收缩后的导光条压配与漏光",
+    "5 N / 10 N / 20 N 吊环分级拉力",
+    "连续充电 60 分钟外壳与电池温升",
+    "麦克风回声、扬声器共振和蓝牙/Wi-Fi 射频衰减",
+    "贴肤材料、汗液、跌落和长期佩戴测试"
+  ]
+}
