@@ -33,7 +33,7 @@ const birthStepLabel = $('#birth-step-label');
 const birthBack = $('#birth-back');
 const birthNext = $('#birth-next');
 const voicePreview = $('#voice-preview');
-const birthVisualImage = $('#birth-visual-image');
+const birthVisualModel = $('#birth-visual-model');
 const birthVisualCaption = $('#birth-visual-caption');
 const identityLine = $('#identity-line');
 const stageName = $('#stage-name');
@@ -41,7 +41,6 @@ const bondLabel = $('#bond-label');
 const bondTrackValue = $('#bond-track-value');
 const companionTouch = $('#companion-touch');
 const companionModel = $('#companion-model');
-const companionImage = $('#companion-image');
 const presenceLine = $('#presence-line');
 const conversationStateLabel = $('#conversation-state-label');
 const messageList = $('#message-list');
@@ -130,17 +129,14 @@ const state = {
 };
 
 let creatureViewer = null;
+let birthViewer = null;
 try {
-  creatureViewer = new Creature3DViewer(companionModel, {
-    onLoad() {
-      companionImage.setAttribute('aria-hidden', 'true');
-    },
-    onError() {
-      companionImage.removeAttribute('aria-hidden');
-    }
-  });
+  creatureViewer = new Creature3DViewer(companionModel);
+  birthViewer = new Creature3DViewer(birthVisualModel, { frustumHeight: 3.05 });
+  birthViewer.load('cute', 'idle');
 } catch (error) {
   companionModel.dataset.modelState = 'error';
+  birthVisualModel.dataset.modelState = 'error';
 }
 
 function safeRead(key) {
@@ -241,7 +237,7 @@ function selectChoice(group, value) {
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
-    birthVisualImage.src = starter.stages[0].asset;
+    birthViewer?.load(value, 'idle');
     birthVisualCaption.textContent = `${starter.species}正在等你的选择`;
   }
 }
@@ -312,14 +308,9 @@ function renderCompanion() {
   stageName.textContent = progress.stage.name;
   bondLabel.textContent = `共鸣 ${state.profile.bond}`;
   bondTrackValue.style.width = `${Math.round(progress.progress * 100)}%`;
-  companionImage.alt = `${state.profile.name}的${progress.stage.name}形象`;
   const stageIdentity = `${state.profile.starter}:${progress.stage.id}`;
   if (state.currentStageId !== stageIdentity) {
     state.currentStageId = stageIdentity;
-    companionImage.style.opacity = '0';
-    companionImage.onload = () => { companionImage.style.opacity = '1'; };
-    companionImage.src = progress.stage.asset;
-    if (companionImage.complete && companionImage.naturalWidth > 0) companionImage.style.opacity = '1';
     creatureViewer?.load(state.profile.starter, creatureActionForPhase[state.phase] || 'idle');
   }
   $('#setting-voice').textContent = voiceNames[state.profile.voice] || voiceNames.soft;
@@ -342,14 +333,13 @@ function renderGrowth() {
     const item = document.createElement('div');
     const unlocked = state.profile.bond >= stage.minBond;
     item.className = `evolution-item${stage.id === progress.stage.id ? ' active' : ''}${unlocked ? ' unlocked' : ''}`;
-    const image = document.createElement('img');
-    image.src = stage.asset;
-    image.alt = stage.name;
+    const marker = document.createElement('i');
+    marker.textContent = { seed: 'I', young: 'II', resonance: 'III' }[stage.id] || '';
     const title = document.createElement('strong');
     title.textContent = stage.name;
     const status = document.createElement('span');
     status.textContent = unlocked ? (stage.id === progress.stage.id ? '当前形态' : '已经历') : `共鸣 ${stage.minBond} 解锁`;
-    item.append(image, title, status);
+    item.append(marker, title, status);
     evolutionList.appendChild(item);
   });
 
@@ -897,7 +887,8 @@ if (pendantSimulationMode) {
         history: structuredClone(state.history),
         pendantConnected: Boolean(state.pendantCharacteristic)
       }),
-      sampleModel: () => creatureViewer?.samplePixels() || null
+      sampleModel: () => creatureViewer?.samplePixels() || null,
+      sampleBirthModel: () => birthViewer?.samplePixels() || null
     })
   });
   window.dispatchEvent(new CustomEvent('nexora:lab-ready'));

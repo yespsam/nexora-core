@@ -8,7 +8,7 @@
   <title>NEXORA CORE · 你的数字生命</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/soulmate-icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=0.4.0">
+  <link rel="stylesheet" href="./style.css?v=0.5.0">
 </head>
 <body>
   <main class="app-shell" id="app-shell">
@@ -20,7 +20,7 @@
 
       <div class="birth-visual" aria-hidden="true">
         <span class="birth-orbit"></span>
-        <img id="birth-visual-image" src="./assets/starters/cute-seed-v1.webp" alt="">
+        <span class="birth-visual-model" id="birth-visual-model"></span>
         <span class="birth-visual-caption" id="birth-visual-caption">绒云兽正在等你的选择</span>
       </div>
 
@@ -31,15 +31,15 @@
           <p class="step-copy">外形会沿着这条路线进化，人格则会由你们的日常共同决定。</p>
           <div class="starter-choice-grid" role="group" aria-label="选择初始伙伴">
             <button class="starter-choice active" type="button" data-choice="starter" data-value="cute">
-              <img src="./assets/starters/cute-seed-v1.webp" alt="">
+              <b>LUMO</b>
               <strong>可爱型</strong><span>绒云兽</span>
             </button>
             <button class="starter-choice" type="button" data-choice="starter" data-value="cool">
-              <img src="./assets/starters/cool-seed-v1.webp" alt="">
+              <b>VEYR</b>
               <strong>帅气型</strong><span>曜影兽</span>
             </button>
             <button class="starter-choice" type="button" data-choice="starter" data-value="beautiful">
-              <img src="./assets/starters/beautiful-seed-v1.webp" alt="">
+              <b>AERA</b>
               <strong>优美型</strong><span>月羽灵</span>
             </button>
           </div>
@@ -120,7 +120,6 @@
         <button class="companion-touch" id="companion-touch" type="button" aria-label="摸摸你的伙伴">
           <span class="presence-ring" aria-hidden="true"></span>
           <span class="companion-model" id="companion-model" aria-hidden="true"></span>
-          <img id="companion-image" alt="">
           <span class="core-pulse" aria-hidden="true"></span>
         </button>
         <p class="presence-line" id="presence-line">它刚刚醒来，正在记住你。</p>
@@ -239,6 +238,6 @@
       <button class="wide-command danger" id="reset-button" type="button">重新诞生</button>
     </dialog>
   </main>
-  <script type="module" src="./app.js?v=0.4.4"></script>
+  <script type="module" src="./app.js?v=0.5.0"></script>
 </body>
 </html>

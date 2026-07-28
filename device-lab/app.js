@@ -40,8 +40,8 @@ function seedDemoProfile(force = false) {
 }
 
 function loadFrames() {
-  phoneFrame.src = '../soulmate/?lab=1&release=computer-lab-v1';
-  pendantFrame.src = '../pendant-display/?lab=1&state=idle&release=interactive-poses-v1';
+  phoneFrame.src = '../soulmate/?lab=1&release=3d-only-v2';
+  pendantFrame.src = '../pendant-display/?lab=1&state=idle&release=3d-only-v2';
 }
 
 function delay(ms) {
@@ -120,11 +120,15 @@ async function runAllTests() {
   }));
 
   results.push(await check('assets', '角色资源与圆屏尺寸', async () => {
-    const phoneImage = phoneFrame.contentDocument.querySelector('#companion-image');
     const roundDisplay = pendantFrame.contentDocument.querySelector('#round-display');
+    const imageFallback = phoneFrame.contentDocument.querySelector(
+      '#companion-image, #birth-visual-image, img[src*="/assets/starters/"]'
+    );
+    assert(!imageFallback, '手机端仍包含 2D 角色图片');
     await waitFor(() => {
-      const pixels = pendant.sampleModel();
-      return phoneImage.complete && phoneImage.naturalWidth > 0 && pixels?.opaque > 100;
+      const phonePixels = phone.sampleModel();
+      const pendantPixels = pendant.sampleModel();
+      return phonePixels?.opaque > 100 && pendantPixels?.opaque > 100;
     });
     const size = roundDisplay.getBoundingClientRect();
     assert(Math.abs(size.width - 240) <= 2 && Math.abs(size.height - 240) <= 2, `圆屏为 ${Math.round(size.width)}×${Math.round(size.height)}`);
