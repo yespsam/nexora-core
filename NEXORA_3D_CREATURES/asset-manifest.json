@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "generatedAt": "2026-07-28T11:09:54.492Z",
+  "version": 2,
+  "generatedAt": "2026-07-28T14:51:47.785Z",
   "sourceArchive": "meshy_output/20260728_185455_nexora-original-3d-creatures_019fa85c",
   "optimization": {
     "geometry": "meshopt",
@@ -67,7 +67,63 @@
           "bytes": 946676,
           "sha256": "1ac759e5b4a3e1d818969bcc33e12e7941537f5aba22574f13f5ff9a5c242d8d"
         }
-      ]
+      ],
+      "forms": {
+        "seed": {
+          "stage": "seed",
+          "files": [
+            {
+              "type": "model",
+              "path": "NEXORA_3D_CREATURES/CUTE_LUMO/model/model.glb",
+              "bytes": 845044,
+              "sha256": "a9a9548400263d164edecf1932a49ee31f6eb73f28d20a7140d4c88f10d72ee7"
+            },
+            {
+              "type": "rigged",
+              "path": "NEXORA_3D_CREATURES/CUTE_LUMO/model/rigged.glb",
+              "bytes": 943728,
+              "sha256": "1176527c11dd6734388c9acb0705edf091e27f17ca409d1b64ad2bb2f07343a3"
+            }
+          ],
+          "thumbnail": "NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png"
+        },
+        "young": {
+          "stage": "young",
+          "files": [
+            {
+              "type": "model",
+              "path": "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/young/model.glb",
+              "bytes": 942144,
+              "sha256": "4dbbcad3409c4c420cca4d150a134cf8e6a85edcfccf98a3ea86ab8ea7639c60"
+            },
+            {
+              "type": "rigged",
+              "path": "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/young/rigged.glb",
+              "bytes": 1016504,
+              "sha256": "b04cbc4f403fba57c6e6bc9769f96e84735013c6972d8cb8b4d1c3cc4bd12c0b"
+            }
+          ],
+          "thumbnail": "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/young/thumbnail.png"
+        },
+        "resonance": {
+          "stage": "resonance",
+          "files": [
+            {
+              "type": "model",
+              "path": "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/resonance/model.glb",
+              "bytes": 956708,
+              "sha256": "d06cb913b1a1b54efb69cc03d702ee17f61ebf7e2580cb0f4191847c97aff646"
+            },
+            {
+              "type": "rigged",
+              "path": "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/resonance/rigged.glb",
+              "bytes": 1010032,
+              "sha256": "009f026d528b663b2c438d90d1f250992b4551b9f25e240a150aa7cd608e340d"
+            }
+          ],
+          "thumbnail": "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/resonance/thumbnail.png"
+        }
+      }
     },
     "cool": {
       "name": "VEYR / 维尔",
@@ -127,7 +183,63 @@
           "bytes": 1086000,
           "sha256": "ccd578bb8e023d8be40a9da67061b6196f996aad3d378359698e318ad24ad340"
         }
-      ]
+      ],
+      "forms": {
+        "seed": {
+          "stage": "seed",
+          "files": [
+            {
+              "type": "model",
+              "path": "NEXORA_3D_CREATURES/COOL_VEYR/model/model.glb",
+              "bytes": 1076652,
+              "sha256": "bb4841177c49658f9da6dbbbffda613b91164c0d930e3c06f232c6665d0bd71e"
+            },
+            {
+              "type": "rigged",
+              "path": "NEXORA_3D_CREATURES/COOL_VEYR/model/rigged.glb",
+              "bytes": 1082912,
+              "sha256": "74ab7e5e1debece7af417f08403a3f2181c41d3078ba27a53841f94c107c55f7"
+            }
+          ],
+          "thumbnail": "NEXORA_3D_CREATURES/COOL_VEYR/model/thumbnail.png"
+        },
+        "young": {
+          "stage": "young",
+          "files": [
+            {
+              "type": "model",
+              "path": "NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/model.glb",
+              "bytes": 1118436,
+              "sha256": "3ff441ebb1892b29f892701376acb86e5af1f72ed19d2e6e7ce169f297b90722"
+            },
+            {
+              "type": "rigged",
+              "path": "NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/rigged.glb",
+              "bytes": 1115556,
+              "sha256": "1c3c7d46b8f1d18b2d7457fef89c8b5922e7359072a428c3d4f24673a5a63c35"
+            }
+          ],
+          "thumbnail": "NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/thumbnail.png"
+        },
+        "resonance": {
+          "stage": "resonance",
+          "files": [
+            {
+              "type": "model",
+              "path": "NEXORA_3D_CREATURES/COOL_VEYR/evolution/resonance/model.glb",
+              "bytes": 1103220,
+              "sha256": "cf9b7cc11924bd2b012e5eb7c8fc137db8222dc267deb8371a83cbbfd1895f2f"
+            },
+            {
+              "type": "rigged",
+              "path": "NEXORA_3D_CREATURES/COOL_VEYR/evolution/resonance/rigged.glb",
+              "bytes": 1109832,
+              "sha256": "ea74032158abf74ea06f8faddce07c916224acbc5b2107dbab6e5b19a38ec18c"
+            }
+          ],
+          "thumbnail": "NEXORA_3D_CREATURES/COOL_VEYR/evolution/resonance/thumbnail.png"
+        }
+      }
     },
     "beautiful": {
       "name": "AERA / 艾拉",
@@ -187,7 +299,64 @@
           "bytes": 1027392,
           "sha256": "d8575dee821843546317f905d9c7d1fc18f5b4567269e66c7e3bb3f2293e0115"
         }
-      ]
+      ],
+      "forms": {
+        "seed": {
+          "stage": "seed",
+          "files": [
+            {
+              "type": "model",
+              "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/model/model.glb",
+              "bytes": 1035236,
+              "sha256": "ed998b4fe4ab4c6a7177e519722cfeaff9a37dc0f19b1281a805e96609c83c26"
+            },
+            {
+              "type": "rigged",
+              "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/model/rigged.glb",
+              "bytes": 1024200,
+              "sha256": "bf2f44ab4467fc811a8fa5f3b316be8e6b31cdd28688ce64f647af6e839e6c9b"
+            }
+          ],
+          "thumbnail": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/model/thumbnail.png"
+        },
+        "young": {
+          "stage": "young",
+          "files": [
+            {
+              "type": "model",
+              "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/young/model.glb",
+              "bytes": 1068772,
+              "sha256": "a0053f7429fc8bc8e24fcc80304010e07ad56b198badf98e80c6d1de19f1a226"
+            },
+            {
+              "type": "rigged",
+              "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/young/rigged.glb",
+              "bytes": 1018320,
+              "sha256": "aba4e74e6795c2b796f5def31a9cbbe3c91686cb2cb7bc580999c85f2af6a199"
+            }
+          ],
+          "thumbnail": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/young/thumbnail.png"
+        },
+        "resonance": {
+          "stage": "resonance",
+          "files": [
+            {
+              "type": "model",
+              "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/resonance/model.glb",
+              "bytes": 1099260,
+              "sha256": "7a3534f32c24bdedacdc828b2529a7aa4365644109fdc0d9f4aa2569027c470b"
+            },
+            {
+              "type": "rigged",
+              "path": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/resonance/rigged.glb",
+              "bytes": 1031052,
+              "sha256": "764672e8db48aa94922457f68104efd523973d9f2164698568e730c7b9ea8fe8"
+            }
+          ],
+          "thumbnail": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/resonance/thumbnail.png"
+        }
+      }
     }
-  }
+  },
+  "evolutionSourceArchive": "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd"
 }

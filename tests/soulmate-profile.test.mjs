@@ -53,10 +53,11 @@ test('offers three original starters with independent evolution assets', () => {
 
 test('chat grows bond, traits, and bounded memories', () => {
   let profile = createSoulmateProfile({ name: '星澜' }, 1000);
-  for (let index = 0; index < 30; index += 1) {
+  for (let index = 0; index < 60; index += 1) {
     profile = growSoulmate(profile, { kind: 'chat', text: `我想知道今天的第 ${index} 件事？` }, 2000 + index);
   }
-  assert.equal(profile.memories.length, 24);
+  assert.equal(profile.memories.length, 48);
+  assert.ok(profile.memories.every((memory) => memory.version === 1 && memory.summary));
   assert.ok(profile.bond >= 240);
   assert.equal(stageForBond(profile.bond).id, 'resonance');
   assert.ok(profile.traits.curiosity > 42);
@@ -80,6 +81,7 @@ test('stage progress and prompt data expose only compact personality context', (
   assert.equal(prompt.starterId, 'cute');
   assert.equal(prompt.stage, '绒云幼体');
   assert.equal(prompt.species, '绒云兽');
+  assert.ok(prompt.memories.length <= 6);
   assert.ok(!('id' in prompt));
 });
 

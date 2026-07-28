@@ -24,6 +24,7 @@ export class Creature3DViewer {
     this.host = host;
     this.options = options;
     this.starter = 'cute';
+    this.stageId = 'seed';
     this.action = 'idle';
     this.identity = '';
     this.requestId = 0;
@@ -33,8 +34,12 @@ export class Creature3DViewer {
     this.actionStopTimer = 0;
     this.modelGeneration = 0;
     this.loadedStarter = '';
+    this.loadedStage = '';
     this.clipCache = new Map();
     this.clipPromises = new Map();
+    this.retargetedClipCache = new Map();
+    this.bindPose = new Map();
+    this.rawModelHeight = 1;
     this.motionRoot = null;
     this.hips = null;
     this.baseHipsYaw = 0;
@@ -44,6 +49,7 @@ export class Creature3DViewer {
     this.yaw = 0;
     this.targetYaw = 0;
     this.baseYaw = options.baseYaw ?? 0;
+    this.formYaw = 0;
     this.dragStart = null;
     this.didDrag = false;
     this.disposed = false;
@@ -128,34 +134,41 @@ export class Creature3DViewer {
     this.camera.updateProjectionMatrix();
   }
 
-  async load(starter = this.starter, action = 'idle') {
-    const entry = creature3DEntry(starter);
+  async load(starter = this.starter, action = 'idle', stage = this.stageId) {
+    const entry = creature3DEntry(starter, stage);
     const safeAction = entry.actions[action] ? action : 'idle';
-    const identity = `${entry.id}:${safeAction}`;
+    const identity = `${entry.id}:${entry.stage}:${safeAction}`;
     if (identity === this.identity) return true;
-    const starterChanged = this.loadedStarter !== entry.id || !this.model;
+    const formChanged = this.loadedStarter !== entry.id || this.loadedStage !== entry.stage || !this.model;
     this.starter = entry.id;
+    this.stageId = entry.stage;
+    this.formYaw = entry.yaw || 0;
     this.action = safeAction;
     const requestId = ++this.requestId;
-    if (starterChanged) this.host.dataset.modelState = 'loading';
+    if (formChanged) this.host.dataset.modelState = 'loading';
     else this.host.dataset.modelState = 'transitioning';
     try {
-      if (starterChanged) {
-        const gltf = await this.loader.loadAsync(entry.actions[safeAction]);
+      if (formChanged) {
+        const [gltf, clip] = await Promise.all([
+          this.loader.loadAsync(entry.model),
+          this.loadClip(entry, safeAction)
+        ]);
         if (this.disposed || requestId !== this.requestId) {
           disposeObject(gltf.scene);
           return false;
         }
-        this.replaceModel(gltf, entry.id, safeAction);
+        this.replaceModel(gltf, entry.id, entry.stage);
+        this.playClip(safeAction, this.retargetClip(entry, safeAction, clip), 0);
       } else {
         const clip = await this.loadClip(entry, safeAction);
         if (this.disposed || requestId !== this.requestId) return false;
-        this.playClip(safeAction, clip);
+        this.playClip(safeAction, this.retargetClip(entry, safeAction, clip));
       }
       this.identity = identity;
       this.host.dataset.modelState = 'ready';
       this.host.dataset.modelAction = safeAction;
-      this.options.onLoad?.({ starter: entry.id, action: safeAction });
+      this.host.dataset.modelStage = entry.stage;
+      this.options.onLoad?.({ starter: entry.id, stage: entry.stage, action: safeAction });
       return true;
     } catch (error) {
       if (requestId !== this.requestId) return false;
@@ -175,9 +188,21 @@ export class Creature3DViewer {
         disposeObject(gltf.scene);
         throw new Error(`Missing animation clip: ${key}`);
       }
-      this.clipCache.set(key, clip);
+      gltf.scene.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(gltf.scene, true);
+      const size = bounds.getSize(new THREE.Vector3());
+      const bindPose = new Map();
+      gltf.scene.traverse((object) => {
+        if (!object.name) return;
+        bindPose.set(object.name, {
+          position: object.position.clone(),
+          quaternion: object.quaternion.clone()
+        });
+      });
+      const source = { clip, bindPose, height: Math.max(size.y, 0.0001) };
+      this.clipCache.set(key, source);
       disposeObject(gltf.scene);
-      return clip;
+      return source;
     }).finally(() => {
       this.clipPromises.delete(key);
     });
@@ -185,14 +210,64 @@ export class Creature3DViewer {
     return promise;
   }
 
-  preload(starter = this.starter, actions = ['nod', 'speaking']) {
-    const entry = creature3DEntry(starter);
+  preload(starter = this.starter, actions = ['nod', 'speaking'], stage = this.stageId) {
+    const entry = creature3DEntry(starter, stage);
     return Promise.allSettled(actions
       .filter((action) => action !== this.action && entry.actions[action])
-      .map((action) => this.loadClip(entry, action)));
+      .map(async (action) => {
+        const source = await this.loadClip(entry, action);
+        if (this.loadedStarter === entry.id && this.loadedStage === entry.stage) {
+          this.retargetClip(entry, action, source);
+        }
+      }));
   }
 
-  replaceModel(gltf, starter, action) {
+  retargetClip(entry, action, source) {
+    const key = `${entry.id}:${entry.stage}:${action}`;
+    if (this.retargetedClipCache.has(key)) return this.retargetedClipCache.get(key);
+    const positionScale = this.rawModelHeight / source.height;
+    const sourceRestInverse = new THREE.Quaternion();
+    const sourcePose = new THREE.Quaternion();
+    const delta = new THREE.Quaternion();
+    const targetPose = new THREE.Quaternion();
+    const tracks = source.clip.tracks.map((track) => {
+      const next = track.clone();
+      const separator = track.name.lastIndexOf('.');
+      if (separator < 0) return next;
+      const rawNodeName = track.name.slice(0, separator);
+      const bracketName = rawNodeName.match(/\[([^\]]+)\]$/)?.[1];
+      const nodeName = bracketName || rawNodeName.split('/').at(-1);
+      const property = track.name.slice(separator + 1);
+      const from = source.bindPose.get(nodeName);
+      const to = this.bindPose.get(nodeName);
+      if (!from || !to) return next;
+      if (property === 'quaternion') {
+        sourceRestInverse.copy(from.quaternion).invert();
+        for (let index = 0; index < next.values.length; index += 4) {
+          sourcePose.fromArray(next.values, index);
+          delta.copy(sourceRestInverse).multiply(sourcePose);
+          targetPose.copy(to.quaternion).multiply(delta).normalize().toArray(next.values, index);
+        }
+      } else if (property === 'position') {
+        for (let index = 0; index < next.values.length; index += 3) {
+          next.values[index] = to.position.x + (next.values[index] - from.position.x) * positionScale;
+          next.values[index + 1] = to.position.y + (next.values[index + 1] - from.position.y) * positionScale;
+          next.values[index + 2] = to.position.z + (next.values[index + 2] - from.position.z) * positionScale;
+        }
+      }
+      return next;
+    });
+    const clip = new THREE.AnimationClip(
+      `${source.clip.name || action}-${entry.stage}`,
+      source.clip.duration,
+      tracks,
+      source.clip.blendMode
+    );
+    this.retargetedClipCache.set(key, clip);
+    return clip;
+  }
+
+  replaceModel(gltf, starter, stage) {
     if (this.model) {
       this.stage.remove(this.model);
       disposeObject(this.model);
@@ -211,13 +286,27 @@ export class Creature3DViewer {
     this.mixer = new THREE.AnimationMixer(animatedModel);
     this.modelGeneration += 1;
     this.loadedStarter = starter;
-    if (gltf.animations[0]) this.clipCache.set(`${starter}:${action}`, gltf.animations[0]);
+    this.loadedStage = stage;
     animatedModel.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(animatedModel, true);
     const size = bounds.getSize(new THREE.Vector3());
     const center = bounds.getCenter(new THREE.Vector3());
-    const targetHeight = this.options.compact ? 1.82 : 1.8;
-    const scale = targetHeight / Math.max(size.y, 0.0001);
+    this.rawModelHeight = Math.max(size.y, 0.0001);
+    this.bindPose = new Map();
+    animatedModel.traverse((object) => {
+      if (!object.name) return;
+      this.bindPose.set(object.name, {
+        position: object.position.clone(),
+        quaternion: object.quaternion.clone()
+      });
+    });
+    const targetHeight = this.options.compact ? 1.6 : 1.8;
+    const aspect = Math.max(0.5, this.host.clientWidth / Math.max(1, this.host.clientHeight));
+    const targetWidth = this.frustumHeight * aspect * (this.options.compact ? 1.45 : 0.9);
+    const scale = Math.min(
+      targetHeight / Math.max(size.y, 0.0001),
+      targetWidth / Math.max(size.x, 0.0001)
+    );
     this.model = new THREE.Group();
     this.motionRoot = new THREE.Group();
     this.motionRoot.add(animatedModel);
@@ -231,7 +320,6 @@ export class Creature3DViewer {
       this.hipsEuler.setFromQuaternion(this.hips.quaternion, 'YXZ');
       this.baseHipsYaw = this.hipsEuler.y;
     }
-    if (gltf.animations[0]) this.playClip(action, gltf.animations[0], 0);
   }
 
   playClip(action, clip, fadeDuration = 0.24) {
@@ -259,7 +347,7 @@ export class Creature3DViewer {
   }
 
   setPhase(phase) {
-    return this.load(this.starter, creatureActionForPhase[phase] || 'idle');
+    return this.load(this.starter, creatureActionForPhase[phase] || 'idle', this.stageId);
   }
 
   resetView() {
@@ -270,6 +358,7 @@ export class Creature3DViewer {
     return {
       status: this.host.dataset.modelState || 'idle',
       starter: this.loadedStarter || this.starter,
+      stage: this.loadedStage || this.stageId,
       action: this.host.dataset.modelAction || this.action,
       modelGeneration: this.modelGeneration,
       cachedClips: this.clipCache.size
@@ -305,7 +394,7 @@ export class Creature3DViewer {
       this.motionRoot.rotation.y = this.baseHipsYaw - this.hipsEuler.y;
     }
     this.yaw += (this.targetYaw - this.yaw) * Math.min(1, delta * 8);
-    this.stage.rotation.y = this.baseYaw + this.yaw;
+    this.stage.rotation.y = this.baseYaw + this.formYaw + this.yaw;
     this.renderer.render(this.scene, this.camera);
   };
 

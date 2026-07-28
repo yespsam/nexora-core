@@ -402,7 +402,8 @@ export default async function handler(request) {
     kind,
     scene: sceneId,
     history,
-    companionName: soulmate?.name
+    companionName: soulmate?.name,
+    memories: soulmate?.memories
   });
   const creatureProfile = creatureId ? creatureProfiles[creatureId] : null;
   const thinkingPool = creatureProfile

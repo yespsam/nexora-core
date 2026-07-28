@@ -1,6 +1,6 @@
 {
   "name": "nexora-core",
-  "version": "0.2.21",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,6 +8,7 @@
     "build:pendant-poses": "node tools/process-pendant-poses.mjs",
     "build:creature-references": "node tools/process-creature-turnarounds.mjs",
     "build:creature-web": "node tools/optimize-creature-web-models.mjs",
+    "build:creature-evolution-web": "node tools/optimize-creature-evolution-models.mjs",
     "build:pendant": "node tools/build-soulmate-pendant.mjs",
     "build:pendant-firmware-assets": "npm run build:pendant-poses && node tools/build-pendant-firmware-assets.mjs",
     "build:pendant-firmware": "npm run build:pendant-firmware-assets && python3 -m platformio run -d hardware/soulmate-pendant/firmware",

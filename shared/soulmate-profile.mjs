@@ -1,3 +1,9 @@
+import {
+  normalizeSoulmateMemories,
+  recallSoulmateMemories,
+  rememberSoulmateInteraction
+} from './soulmate-memory.mjs';
+
 export const SOULMATE_PROFILE_VERSION = 1;
 export const SOULMATE_EXPORT_VERSION = 1;
 export const SOULMATE_STORAGE_KEY = 'soulmate-profile-v1';
@@ -141,12 +147,7 @@ export function normalizeSoulmateProfile(value, now = Date.now()) {
       courage: numeric(value.traits?.courage, base.traits.courage, 0, 100),
       independence: numeric(value.traits?.independence, base.traits.independence, 0, 100)
     },
-    memories: Array.isArray(value.memories)
-      ? value.memories.map((memory) => ({
-        text: cleanText(memory?.text, 120),
-        createdAt: numeric(memory?.createdAt, now, createdAt, now)
-      })).filter((memory) => memory.text).slice(-24)
-      : []
+    memories: normalizeSoulmateMemories(value.memories, now)
   };
 }
 
@@ -191,7 +192,7 @@ export function growSoulmate(profile, interaction = {}, now = Date.now()) {
   next.lastActiveAt = now;
   const text = cleanText(interaction.text, 120);
   if (kind === 'chat' && text) {
-    next.memories = [...next.memories, { text, createdAt: now }].slice(-24);
+    next.memories = rememberSoulmateInteraction(next.memories, text, now);
     if (/[?？为什么怎么想知道]/.test(text)) next.traits.curiosity = Math.min(100, next.traits.curiosity + 1);
     if (/[谢谢喜欢爱想你抱]/.test(text)) next.traits.warmth = Math.min(100, next.traits.warmth + 1);
     if (/[难过压力累害怕担心]/.test(text)) next.traits.steadiness = Math.min(100, next.traits.steadiness + 1);
@@ -207,7 +208,7 @@ export function stageProgress(profile) {
   return { stage, progress, remaining: Math.max(0, stage.nextBond - (profile?.bond || 0)) };
 }
 
-export function soulmatePromptProfile(profile) {
+export function soulmatePromptProfile(profile, query = '') {
   const current = normalizeSoulmateProfile(profile);
   if (!current) return null;
   const stage = stageForBond(current.bond, current.starter);
@@ -223,6 +224,6 @@ export function soulmatePromptProfile(profile) {
     stage: stage.name,
     daysTogether: current.daysTogether,
     traits: current.traits,
-    memories: current.memories.slice(-6).map((memory) => memory.text)
+    memories: recallSoulmateMemories(current.memories, query, 6).map((memory) => memory.summary)
   };
 }

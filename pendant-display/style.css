@@ -6,8 +6,8 @@
   --shell: #1a2226;
   --shell-edge: #4f5a5e;
   --metal: #899397;
-  --screen: #edf1f0;
-  --ink: #151a1c;
+  --screen: #11191c;
+  --ink: #eef5f3;
   --muted: #8b999e;
   --cyan: #20c8d0;
   --coral: #ff7580;
@@ -204,7 +204,7 @@ a:focus-visible {
   align-items: center;
   gap: 7px;
   transform: translateX(-50%);
-  color: #566166;
+  color: #aab9bc;
   font-size: 9px;
   font-weight: 700;
 }
@@ -234,7 +234,7 @@ a:focus-visible {
 .screen-model {
   position: absolute;
   z-index: 1;
-  inset: 25px 8px 24px;
+  inset: 18px 2px 18px;
   display: block;
   pointer-events: none;
 }
@@ -269,7 +269,7 @@ a:focus-visible {
   grid-template-columns: 1fr auto;
   align-items: center;
   transform: translateX(-50%);
-  color: #4f5b5f;
+  color: #aab9bc;
   font-size: 9px;
   font-weight: 720;
 }

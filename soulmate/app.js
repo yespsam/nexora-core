@@ -18,8 +18,8 @@ import {
   encodePendantBleSnapshot
 } from '../shared/pendant-ble.mjs';
 import { openPendantSimulatorWriter } from '../shared/pendant-simulator.mjs';
-import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=6';
-import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=2';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=13';
+import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=5';
 import { shouldBlockRecognizedSpeech } from '../shared/voice-turn.mjs?v=1';
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -137,7 +137,7 @@ let birthViewer = null;
 try {
   creatureViewer = new Creature3DViewer(companionModel);
   birthViewer = new Creature3DViewer(birthVisualModel, { frustumHeight: 3.05 });
-  birthViewer.load('cute', 'idle');
+  birthViewer.load('cute', 'idle', 'seed');
 } catch (error) {
   companionModel.dataset.modelState = 'error';
   birthVisualModel.dataset.modelState = 'error';
@@ -203,7 +203,8 @@ function setPhase(phase) {
   companionView.dataset.conversationPhase = phase;
   conversationStateLabel.textContent = phaseLabels[phase] || phaseLabels.idle;
   if (state.profile) {
-    creatureViewer?.load(state.profile.starter, creatureActionForPhase[phase] || 'idle');
+    const stage = stageProgress(state.profile).stage.id;
+    creatureViewer?.load(state.profile.starter, creatureActionForPhase[phase] || 'idle', stage);
   }
   const voiceBusy = ['thinking', 'speaking', 'ready'].includes(phase) || state.busy;
   micButton.disabled = !state.recognitionSupported || voiceBusy;
@@ -243,7 +244,7 @@ function selectChoice(group, value) {
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
-    birthViewer?.load(value, 'idle');
+    birthViewer?.load(value, 'idle', 'seed');
     birthVisualCaption.textContent = `${starter.species}正在等你的选择`;
   }
 }
@@ -317,8 +318,12 @@ function renderCompanion() {
   const stageIdentity = `${state.profile.starter}:${progress.stage.id}`;
   if (state.currentStageId !== stageIdentity) {
     state.currentStageId = stageIdentity;
-    creatureViewer?.load(state.profile.starter, creatureActionForPhase[state.phase] || 'idle').then((loaded) => {
-      if (loaded) creatureViewer.preload(state.profile.starter, ['nod', 'speaking']);
+    creatureViewer?.load(
+      state.profile.starter,
+      creatureActionForPhase[state.phase] || 'idle',
+      progress.stage.id
+    ).then((loaded) => {
+      if (loaded) creatureViewer.preload(state.profile.starter, ['nod', 'speaking'], progress.stage.id);
     });
   }
   $('#setting-voice').textContent = voiceNames[state.profile.voice] || voiceNames.soft;
@@ -380,7 +385,7 @@ function renderGrowth() {
   memories.forEach((memory) => {
     const line = document.createElement('p');
     line.className = 'memory-line';
-    line.textContent = memory.text;
+    line.textContent = memory.summary || memory.text;
     memoryList.appendChild(line);
   });
 }
@@ -416,9 +421,14 @@ function looksLikeEcho(text) {
 
 function fallbackReply(text) {
   const name = state.profile.name;
-  if (/[累难过压力烦害怕]/.test(text)) return '我听见了。你不用立刻变好，先让我安静地陪你一会儿。';
-  if (/[晚安睡觉困]/.test(text)) return `晚安。${name}会把今天记住，明天醒来再继续陪你。`;
-  if (/[你是谁叫什么]/.test(text)) return `我是${name}，是你在 ${state.profile.birthday} 唤醒的 NEXORA 伙伴。`;
+  const preference = text.match(/我(?:最|很|比较)?喜欢(.+?)(?:[，。！？]|$)/);
+  if (preference?.[1]) return `记住了，你喜欢${preference[1]}。以后聊到它时，我会知道这对你很特别。`;
+  if (/累|难过|压力|心烦|害怕|焦虑|委屈/.test(text)) return '我听见了。你不用立刻变好，先让我安静地陪你一会儿。';
+  if (/晚安|睡觉|困了|想睡/.test(text)) return `晚安。${name}会把今天记住，明天醒来再继续陪你。`;
+  if (/你是谁|你叫(?:什么|啥)|叫什么名字|介绍一下你自己/.test(text)) {
+    return `我是${name}，是你在 ${state.profile.birthday} 唤醒的 NEXORA 伙伴。`;
+  }
+  if (/记住|别忘了/.test(text)) return '我记住了。它已经成为我们共同记忆里的一部分。';
   return '我正在认真记住你刚才说的话。再多告诉我一点，我会越来越懂你。';
 }
 
@@ -433,7 +443,7 @@ async function requestReply(text) {
       relationship: 'companion',
       scene: 'daily',
       history: state.history.slice(0, -1),
-      soulmate: soulmatePromptProfile(state.profile)
+      soulmate: soulmatePromptProfile(state.profile, text)
     })
   });
   if (!response.ok) throw new Error(`chat ${response.status}`);

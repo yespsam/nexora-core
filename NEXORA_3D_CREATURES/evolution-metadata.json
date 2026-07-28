@@ -1,0 +1,352 @@
+{
+  "project_name": "NEXORA six 3D evolution forms",
+  "created_at": "2026-07-28T21:50:25.833891",
+  "updated_at": "2026-07-28T22:51:14.972450",
+  "root_task_id": "019fa8fd-9cfe-753f-987e-8956b3734ea8",
+  "planned_credits": 210,
+  "balance_before": 328,
+  "balance_after": 118,
+  "actual_credits": 210,
+  "forms": {
+    "cute-young": {
+      "route": "cute",
+      "stage": "young",
+      "name": "LUMO / 露莫",
+      "slug": "cute-young",
+      "directory": "CUTE_LUMO",
+      "height_meters": 0.85,
+      "references": [
+        "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/young/reference/front.png",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/young/reference/side.png",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/young/reference/back.png"
+      ],
+      "texture_prompt": "Exact young evolution of the referenced cream-white cloud fox with warm amber eyes, coral inner ears and paw pads, cyan faceted heart chest core, curled forehead lock, cheek fur, and paired cloud tail; friendly original creature. Preserve the reference silhouette, face, markings, chest core, ears, hands, feet, and tail across every view. Premium polished stylized game PBR with crisp material separation, subtle sculpted fur detail, clean eyes, and no baked lighting. Rig-friendly A-pose with two arms, two legs, complete separated digits, no merged anatomy, no clothing, no armor, no props, and no extra limbs."
+    },
+    "cute-resonance": {
+      "route": "cute",
+      "stage": "resonance",
+      "name": "LUMO / 露莫",
+      "slug": "cute-resonance",
+      "directory": "CUTE_LUMO",
+      "height_meters": 1.0,
+      "references": [
+        "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/resonance/reference/front.png",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/resonance/reference/side.png",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/resonance/reference/back.png"
+      ],
+      "texture_prompt": "Exact resonance evolution of the referenced cream-white cloud fox with warm amber eyes, coral inner ears and paw pads, cyan faceted heart chest core, curled forehead lock, cheek fur, and paired cloud tail; friendly original creature. Preserve the reference silhouette, face, markings, chest core, ears, hands, feet, and tail across every view. Premium polished stylized game PBR with crisp material separation, subtle sculpted fur detail, clean eyes, and no baked lighting. Rig-friendly A-pose with two arms, two legs, complete separated digits, no merged anatomy, no clothing, no armor, no props, and no extra limbs."
+    },
+    "cool-young": {
+      "route": "cool",
+      "stage": "young",
+      "name": "VEYR / 维尔",
+      "slug": "cool-young",
+      "directory": "COOL_VEYR",
+      "height_meters": 1.2,
+      "references": [
+        "NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/reference/front.png",
+        "NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/reference/side.png",
+        "NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/reference/back.png"
+      ],
+      "texture_prompt": "Exact young evolution of the referenced deep navy storm lynx-dragon with cyan eyes, organic silver-gray facial markings and fur spikes, cyan diamond chest core, lightning ears, and segmented storm tail; sleek original creature. Preserve the reference silhouette, face, markings, chest core, ears, hands, feet, and tail across every view. Premium polished stylized game PBR with crisp material separation, subtle sculpted fur detail, clean eyes, and no baked lighting. Rig-friendly A-pose with two arms, two legs, complete separated digits, no merged anatomy, no clothing, no armor, no props, and no extra limbs."
+    },
+    "cool-resonance": {
+      "route": "cool",
+      "stage": "resonance",
+      "name": "VEYR / 维尔",
+      "slug": "cool-resonance",
+      "directory": "COOL_VEYR",
+      "height_meters": 1.35,
+      "references": [
+        "NEXORA_3D_CREATURES/COOL_VEYR/evolution/resonance/reference/front.png",
+        "NEXORA_3D_CREATURES/COOL_VEYR/evolution/resonance/reference/side.png",
+        "NEXORA_3D_CREATURES/COOL_VEYR/evolution/resonance/reference/back.png"
+      ],
+      "texture_prompt": "Exact resonance evolution of the referenced deep navy storm lynx-dragon with cyan eyes, organic silver-gray facial markings and fur spikes, cyan diamond chest core, lightning ears, and segmented storm tail; sleek original creature. Preserve the reference silhouette, face, markings, chest core, ears, hands, feet, and tail across every view. Premium polished stylized game PBR with crisp material separation, subtle sculpted fur detail, clean eyes, and no baked lighting. Rig-friendly A-pose with two arms, two legs, complete separated digits, no merged anatomy, no clothing, no armor, no props, and no extra limbs."
+    },
+    "beautiful-young": {
+      "route": "beautiful",
+      "stage": "young",
+      "name": "AERA / 艾拉",
+      "slug": "beautiful-young",
+      "directory": "BEAUTIFUL_AERA",
+      "height_meters": 1.08,
+      "references": [
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/young/reference/front.png",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/young/reference/side.png",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/young/reference/back.png"
+      ],
+      "texture_prompt": "Exact young evolution of the referenced pearl-white moon-moth deer with violet eyes, lavender forehead tufts, feathered moth ears, two opalescent pink-lilac wing fins, pink diamond chest core, and cyan crescent tail plume; graceful original creature. Preserve the reference silhouette, face, markings, chest core, ears, hands, feet, and tail across every view. Premium polished stylized game PBR with crisp material separation, subtle sculpted fur detail, clean eyes, and no baked lighting. Rig-friendly A-pose with two arms, two legs, complete separated digits, no merged anatomy, no clothing, no armor, no props, and no extra limbs."
+    },
+    "beautiful-resonance": {
+      "route": "beautiful",
+      "stage": "resonance",
+      "name": "AERA / 艾拉",
+      "slug": "beautiful-resonance",
+      "directory": "BEAUTIFUL_AERA",
+      "height_meters": 1.22,
+      "references": [
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/resonance/reference/front.png",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/resonance/reference/side.png",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/resonance/reference/back.png"
+      ],
+      "texture_prompt": "Exact resonance evolution of the referenced pearl-white moon-moth deer with violet eyes, lavender forehead tufts, feathered moth ears, two opalescent pink-lilac wing fins, pink diamond chest core, and cyan crescent tail plume; graceful original creature. Preserve the reference silhouette, face, markings, chest core, ears, hands, feet, and tail across every view. Premium polished stylized game PBR with crisp material separation, subtle sculpted fur detail, clean eyes, and no baked lighting. Rig-friendly A-pose with two arms, two legs, complete separated digits, no merged anatomy, no clothing, no armor, no props, and no extra limbs."
+    }
+  },
+  "tasks": [
+    {
+      "task_id": "019fa8fd-9cfe-753f-987e-8956b3734ea8",
+      "type": "multi-image-to-3d",
+      "form": "cute-young",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T21:50:25.833902",
+      "files": [
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cute-young/model.glb",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/young/model.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cute-young/thumbnail.png",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/young/thumbnail.png"
+      ],
+      "progress": 100,
+      "consumed_credits": 30,
+      "finished_at": 1785247031951
+    },
+    {
+      "task_id": "019fa8fd-b0f8-7543-83cc-7bc7eab83eff",
+      "type": "multi-image-to-3d",
+      "form": "cute-resonance",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T21:50:31.163564",
+      "files": [
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cute-resonance/model.glb",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/resonance/model.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cute-resonance/thumbnail.png",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/resonance/thumbnail.png"
+      ],
+      "progress": 100,
+      "consumed_credits": 30,
+      "finished_at": 1785246978983
+    },
+    {
+      "task_id": "019fa8fd-c607-7546-9ae8-eb5930688168",
+      "type": "multi-image-to-3d",
+      "form": "cool-young",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T21:50:35.828061",
+      "files": [
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cool-young/model.glb",
+        "NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/model.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cool-young/thumbnail.png",
+        "NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/thumbnail.png"
+      ],
+      "progress": 100,
+      "consumed_credits": 30,
+      "finished_at": 1785247026580
+    },
+    {
+      "task_id": "019fa8fd-d7e2-79da-a4bd-dea8a8f33d6f",
+      "type": "multi-image-to-3d",
+      "form": "cool-resonance",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T21:50:39.886780",
+      "files": [
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cool-resonance/model.glb",
+        "NEXORA_3D_CREATURES/COOL_VEYR/evolution/resonance/model.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cool-resonance/thumbnail.png",
+        "NEXORA_3D_CREATURES/COOL_VEYR/evolution/resonance/thumbnail.png"
+      ],
+      "progress": 100,
+      "consumed_credits": 30,
+      "finished_at": 1785246998986
+    },
+    {
+      "task_id": "019fa8fd-e7c4-754d-82e9-e112a4bd85d7",
+      "type": "multi-image-to-3d",
+      "form": "beautiful-young",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T21:50:43.061510",
+      "files": [
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/beautiful-young/model.glb",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/young/model.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/beautiful-young/thumbnail.png",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/young/thumbnail.png"
+      ],
+      "progress": 100,
+      "consumed_credits": 30,
+      "finished_at": 1785246957626
+    },
+    {
+      "task_id": "019fa8fd-f46d-754d-bae7-457de96dac74",
+      "type": "multi-image-to-3d",
+      "form": "beautiful-resonance",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T21:50:46.949167",
+      "files": [
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/beautiful-resonance/model.glb",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/resonance/model.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/beautiful-resonance/thumbnail.png",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/resonance/thumbnail.png"
+      ],
+      "progress": 100,
+      "consumed_credits": 30,
+      "finished_at": 1785247014496
+    },
+    {
+      "task_id": "019fa910-45da-7aab-9eb9-d43b72be7053",
+      "type": "rigging",
+      "form": "cute-young",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T22:10:52.028645",
+      "files": [
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cute-young/rigged.glb",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/young/rigged.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cute-young/walk.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cute-young/run.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 5,
+      "finished_at": 1785247898308
+    },
+    {
+      "task_id": "019fa910-66dd-7ab6-8e8a-edf449b32fb1",
+      "type": "rigging",
+      "form": "cute-resonance",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T22:11:00.822411",
+      "files": [
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cute-resonance/rigged.glb",
+        "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/resonance/rigged.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cute-resonance/walk.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cute-resonance/run.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 5,
+      "finished_at": 1785247904693
+    },
+    {
+      "task_id": "019fa910-8aff-7ac2-811e-569b3a8f91c5",
+      "type": "rigging",
+      "form": "cool-young",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T22:11:10.364596",
+      "files": [
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cool-young/rigged.glb",
+        "NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/rigged.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cool-young/walk.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cool-young/run.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 5,
+      "finished_at": 1785247918972
+    },
+    {
+      "task_id": "019fa910-ae7c-7ac9-a4d2-79e18e9daafe",
+      "type": "rigging",
+      "form": "cool-resonance",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T22:11:18.820414",
+      "files": [
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cool-resonance/rigged.glb",
+        "NEXORA_3D_CREATURES/COOL_VEYR/evolution/resonance/rigged.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cool-resonance/walk.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/cool-resonance/run.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 5,
+      "finished_at": 1785247931116
+    },
+    {
+      "task_id": "019fa910-cfe1-7839-9528-259de6438565",
+      "type": "rigging",
+      "form": "beautiful-young",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T22:11:26.681604",
+      "files": [
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/beautiful-young/rigged.glb",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/young/rigged.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/beautiful-young/walk.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/beautiful-young/run.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 5,
+      "finished_at": 1785247933257
+    },
+    {
+      "task_id": "019fa910-ee34-7845-9916-daf04b117440",
+      "type": "rigging",
+      "form": "beautiful-resonance",
+      "status": "SUCCEEDED",
+      "created_at": "2026-07-28T22:11:35.369498",
+      "files": [
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/beautiful-resonance/rigged.glb",
+        "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/resonance/rigged.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/beautiful-resonance/walk.glb",
+        "meshy_output/20260728_215025_nexora-evolution-forms_019fa8fd/beautiful-resonance/run.glb"
+      ],
+      "progress": 100,
+      "consumed_credits": 5,
+      "finished_at": 1785247945858
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/young/model.glb",
+      "bytes": 40286784,
+      "sha256": "4376c728736ac25ae27f2ecfff876e4cbc6549b0fc4e253037189facf3cfe002"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/young/rigged.glb",
+      "bytes": 28490132,
+      "sha256": "00cab2e0117344ecfed01e9d73eed3ecd6132b85dc82fc96ef5f48bde3c86601"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/resonance/model.glb",
+      "bytes": 39360576,
+      "sha256": "e4f4a884753ec60374f92b5db03902d01e445877df6ada770dbc35e0de5fc472"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/CUTE_LUMO/evolution/resonance/rigged.glb",
+      "bytes": 27443152,
+      "sha256": "c6019e9bd5fa03e32294718212ed6950fe967416f75f8b6a618fba6187de1954"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/model.glb",
+      "bytes": 42298308,
+      "sha256": "4aaad6a66213ca81bdb800f9914c016933455b5fc25a9c2ef084c1f21d8382f8"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/rigged.glb",
+      "bytes": 29466612,
+      "sha256": "b0d73de06f15b71b8dc7476c1f23a2c5fcc9dc7839dcba9c6683aa3b39b0621f"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/COOL_VEYR/evolution/resonance/model.glb",
+      "bytes": 40305720,
+      "sha256": "431dd11b0346989dd511c0823e0ddc68ceb3a5af596331953eb9a3b2a0076e53"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/COOL_VEYR/evolution/resonance/rigged.glb",
+      "bytes": 28182472,
+      "sha256": "237854bcb4523b0c2729b97d7cec57da20ebdfa826d58dfb1580dffe766178f5"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/young/model.glb",
+      "bytes": 42559896,
+      "sha256": "22f53e16d2005c04da614e18197e4fc4a5fd3f666c66a9e58b700aaf667b3268"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/young/rigged.glb",
+      "bytes": 29054776,
+      "sha256": "6d68be5878d267e8d5c662476eb2b0dd4a282f1fa6358ed3b19b034a450d1d5c"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/resonance/model.glb",
+      "bytes": 41413516,
+      "sha256": "47ae4793733269085feb4544be6af111ef50214ee546c45f762bd9960a15d0e9"
+    },
+    {
+      "file": "NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/resonance/rigged.glb",
+      "bytes": 27584492,
+      "sha256": "ff2282cec9df5b74c5ccca699c5eebb0782f4fc2e52d82f6cb2a55cb3696b895"
+    }
+  ]
+}

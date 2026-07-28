@@ -32,7 +32,7 @@ function previousUserText(history) {
 export function inferSceneId(text, requested = 'daily') {
   const value = cleanText(text);
   if (/晚安|睡|困|休息/.test(value)) return 'goodnight';
-  if (/想你|喜欢|抱|亲|爱/.test(value)) return 'miss';
+  if (/想你|喜欢你|爱你|抱抱|亲亲|想抱|想亲/.test(value)) return 'miss';
   if (/累|难受|委屈|不开心|烦|崩|压力|害怕/.test(value)) return 'comfort';
   if (/走|散步|出去/.test(value)) return 'walk';
   if (/工作|学习|专注|开始做|任务|哪一步/.test(value)) return 'focus';
@@ -44,7 +44,8 @@ export function contextualFallbackReply({
   kind = 'female',
   scene = 'daily',
   history = [],
-  companionName = ''
+  companionName = '',
+  memories = []
 }) {
   const value = cleanText(text);
   const creatureId = creatureKind(kind);
@@ -52,6 +53,18 @@ export function contextualFallbackReply({
   const profile = creatureId ? creatureProfiles[creatureId] : companionProfiles[legacyKind];
   const displayName = cleanText(companionName, 12) || profile.name;
   const previous = previousUserText(history);
+  const remembered = Array.isArray(memories)
+    ? memories.map((memory) => cleanText(memory, 120)).filter(Boolean)
+    : [];
+
+  if (/还记得|记得吗|有没有忘|我(?:最)?喜欢什么|我的.+叫什么/.test(value) && remembered.length) {
+    const queryChars = new Set([...value].filter((char) => !/[的了吗我你还记得什么最是]/.test(char)));
+    const memory = [...remembered].sort((left, right) => {
+      const score = (text) => [...new Set(text)].filter((char) => queryChars.has(char)).length;
+      return score(right) - score(left);
+    })[0];
+    return `记得。你告诉过我：“${memory}”。我没有忘。`;
+  }
 
   if (/刚才.*(?:说|问)|(?:说|问).*什么|还记得.*(?:说|问)/.test(value)) {
     return previous
@@ -72,6 +85,11 @@ export function contextualFallbackReply({
     return legacyKind === 'male'
       ? '你好，我在。今天想从哪里开始聊？'
       : '你好呀，我在这里。今天想先聊什么？';
+  }
+
+  const preference = value.match(/我(?:最|很|比较)?喜欢(.+?)(?:[，。！？]|$)/);
+  if (preference?.[1]) {
+    return `记住了，你喜欢${preference[1]}。以后聊到它时，我会知道这对你很特别。`;
   }
 
   const resolvedScene = sceneById(inferSceneId(value, scene));

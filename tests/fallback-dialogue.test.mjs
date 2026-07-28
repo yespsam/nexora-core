@@ -30,6 +30,20 @@ test('fallback recalls the previous user turn', () => {
 test('fallback scene inference follows the current message', () => {
   assert.equal(inferSceneId('今天工作先做哪一步？', 'daily'), 'focus');
   assert.equal(inferSceneId('我有点累', 'daily'), 'comfort');
+  assert.equal(inferSceneId('我最喜欢周末喝热可可', 'daily'), 'daily');
+  assert.equal(inferSceneId('今天很想你', 'daily'), 'miss');
+});
+
+test('fallback answers memory questions from the Soulmate profile', () => {
+  assert.equal(contextualFallbackReply({
+    text: '你还记得我最喜欢喝什么吗？',
+    kind: 'creature:cute',
+    memories: ['我最喜欢在周末喝热可可', '我的猫叫年糕']
+  }), '记得。你告诉过我：“我最喜欢在周末喝热可可”。我没有忘。');
+  assert.match(contextualFallbackReply({
+    text: '我最喜欢在周末喝热可可',
+    kind: 'creature:cute'
+  }), /记住了.*热可可/);
 });
 
 test('creature fallback keeps its route identity and custom name', () => {

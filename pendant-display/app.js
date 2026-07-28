@@ -11,8 +11,8 @@ import {
   pendantDisplayStates
 } from '../shared/pendant-display.mjs';
 import { observePendantSimulator } from '../shared/pendant-simulator.mjs';
-import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=4';
-import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=2';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=13';
+import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=5';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -52,7 +52,7 @@ function ensureCreatureViewer() {
   try {
     creatureViewer = new Creature3DViewer(screenModel, {
       compact: true,
-      frustumHeight: 2.78,
+      frustumHeight: 2,
       cameraDistance: 4.55
     });
   } catch (error) {
@@ -130,7 +130,8 @@ function render() {
   screenConnection.setAttribute('aria-label', snapshot.connected ? '蓝牙已连接' : '蓝牙未连接');
   ensureCreatureViewer()?.load(
     snapshot.companion.starter,
-    creatureActionForPhase[snapshot.state] || 'idle'
+    creatureActionForPhase[snapshot.state] || 'idle',
+    snapshot.companion.stage
   );
   batteryInput.value = String(snapshot.battery);
   batteryOutput.value = `${snapshot.battery}%`;
