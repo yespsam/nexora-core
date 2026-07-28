@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101719">
+  <meta name="description" content="NEXORA CORE NC-01 240×240 圆屏运行界面">
+  <title>NEXORA CORE · NC-01 圆屏</title>
+  <link rel="icon" href="../soulmate/assets/soulmate-icon-192.png">
+  <link rel="stylesheet" href="./style.css?v=0.1.0">
+</head>
+<body>
+  <main class="display-lab" id="display-lab">
+    <section class="device-stage" aria-label="NC-01 项链屏幕预览">
+      <div class="device-shell" id="device-shell" data-state="boot" data-tone="cyan">
+        <span class="lanyard-slot" aria-hidden="true"></span>
+        <span class="shell-line shell-line-left" aria-hidden="true"></span>
+        <span class="shell-line shell-line-right" aria-hidden="true"></span>
+        <span class="light-guide light-guide-one" aria-hidden="true"></span>
+        <span class="light-guide light-guide-two" aria-hidden="true"></span>
+        <span class="light-guide light-guide-three" aria-hidden="true"></span>
+        <span class="light-guide light-guide-four" aria-hidden="true"></span>
+
+        <section class="round-display" id="round-display" aria-label="240×240 圆形显示内容" aria-live="polite">
+          <div class="boot-layer" id="boot-layer">
+            <span>NEXORA</span>
+            <strong>CORE</strong>
+            <i aria-hidden="true"></i>
+          </div>
+
+          <div class="companion-layer">
+            <header class="screen-status">
+              <span class="screen-name" id="screen-name">星澜</span>
+              <span class="screen-connection" id="screen-connection" aria-label="蓝牙已连接"></span>
+              <span class="screen-battery" id="screen-battery">76</span>
+            </header>
+            <span class="listening-ring" aria-hidden="true"></span>
+            <img id="screen-character" src="../soulmate/assets/starters/cute-seed-v1.webp" alt="星澜的绒云幼体形象">
+            <div class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="voice-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+            <footer class="screen-footer">
+              <span class="screen-state" id="screen-state">在你身边</span>
+              <span class="screen-bond" id="screen-bond">R 00</span>
+            </footer>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <aside class="display-controls" id="display-controls">
+      <header class="control-header">
+        <span class="control-kicker">NEXORA CORE / NC-01</span>
+        <h1>圆屏运行台</h1>
+        <p>240×240 · GC9A01A · 非触控原型</p>
+      </header>
+
+      <div class="control-row control-row-two">
+        <label>伙伴路线
+          <select id="starter-select">
+            <option value="cute">可爱型</option>
+            <option value="cool">帅气型</option>
+            <option value="beautiful">优美型</option>
+          </select>
+        </label>
+        <label>成长形态
+          <select id="stage-select"></select>
+        </label>
+      </div>
+
+      <fieldset class="state-controls">
+        <legend>屏幕状态</legend>
+        <div class="state-grid">
+          <button type="button" data-display-state="idle">待机</button>
+          <button type="button" data-display-state="listening">倾听</button>
+          <button type="button" data-display-state="thinking">思考</button>
+          <button type="button" data-display-state="speaking">说话</button>
+          <button type="button" data-display-state="notice">主动提醒</button>
+          <button type="button" data-display-state="charging">充电</button>
+          <button type="button" data-display-state="low-power">低电量</button>
+          <button type="button" data-display-state="sleep">息屏</button>
+        </div>
+      </fieldset>
+
+      <div class="control-row control-row-two compact-controls">
+        <label>电量 <output id="battery-output">76%</output>
+          <input id="battery-input" type="range" min="0" max="100" value="76">
+        </label>
+        <label class="toggle-control"><input id="connection-input" type="checkbox" checked> 蓝牙连接</label>
+      </div>
+
+      <div class="command-row">
+        <button class="primary-command" id="demo-button" type="button">运行完整交互</button>
+        <a class="secondary-command" href="./?embedded=1&state=idle" target="_blank" rel="noreferrer">仅查看圆屏</a>
+        <a class="secondary-command" href="../soulmate/">返回手机端</a>
+      </div>
+
+      <dl class="trigger-map">
+        <div><dt>抬腕 / 拿起</dt><dd>唤醒角色</dd></div>
+        <div><dt>唤醒词 / 麦克风</dt><dd>进入倾听</dd></div>
+        <div><dt>模型响应</dt><dd>思考 → 说话</dd></div>
+        <div><dt>四段导光条</dt><dd>同步状态反馈</dd></div>
+      </dl>
+    </aside>
+  </main>
+  <script type="module" src="./app.js?v=0.1.0"></script>
+</body>
+</html>

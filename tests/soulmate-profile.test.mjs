@@ -14,6 +14,11 @@ import {
   stageProgress,
   stagesForStarter
 } from '../shared/soulmate-profile.mjs';
+import {
+  PENDANT_DISPLAY_SIZE,
+  createPendantDisplaySnapshot,
+  nextPendantInteractionState
+} from '../shared/pendant-display.mjs';
 
 test('creates a named Soulmate with a stable identity seed', () => {
   const profile = createSoulmateProfile({
@@ -98,4 +103,27 @@ test('import rejects foreign formats and bounds conversation history', () => {
   })));
   assert.equal(history.length, 12);
   assert.equal(history[0].content, 'message 8');
+});
+
+test('pendant display uses a round 240px contract and the selected evolution stage', () => {
+  const profile = createSoulmateProfile({ name: '星澜', starter: 'cool' }, 1000);
+  const snapshot = createPendantDisplaySnapshot(profile, {
+    state: 'listening',
+    stage: 'young',
+    battery: 72
+  }, 1000);
+  assert.equal(PENDANT_DISPLAY_SIZE, 240);
+  assert.deepEqual(snapshot.display, { width: 240, height: 240, shape: 'round' });
+  assert.equal(snapshot.companion.stage, 'young');
+  assert.match(snapshot.companion.asset, /cool-young-v1/);
+  assert.deepEqual(snapshot.lights, [1, 1, 1, 1]);
+});
+
+test('pendant display prioritizes low battery and follows the voice interaction sequence', () => {
+  const profile = createSoulmateProfile({ name: '星澜' }, 1000);
+  const snapshot = createPendantDisplaySnapshot(profile, { state: 'speaking', battery: 8 }, 1000);
+  assert.equal(snapshot.state, 'low-power');
+  assert.equal(snapshot.stateLabel, '需要充电');
+  assert.equal(nextPendantInteractionState('idle'), 'listening');
+  assert.equal(nextPendantInteractionState('thinking'), 'speaking');
 });

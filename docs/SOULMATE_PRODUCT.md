@@ -26,6 +26,8 @@ Personality is represented by warmth, curiosity, steadiness, courage, and indepe
 
 The first printable pendant prototype targets the Waveshare ESP32-S3-LCD-1.28 module. NC-01 uses a faceted smoke-grey body, a metal-like octagonal front frame, and four independent light-guide bars. One universal frame presents the cute, cool, or graceful starter on the round display; the user does not replace a physical faceplate. The prototype files live in `hardware/soulmate-pendant` and remain parametric until production electronics are frozen.
 
+The pendant display is a dedicated 240 x 240 state surface, not a reduced phone UI. It shows the companion, BLE and battery status, bond level, and one short state line. Lift gestures wake the non-touch display; voice activity, model processing, audio playback, notifications, charging, and low battery each have a distinct screen and four-segment light pattern. The browser implementation and exact screen-only view live in `pendant-display/`; the firmware contract lives in `hardware/soulmate-pendant/display`.
+
 Bluetooth device selection alone does not imply appliance control. Commands must pass through a configured gateway protocol and return a verified tool result before the companion claims success.
 
 ## Conversation Safety

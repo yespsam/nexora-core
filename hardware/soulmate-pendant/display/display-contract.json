@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "product": "NEXORA CORE NC-01",
+  "target": {
+    "board": "Waveshare ESP32-S3-LCD-1.28",
+    "touch": false,
+    "displayDriver": "GC9A01A",
+    "width": 240,
+    "height": 240,
+    "shape": "round",
+    "colorDepth": 16
+  },
+  "safeArea": {
+    "status": [62, 22, 116, 16],
+    "characterBounds": {
+      "cute": [27, 30, 186, 186],
+      "cool": [41, 43, 158, 158],
+      "beautiful": [36, 38, 168, 168]
+    },
+    "footer": [66, 195, 108, 17]
+  },
+  "states": [
+    "boot",
+    "idle",
+    "listening",
+    "thinking",
+    "speaking",
+    "notice",
+    "charging",
+    "low-power",
+    "sleep"
+  ],
+  "physicalInputs": {
+    "liftGesture": "wake idle display",
+    "wakeWord": "enter listening state",
+    "microphoneActivity": "hold listening state",
+    "modelPending": "enter thinking state",
+    "audioPlayback": "enter speaking state",
+    "inactivity": "dim then sleep",
+    "batteryAdc": "force low-power below 10 percent"
+  },
+  "phoneSnapshot": {
+    "transport": "BLE GATT",
+    "fields": [
+      "profileId",
+      "name",
+      "starter",
+      "stage",
+      "bond",
+      "state",
+      "battery",
+      "notice"
+    ]
+  }
+}

@@ -885,6 +885,18 @@ input:focus-visible {
   border-right: 0;
 }
 
+.device-preview-link {
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 12px;
+  text-decoration: none;
+}
+
 .setting-row span {
   color: var(--ink-soft);
   font-size: 12px;

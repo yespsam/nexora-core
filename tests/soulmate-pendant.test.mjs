@@ -11,6 +11,10 @@ test('NEXORA CORE targets the measured round display module', () => {
   assert.equal(manifest.product.designLanguage, 'faceted-shield');
   assert.deepEqual(manifest.sourceHardware.officialModelBounds, [36.523, 39.512, 7.9]);
   assert.equal(manifest.sourceHardware.displayDiameter, 32.4);
+  assert.deepEqual(manifest.sourceHardware.resolution, [240, 240]);
+  assert.equal(manifest.sourceHardware.displayDriver, 'GC9A01A');
+  assert.equal(manifest.sourceHardware.touch, false);
+  assert.equal(manifest.sourceHardware.imu, 'QMI8658');
   assert.equal(manifest.design.displayOpening, 33.2);
   assert.ok(manifest.design.boardCavityClearance.every((value) => value >= 0.8));
 });

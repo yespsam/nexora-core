@@ -154,6 +154,10 @@ const manifest = {
     name: 'Waveshare ESP32-S3-LCD-1.28',
     officialModelBounds: [36.523, 39.512, 7.9],
     displayDiameter: 32.4,
+    resolution: [240, 240],
+    displayDriver: 'GC9A01A',
+    touch: false,
+    imu: 'QMI8658',
     url: 'https://www.waveshare.com/wiki/ESP32-S3-LCD-1.28'
   },
   design: {
