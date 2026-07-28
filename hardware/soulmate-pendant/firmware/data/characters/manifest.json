@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "format": "NXR1",
+  "byteOrder": "little-endian",
+  "pixelFormat": "RGB565",
+  "screen": [
+    240,
+    240
+  ],
+  "background": "#eff3f2",
+  "frames": [
+    {
+      "id": "cute-seed",
+      "route": "cute",
+      "stage": "seed",
+      "file": "cute-seed.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        27,
+        30,
+        186,
+        186
+      ],
+      "source": "soulmate/assets/starters/cute-seed-v1.webp",
+      "sourceSha256": "a765c46862ec79da7a524d15b9dfcd42e0c944b725d5dffd0f57a416c97fc3ab",
+      "outputSha256": "ca3cfba1f36b65bf9a4dbb2123e0054c5b98be780caf42155f717106e24ef996"
+    },
+    {
+      "id": "cute-young",
+      "route": "cute",
+      "stage": "young",
+      "file": "cute-young.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        27,
+        30,
+        186,
+        186
+      ],
+      "source": "soulmate/assets/starters/cute-young-v1.webp",
+      "sourceSha256": "0736337b115ea8c97094031f9dd7cf5bf85dd249f55dda2dcb7e46c6d29479be",
+      "outputSha256": "1025ddd91c87cc334b443fbd4064a1fb44c5a19acbd03e7ec6f6e1cd7874d219"
+    },
+    {
+      "id": "cute-resonance",
+      "route": "cute",
+      "stage": "resonance",
+      "file": "cute-resonance.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        27,
+        30,
+        186,
+        186
+      ],
+      "source": "soulmate/assets/starters/cute-resonance-v1.webp",
+      "sourceSha256": "6075d55f67a1a5b32b0bef8d299cd64fcc7b12dc310e9d8e990b9effc5a9485d",
+      "outputSha256": "1a9748c6fc844ee3e7ebfe9d4a772465842b3d1fe8bb9a17d2c97db14c9bec88"
+    },
+    {
+      "id": "cool-seed",
+      "route": "cool",
+      "stage": "seed",
+      "file": "cool-seed.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        41,
+        43,
+        158,
+        158
+      ],
+      "source": "soulmate/assets/starters/cool-seed-v1.webp",
+      "sourceSha256": "9ff53fd0c685f7adf26929329de7162464e87d91392c68df05cbe6580918d4c6",
+      "outputSha256": "64bba2a504d631366650591a9bdfdaeeea87dc9eae7a37fda042c86d2c0bc5dc"
+    },
+    {
+      "id": "cool-young",
+      "route": "cool",
+      "stage": "young",
+      "file": "cool-young.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        41,
+        43,
+        158,
+        158
+      ],
+      "source": "soulmate/assets/starters/cool-young-v1.webp",
+      "sourceSha256": "f1c24386856546ad6c3742544c9d05ee69837af935f46ea002c532e29675c246",
+      "outputSha256": "0fa4240e1d97b794d12812a1a5fa2abf0f461eba72b35b1a919fd97e0933e9fe"
+    },
+    {
+      "id": "cool-resonance",
+      "route": "cool",
+      "stage": "resonance",
+      "file": "cool-resonance.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        41,
+        43,
+        158,
+        158
+      ],
+      "source": "soulmate/assets/starters/cool-resonance-v1.webp",
+      "sourceSha256": "18e616515f43e7220ccbd393cdfea659442fd390d1a5db664576ef1ced0ef6cb",
+      "outputSha256": "b4c511d187b382d5a6eb422180dd738f8e46a6e60556ff2846fd6f345cf4281e"
+    },
+    {
+      "id": "beautiful-seed",
+      "route": "beautiful",
+      "stage": "seed",
+      "file": "beautiful-seed.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        36,
+        38,
+        168,
+        168
+      ],
+      "source": "soulmate/assets/starters/beautiful-seed-v1.webp",
+      "sourceSha256": "0c19deaa74f23beeef34c2b12bfe67a1948e276a2f6e23aa954269eb39214c6d",
+      "outputSha256": "ea24a1431515d00e386361d85fe4acf520cfc009ee7e2d9ba275fe0afdf841cc"
+    },
+    {
+      "id": "beautiful-young",
+      "route": "beautiful",
+      "stage": "young",
+      "file": "beautiful-young.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        36,
+        38,
+        168,
+        168
+      ],
+      "source": "soulmate/assets/starters/beautiful-young-v1.webp",
+      "sourceSha256": "7c233cf8b2790a243bb72acd35677de653536fa3da84bbb4ca56d13b0c027f85",
+      "outputSha256": "07872c42a7f3722da19e213e23df33f82a4d38ead0b793704e2722525b4bcd86"
+    },
+    {
+      "id": "beautiful-resonance",
+      "route": "beautiful",
+      "stage": "resonance",
+      "file": "beautiful-resonance.nxr",
+      "width": 240,
+      "height": 240,
+      "bytes": 115208,
+      "bounds": [
+        36,
+        38,
+        168,
+        168
+      ],
+      "source": "soulmate/assets/starters/beautiful-resonance-v1.webp",
+      "sourceSha256": "7963e7be8578297004155dbbf18485ef5bcf8795f0684896b1c11505a47cad31",
+      "outputSha256": "19796be2b116f29ccfaabec1e65dff2965c68184c4845fdbc39819295a009b43"
+    }
+  ]
+}

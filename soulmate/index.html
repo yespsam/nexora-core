@@ -176,10 +176,22 @@
         <button type="button" data-close-sheet="device" aria-label="关闭">关闭</button>
       </header>
       <div class="device-switcher segmented" role="tablist">
-        <button type="button" class="active" data-device-tab="home">智能家居</button>
+        <button type="button" class="active" data-device-tab="pendant">项链</button>
+        <button type="button" data-device-tab="home">智能家居</button>
         <button type="button" data-device-tab="computer">电脑助手</button>
       </div>
-      <section class="device-panel active" data-device-panel="home">
+      <section class="device-panel active" data-device-panel="pendant">
+        <div class="connection-row">
+          <div><strong>NEXORA CORE NC-01</strong><span id="pendant-status">尚未连接</span></div>
+          <button class="small-command" id="pendant-button" type="button">连接</button>
+        </div>
+        <p class="device-note">连接后，名字、成长形态和倾听、思考、说话状态会自动同步到项链圆屏。</p>
+        <div class="capability-list pendant-capabilities">
+          <span>形态</span><span>共鸣</span><span>对话状态</span><span>低功耗</span>
+        </div>
+        <a class="device-preview-link" href="../pendant-display/">预览 240×240 圆屏</a>
+      </section>
+      <section class="device-panel" data-device-panel="home" hidden>
         <div class="connection-row">
           <div><strong>蓝牙家庭网关</strong><span id="bluetooth-status">尚未选择</span></div>
           <button class="small-command" id="bluetooth-button" type="button">选择网关</button>
@@ -188,7 +200,6 @@
         <div class="capability-list">
           <span>灯光</span><span>空调</span><span>窗帘</span><span>场景</span>
         </div>
-        <a class="device-preview-link" href="../pendant-display/">预览 NC-01 项链圆屏</a>
       </section>
       <section class="device-panel" data-device-panel="computer" hidden>
         <div class="connection-row">
@@ -226,6 +237,6 @@
       <button class="wide-command danger" id="reset-button" type="button">重新诞生</button>
     </dialog>
   </main>
-  <script type="module" src="./app.js?v=0.3.1"></script>
+  <script type="module" src="./app.js?v=0.3.2"></script>
 </body>
 </html>

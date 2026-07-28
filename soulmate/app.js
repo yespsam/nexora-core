@@ -12,6 +12,11 @@ import {
   stagesForStarter,
   stageProgress
 } from '../shared/soulmate-profile.mjs';
+import {
+  PENDANT_BLE_SERVICE_UUID,
+  PENDANT_BLE_SNAPSHOT_UUID,
+  encodePendantBleSnapshot
+} from '../shared/pendant-ble.mjs';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -47,6 +52,8 @@ const evolutionList = $('#evolution-list');
 const traitList = $('#trait-list');
 const memoryList = $('#memory-list');
 const growthTitle = $('#growth-title');
+const pendantButton = $('#pendant-button');
+const pendantStatus = $('#pendant-status');
 const bluetoothButton = $('#bluetooth-button');
 const bluetoothStatus = $('#bluetooth-status');
 const bridgeButton = $('#bridge-button');
@@ -101,7 +108,10 @@ const state = {
   queuedAudioUrl: '',
   lastAssistantText: '',
   lastAssistantAt: 0,
-  currentStageId: ''
+  currentStageId: '',
+  pendantDevice: null,
+  pendantCharacteristic: null,
+  pendantSyncTimer: 0
 };
 
 function safeRead(key) {
@@ -171,6 +181,7 @@ function setPhase(phase) {
     micButton.textContent = phase === 'listening' ? '停止' : '说话';
     micButton.setAttribute('aria-pressed', phase === 'listening' ? 'true' : 'false');
   }
+  queuePendantSync();
 }
 
 function showBirthStep(index) {
@@ -254,6 +265,7 @@ function updateProfile(next) {
   state.profile = next;
   saveProfile();
   renderCompanion();
+  queuePendantSync();
 }
 
 function renderCompanion() {
@@ -577,6 +589,64 @@ async function pairBluetooth() {
   }
 }
 
+function pendantDisconnected() {
+  state.pendantCharacteristic = null;
+  pendantStatus.textContent = '连接已断开';
+  pendantButton.textContent = '重新连接';
+}
+
+async function syncPendant() {
+  if (!state.pendantCharacteristic || !state.profile) return false;
+  const payload = encodePendantBleSnapshot(state.profile, state.phase);
+  if (!payload) return false;
+  try {
+    if (state.pendantCharacteristic.writeValueWithResponse) {
+      await state.pendantCharacteristic.writeValueWithResponse(payload);
+    } else {
+      await state.pendantCharacteristic.writeValue(payload);
+    }
+    pendantStatus.textContent = `已同步 ${state.profile.name} · 共鸣 ${state.profile.bond}`;
+    return true;
+  } catch (error) {
+    pendantDisconnected();
+    return false;
+  }
+}
+
+function queuePendantSync() {
+  window.clearTimeout(state.pendantSyncTimer);
+  if (!state.pendantCharacteristic || !state.profile) return;
+  state.pendantSyncTimer = window.setTimeout(syncPendant, 80);
+}
+
+async function connectPendant() {
+  if (!navigator.bluetooth) {
+    pendantStatus.textContent = '此浏览器不支持 Web Bluetooth';
+    return;
+  }
+  if (state.pendantCharacteristic) {
+    await syncPendant();
+    return;
+  }
+  pendantStatus.textContent = '正在查找 NC-01';
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [PENDANT_BLE_SERVICE_UUID] }]
+    });
+    device.addEventListener('gattserverdisconnected', pendantDisconnected);
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(PENDANT_BLE_SERVICE_UUID);
+    state.pendantCharacteristic = await service.getCharacteristic(PENDANT_BLE_SNAPSHOT_UUID);
+    state.pendantDevice = device;
+    pendantButton.textContent = '同步';
+    pendantStatus.textContent = `已连接 ${device.name || 'NC-01'}`;
+    await syncPendant();
+  } catch (error) {
+    pendantStatus.textContent = error?.name === 'NotFoundError' ? '已取消连接' : '连接失败，请让项链保持开机';
+    pendantButton.textContent = '重试';
+  }
+}
+
 async function detectBridge() {
   bridgeStatus.textContent = '正在检测 127.0.0.1:8765';
   const controller = new AbortController();
@@ -705,6 +775,7 @@ $$('[data-device-tab]').forEach((button) => {
 });
 
 bluetoothButton.addEventListener('click', pairBluetooth);
+pendantButton.addEventListener('click', connectPendant);
 bridgeButton.addEventListener('click', detectBridge);
 $('#export-button').addEventListener('click', exportProfile);
 importButton.addEventListener('click', () => importInput.click());

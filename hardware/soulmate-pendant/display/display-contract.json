@@ -41,6 +41,10 @@
   },
   "phoneSnapshot": {
     "transport": "BLE GATT",
+    "deviceName": "NEXORA NC-01",
+    "serviceUuid": "c8a10000-5101-4e58-9a18-8f352dc80101",
+    "snapshotUuid": "c8a10001-5101-4e58-9a18-8f352dc80101",
+    "maximumBytes": 384,
     "fields": [
       "profileId",
       "name",

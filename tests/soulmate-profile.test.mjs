@@ -15,6 +15,12 @@ import {
   stagesForStarter
 } from '../shared/soulmate-profile.mjs';
 import {
+  PENDANT_BLE_MAX_BYTES,
+  PENDANT_BLE_SERVICE_UUID,
+  createPendantBleSnapshot,
+  encodePendantBleSnapshot
+} from '../shared/pendant-ble.mjs';
+import {
   PENDANT_DISPLAY_SIZE,
   createPendantDisplaySnapshot,
   nextPendantInteractionState
@@ -117,6 +123,18 @@ test('pendant display uses a round 240px contract and the selected evolution sta
   assert.equal(snapshot.companion.stage, 'young');
   assert.match(snapshot.companion.asset, /cool-young-v1/);
   assert.deepEqual(snapshot.lights, [1, 1, 1, 1]);
+});
+
+test('phone encodes a bounded NC-01 BLE snapshot with the current growth stage', () => {
+  const profile = { ...createSoulmateProfile({ name: '星澜', starter: 'beautiful' }, 1000), bond: 108 };
+  const snapshot = createPendantBleSnapshot(profile, 'speaking');
+  const encoded = encodePendantBleSnapshot(profile, 'speaking');
+  assert.equal(PENDANT_BLE_SERVICE_UUID, 'c8a10000-5101-4e58-9a18-8f352dc80101');
+  assert.equal(snapshot.name, '星澜');
+  assert.equal(snapshot.stage, 'young');
+  assert.equal(snapshot.state, 'speaking');
+  assert.ok(encoded.byteLength <= PENDANT_BLE_MAX_BYTES);
+  assert.deepEqual(JSON.parse(new TextDecoder().decode(encoded)), snapshot);
 });
 
 test('pendant display prioritizes low battery and follows the voice interaction sequence', () => {

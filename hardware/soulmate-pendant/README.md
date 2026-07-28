@@ -17,6 +17,7 @@
 | `stl/nexora-core-light-guide.stl` | 透明或半透明 PETG | 一次打印的四块独立状态灯导光条 |
 | `nexora-core-nc01-kit.3mf` | 多材料打印盘 | 三个零件已排版的整套模型 |
 | `source/soulmate-pendant.scad` | - | 可修改参数的 OpenSCAD 源文件 |
+| `firmware/` | - | ESP32-S3 圆屏、BLE 同步、电量与休眠固件工程 |
 | `nexora-core-nc01-print-pack.zip` | - | 完整压缩包；运行数字实验后同时包含报告 |
 
 ## 结构尺寸
@@ -82,3 +83,12 @@ npm run simulate:pendant
 ```
 
 实验使用 PrusaSlicer、通用 PETG、`0.4 mm` 喷嘴、`0.2 mm` 层高、三道外墙和无支撑设置。当前结果为 `23.66 g / 2h 50m 12s`，三个 STL 均无切片警告；完整记录见 [`experiments/nc01-simulation-report.md`](experiments/nc01-simulation-report.md)。
+
+构建真正运行在项链主板上的圆屏固件和角色资源：
+
+```bash
+npm run build:pendant-firmware
+npm run build:pendant-firmware-fs
+```
+
+固件使用说明、BLE 快照格式和上板边界见 [`firmware/README.md`](firmware/README.md)。
