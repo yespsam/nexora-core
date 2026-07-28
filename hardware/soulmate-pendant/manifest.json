@@ -1,5 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
+  "product": {
+    "brand": "NEXORA",
+    "name": "NEXORA CORE",
+    "model": "NC-01",
+    "designLanguage": "faceted-shield"
+  },
   "units": "millimeter",
   "sourceHardware": {
     "name": "Waveshare ESP32-S3-LCD-1.28",
@@ -12,11 +18,12 @@
     "url": "https://www.waveshare.com/wiki/ESP32-S3-LCD-1.28"
   },
   "design": {
-    "mainBodyWithoutLoop": [
-      46.8,
-      48.8,
-      15.2
+    "outerEnvelope": [
+      50,
+      67,
+      17
     ],
+    "bodyDepth": 14.8,
     "displayOpening": 33.2,
     "serviceBay": [
       31.5,
@@ -24,104 +31,87 @@
       5.8
     ],
     "lanyardHole": 4.8,
-    "faceplateThickness": 2,
+    "frontFrameThickness": 2.2,
+    "lightGuideSegments": 4,
+    "fastenerAccess": "rear",
+    "frontFastenersVisible": false,
     "boardCavityClearance": [
       0.877,
       1.088
     ]
   },
   "printParts": {
-    "soulmate-pendant-body": {
-      "label": "Universal electronics shell",
-      "triangles": 2904,
+    "nexora-core-body": {
+      "label": "Faceted electronics shell",
+      "triangles": 3516,
+      "shells": 1,
       "bounds": [
-        46.8,
-        58.6,
-        15.2
+        50,
+        67,
+        14.8
       ],
       "min": [
-        -23.4,
-        -24.6,
+        -25,
+        -33.5,
         0
       ],
       "max": [
-        23.4,
-        34,
-        15.2
+        25,
+        33.5,
+        14.8
       ],
-      "volumeMm3": 13690,
+      "volumeMm3": 15593.2,
       "openEdges": 0,
       "nonManifoldEdges": 0,
-      "estimatedPlaWeightGrams": 17
+      "estimatedPlaWeightGrams": 19.3
     },
-    "soulmate-face-cute": {
-      "label": "Cloud companion faceplate",
-      "triangles": 2116,
+    "nexora-core-front-frame": {
+      "label": "Octagonal display frame with rear screw posts",
+      "triangles": 2676,
+      "shells": 1,
       "bounds": [
-        57.264,
-        48.8,
-        2.8
+        50,
+        67,
+        7
       ],
       "min": [
-        -28.632,
-        -24.6,
+        -25,
+        -33.5,
         0
       ],
       "max": [
-        28.632,
-        24.2,
-        2.8
+        25,
+        33.5,
+        7
       ],
-      "volumeMm3": 2140.9,
+      "volumeMm3": 3740.9,
       "openEdges": 0,
       "nonManifoldEdges": 0,
-      "estimatedPlaWeightGrams": 2.7
+      "estimatedPlaWeightGrams": 4.6
     },
-    "soulmate-face-cool": {
-      "label": "Shadow companion faceplate",
-      "triangles": 1464,
+    "nexora-core-light-guide": {
+      "label": "Four-segment translucent status light guide",
+      "triangles": 576,
+      "shells": 1,
       "bounds": [
-        46.8,
-        56.1,
-        2.8
+        38.249,
+        38.249,
+        0.8
       ],
       "min": [
-        -23.4,
-        -24.6,
+        -19.124,
+        -19.124,
         0
       ],
       "max": [
-        23.4,
-        31.5,
-        2.8
+        19.124,
+        19.124,
+        0.8
       ],
-      "volumeMm3": 2110.4,
+      "volumeMm3": 217.2,
       "openEdges": 0,
       "nonManifoldEdges": 0,
-      "estimatedPlaWeightGrams": 2.6
-    },
-    "soulmate-face-beautiful": {
-      "label": "Moon-feather companion faceplate",
-      "triangles": 2148,
-      "bounds": [
-        60.962,
-        48.8,
-        2.8
-      ],
-      "min": [
-        -30.481,
-        -24.6,
-        0
-      ],
-      "max": [
-        30.481,
-        24.2,
-        2.8
-      ],
-      "volumeMm3": 2358.5,
-      "openEdges": 0,
-      "nonManifoldEdges": 0,
-      "estimatedPlaWeightGrams": 2.9
+      "estimatedPlaWeightGrams": 0.3
     }
   }
 }

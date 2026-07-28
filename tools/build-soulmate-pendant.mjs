@@ -19,6 +19,14 @@ function runOpenScad(args) {
   return `${result.stdout || ''}${result.stderr || ''}`.trim();
 }
 
+function runCommand(command, args, options = {}) {
+  const result = spawnSync(command, args, { encoding: 'utf8', ...options });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`${command} failed (${result.status}):\n${result.stderr || result.stdout}`);
+  }
+}
+
 function analyzeBinaryStl(buffer) {
   if (buffer.length < 84) throw new Error('STL is too small');
   const triangles = buffer.readUInt32LE(80);
@@ -26,8 +34,25 @@ function analyzeBinaryStl(buffer) {
   const min = [Infinity, Infinity, Infinity];
   const max = [-Infinity, -Infinity, -Infinity];
   const edgeCounts = new Map();
+  const edgeOwners = new Map();
+  const parents = Array.from({ length: triangles }, (_, index) => index);
   let signedVolume = 0;
   const keyFor = (vertex) => vertex.map((value) => Math.round(value * 10000)).join(',');
+  const find = (index) => {
+    let root = index;
+    while (parents[root] !== root) root = parents[root];
+    while (parents[index] !== index) {
+      const next = parents[index];
+      parents[index] = root;
+      index = next;
+    }
+    return root;
+  };
+  const join = (first, second) => {
+    const firstRoot = find(first);
+    const secondRoot = find(second);
+    if (firstRoot !== secondRoot) parents[secondRoot] = firstRoot;
+  };
 
   for (let triangle = 0; triangle < triangles; triangle += 1) {
     const offset = 84 + triangle * 50 + 12;
@@ -53,12 +78,17 @@ function analyzeBinaryStl(buffer) {
     for (const [first, second] of [[0, 1], [1, 2], [2, 0]]) {
       const edge = [keys[first], keys[second]].sort().join('|');
       edgeCounts.set(edge, (edgeCounts.get(edge) || 0) + 1);
+      const owner = edgeOwners.get(edge);
+      if (owner === undefined) edgeOwners.set(edge, triangle);
+      else join(triangle, owner);
     }
   }
 
   const edgeValues = [...edgeCounts.values()];
+  const shells = new Set(parents.map((_, index) => find(index))).size;
   return {
     triangles,
+    shells,
     bounds: min.map((value, axis) => Number((max[axis] - value).toFixed(3))),
     min: min.map((value) => Number(value.toFixed(3))),
     max: max.map((value) => Number(value.toFixed(3))),
@@ -72,8 +102,8 @@ async function exportStl(part, filename, directory = output.stl) {
   const path = `${directory}/${filename}.stl`;
   runOpenScad(['--export-format', 'binstl', '-D', `part="${part}"`, '-o', path, source]);
   const analysis = analyzeBinaryStl(await readFile(path));
-  if (analysis.openEdges || analysis.nonManifoldEdges) {
-    throw new Error(`${filename} is not manifold (${analysis.openEdges} open, ${analysis.nonManifoldEdges} non-manifold edges)`);
+  if (analysis.openEdges || analysis.nonManifoldEdges || analysis.shells !== 1) {
+    throw new Error(`${filename} failed mesh checks (${analysis.shells} shells, ${analysis.openEdges} open, ${analysis.nonManifoldEdges} non-manifold edges)`);
   }
   return analysis;
 }
@@ -88,19 +118,37 @@ async function renderPreview(part, filename, camera = '0,0,0,58,0,28,150') {
 }
 
 await rm(`${outputRoot}obj`, { recursive: true, force: true });
-for (const path of Object.values(output)) {
-  await rm(path, { recursive: true, force: true });
-  await mkdir(path, { recursive: true });
+await rm(output.stl, { recursive: true, force: true });
+await mkdir(output.stl, { recursive: true });
+await mkdir(output.previews, { recursive: true });
+
+const stalePreviews = [
+  'assembly-cute.png', 'assembly-cool.png', 'assembly-beautiful.png',
+  'exploded-cute.png', 'shell-open.png',
+  'nexora-core-assembly.png', 'nexora-core-exploded.png',
+  'nexora-core-front.png', 'nexora-core-shell.png', 'nexora-core-rear.png'
+];
+for (const filename of stalePreviews) {
+  await rm(`${output.previews}/${filename}`, { force: true });
+}
+
+for (const legacyArtifact of ['soulmate-pendant-kit.3mf', 'soulmate-pendant-print-pack.zip']) {
+  await rm(`${outputRoot}${legacyArtifact}`, { force: true });
 }
 
 const printParts = [
-  ['body', 'soulmate-pendant-body', 'Universal electronics shell'],
-  ['face-cute', 'soulmate-face-cute', 'Cloud companion faceplate'],
-  ['face-cool', 'soulmate-face-cool', 'Shadow companion faceplate'],
-  ['face-beautiful', 'soulmate-face-beautiful', 'Moon-feather companion faceplate']
+  ['body', 'nexora-core-body', 'Faceted electronics shell'],
+  ['front-frame', 'nexora-core-front-frame', 'Octagonal display frame with rear screw posts'],
+  ['light-guide', 'nexora-core-light-guide', 'Four-segment translucent status light guide']
 ];
 const manifest = {
-  version: 1,
+  version: 2,
+  product: {
+    brand: 'NEXORA',
+    name: 'NEXORA CORE',
+    model: 'NC-01',
+    designLanguage: 'faceted-shield'
+  },
   units: 'millimeter',
   sourceHardware: {
     name: 'Waveshare ESP32-S3-LCD-1.28',
@@ -109,11 +157,15 @@ const manifest = {
     url: 'https://www.waveshare.com/wiki/ESP32-S3-LCD-1.28'
   },
   design: {
-    mainBodyWithoutLoop: [46.8, 48.8, 15.2],
+    outerEnvelope: [50, 67, 17],
+    bodyDepth: 14.8,
     displayOpening: 33.2,
     serviceBay: [31.5, 28, 5.8],
     lanyardHole: 4.8,
-    faceplateThickness: 2,
+    frontFrameThickness: 2.2,
+    lightGuideSegments: 4,
+    fastenerAccess: 'rear',
+    frontFastenersVisible: false,
     boardCavityClearance: [0.877, 1.088]
   },
   printParts: {}
@@ -128,13 +180,21 @@ for (const [part, filename, label] of printParts) {
   };
 }
 
-for (const style of ['cute', 'cool', 'beautiful']) {
-  await renderPreview(`assembly-${style}`, `assembly-${style}`);
-}
-await renderPreview('exploded-cute', 'exploded-cute', '0,0,0,62,0,30,175');
-await renderPreview('shell-open', 'shell-open', '0,0,0,62,0,32,155');
+await renderPreview('assembly', 'nexora-core-assembly', '0,0,0,60,0,28,165');
+await renderPreview('exploded', 'nexora-core-exploded', '0,0,0,62,0,28,205');
+await renderPreview('assembly', 'nexora-core-front', '0,0,0,0,0,0,155');
+await renderPreview('shell-open', 'nexora-core-shell', '0,0,0,62,0,30,165');
+await renderPreview('assembly', 'nexora-core-rear', '0,0,0,180,0,180,155');
 
-runOpenScad(['-D', 'part="print-plate"', '-o', `${outputRoot}soulmate-pendant-kit.3mf`, source]);
+const kitFilename = 'nexora-core-nc01-kit.3mf';
+const packFilename = 'nexora-core-nc01-print-pack.zip';
+runOpenScad(['-D', 'part="print-plate"', '-o', `${outputRoot}${kitFilename}`, source]);
 await writeFile(`${outputRoot}manifest.json`, `${JSON.stringify(manifest, null, 2)}\n`);
 
-console.log(`Built ${printParts.length} manifold STL files and three assembly previews.`);
+await rm(`${outputRoot}${packFilename}`, { force: true });
+runCommand('zip', [
+  '-qr', packFilename,
+  'README.md', 'manifest.json', 'source', 'stl', kitFilename
+], { cwd: outputRoot });
+
+console.log(`Built ${printParts.length} single-shell manifold NC-01 STL files, five previews, a 3MF plate, and a ZIP pack.`);

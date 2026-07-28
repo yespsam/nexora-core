@@ -5,31 +5,43 @@ import test from 'node:test';
 const root = new URL('../hardware/soulmate-pendant/', import.meta.url);
 const manifest = JSON.parse(await readFile(new URL('manifest.json', root), 'utf8'));
 
-test('pendant kit targets the measured round display module', () => {
+test('NEXORA CORE targets the measured round display module', () => {
+  assert.equal(manifest.product.name, 'NEXORA CORE');
+  assert.equal(manifest.product.model, 'NC-01');
+  assert.equal(manifest.product.designLanguage, 'faceted-shield');
   assert.deepEqual(manifest.sourceHardware.officialModelBounds, [36.523, 39.512, 7.9]);
   assert.equal(manifest.sourceHardware.displayDiameter, 32.4);
   assert.equal(manifest.design.displayOpening, 33.2);
   assert.ok(manifest.design.boardCavityClearance.every((value) => value >= 0.8));
 });
 
-test('pendant exports one body and three closed printable faceplates', async () => {
+test('NC-01 hides front fasteners and includes a segmented light guide', () => {
+  assert.equal(manifest.design.fastenerAccess, 'rear');
+  assert.equal(manifest.design.frontFastenersVisible, false);
+  assert.equal(manifest.design.lightGuideSegments, 4);
+  assert.deepEqual(manifest.design.outerEnvelope, [50, 67, 17]);
+});
+
+test('pendant exports three closed functional print parts', async () => {
   const parts = Object.entries(manifest.printParts);
-  assert.equal(parts.length, 4);
+  assert.equal(parts.length, 3);
   assert.deepEqual(
     parts.map(([name]) => name),
-    ['soulmate-pendant-body', 'soulmate-face-cute', 'soulmate-face-cool', 'soulmate-face-beautiful']
+    ['nexora-core-body', 'nexora-core-front-frame', 'nexora-core-light-guide']
   );
   for (const [name, part] of parts) {
+    assert.equal(part.shells, 1, `${name} contains disconnected geometry`);
     assert.equal(part.openEdges, 0, `${name} has open edges`);
     assert.equal(part.nonManifoldEdges, 0, `${name} has non-manifold edges`);
-    assert.ok(part.triangles > 1000, `${name} is unexpectedly coarse`);
+    assert.ok(part.triangles > 200, `${name} is unexpectedly coarse`);
     assert.ok(part.estimatedPlaWeightGrams > 0);
     const file = await stat(new URL(`stl/${name}.stl`, root));
-    assert.ok(file.size > 50_000, `${name} STL is unexpectedly small`);
+    assert.ok(file.size > 20_000, `${name} STL is unexpectedly small`);
   }
 });
 
 test('pendant kit includes a slicer-ready 3MF plate and source model', async () => {
-  assert.ok((await stat(new URL('soulmate-pendant-kit.3mf', root))).size > 20_000);
+  assert.ok((await stat(new URL('nexora-core-nc01-kit.3mf', root))).size > 20_000);
+  assert.ok((await stat(new URL('nexora-core-nc01-print-pack.zip', root))).size > 50_000);
   assert.ok((await stat(new URL('source/soulmate-pendant.scad', root))).size > 4_000);
 });
