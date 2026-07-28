@@ -8,7 +8,7 @@ import {
 } from '../shared/soulmate-profile.mjs';
 import { creatureVoiceResources } from '../shared/companion-data.mjs';
 
-const RELEASE_ID = 'evolution-voice-regression-v3';
+const RELEASE_ID = 'identity-pose-sync-v4';
 const FRAME_READY_TIMEOUT_MS = 30000;
 let frameRun = 0;
 
@@ -112,6 +112,19 @@ async function expectPendantState(pendant, state) {
   return snapshot;
 }
 
+async function waitForPendantAction(pendant, action, timeout = 20000) {
+  const started = Date.now();
+  let current = null;
+  while (Date.now() - started < timeout) {
+    current = pendant.getModelState();
+    if (current?.error) throw new Error(`${action} 动作失败：${current.error}`);
+    if (current?.status === 'ready' && current.action === action) return current;
+    await delay(100);
+  }
+  const status = current ? `${current.status || '未知'}/${current.action || '未知'}` : '无模型状态';
+  throw new Error(`${action} 动作 20 秒未就绪，当前 ${status}`);
+}
+
 async function runAllTests() {
   runButton.disabled = true;
   runButton.textContent = '正在测试';
@@ -160,10 +173,18 @@ async function runAllTests() {
   }));
 
   results.push(await check('pair', '虚拟蓝牙连接', async () => {
+    const phoneState = phone.getState();
+    const expectedStage = stageProgress(phoneState.profile).stage.id;
     await phone.connectPendant();
     await waitFor(() => phone.getState().pendantConnected);
-    await waitFor(() => pendant.getSnapshot()?.connected);
-    return 'NC-01 已连接';
+    await waitFor(() => {
+      const current = pendant.getSnapshot();
+      return current?.connected
+        && current.companion?.name === phoneState.profile.name
+        && current.companion?.starter === phoneState.profile.starter
+        && current.companion?.stage === expectedStage;
+    }, 5000);
+    return 'NC-01 已连接并收到资料';
   }));
 
   results.push(await check('identity', '身份同步', async () => {
@@ -182,18 +203,17 @@ async function runAllTests() {
   }));
 
   results.push(await check('poses', '3D 互动动作', async () => {
+    const started = performance.now();
     pendant.setState('affection');
     const affection = await expectPendantState(pendant, 'affection');
     assert(affection.companion.pose === 'affection', '单击没有切换亲近姿势');
-    await waitFor(() => pendant.getModelState().status === 'ready'
-      && pendant.getModelState().action === 'affection');
+    await waitForPendantAction(pendant, 'affection');
     pendant.setState('happy');
     const happy = await expectPendantState(pendant, 'happy');
     assert(happy.companion.pose === 'happy', '双击没有切换开心姿势');
-    await waitFor(() => pendant.getModelState().status === 'ready'
-      && pendant.getModelState().action === 'wave');
+    await waitForPendantAction(pendant, 'wave');
     pendant.setState('idle');
-    return '亲近 / 开心使用独立 3D 动作';
+    return `亲近 / 开心独立动作 · ${((performance.now() - started) / 1000).toFixed(1)} 秒`;
   }));
 
   for (const [id, label, phase] of [

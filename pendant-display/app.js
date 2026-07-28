@@ -46,6 +46,9 @@ let holdTriggered = false;
 let lastTapAt = 0;
 let currentSnapshot = null;
 let creatureViewer = null;
+let lastModelError = '';
+const warmedCreatureForms = new Set();
+const interactionActions = ['affection', 'wave'];
 
 function ensureCreatureViewer() {
   if (creatureViewer) return creatureViewer;
@@ -53,9 +56,13 @@ function ensureCreatureViewer() {
     creatureViewer = new Creature3DViewer(screenModel, {
       compact: true,
       frustumHeight: 2,
-      cameraDistance: 4.55
+      cameraDistance: 4.55,
+      onError(error) {
+        lastModelError = String(error?.message || error || '3D 动作加载失败').slice(0, 120);
+      }
     });
   } catch (error) {
+    lastModelError = String(error?.message || error || '无法启动 3D 渲染').slice(0, 120);
     screenModel.dataset.modelState = 'error';
   }
   return creatureViewer;
@@ -128,11 +135,20 @@ function render() {
   screenBond.textContent = `R ${String(snapshot.companion.bond).padStart(2, '0').slice(-2)}`;
   screenConnection.classList.toggle('offline', !snapshot.connected);
   screenConnection.setAttribute('aria-label', snapshot.connected ? '蓝牙已连接' : '蓝牙未连接');
-  ensureCreatureViewer()?.load(
-    snapshot.companion.starter,
-    creatureActionForPhase[snapshot.state] || 'idle',
-    snapshot.companion.stage
-  );
+  const viewer = ensureCreatureViewer();
+  if (viewer) {
+    const action = creatureActionForPhase[snapshot.state] || 'idle';
+    const formKey = `${snapshot.companion.starter}:${snapshot.companion.stage}`;
+    lastModelError = '';
+    viewer.load(snapshot.companion.starter, action, snapshot.companion.stage).then((loaded) => {
+      if (!loaded || warmedCreatureForms.has(formKey)) return;
+      warmedCreatureForms.add(formKey);
+      viewer.preload(snapshot.companion.starter, interactionActions, snapshot.companion.stage)
+        .then((results) => {
+          if (results.some((result) => result.status === 'rejected')) warmedCreatureForms.delete(formKey);
+        });
+    });
+  }
   batteryInput.value = String(snapshot.battery);
   batteryOutput.value = `${snapshot.battery}%`;
   connectionInput.checked = snapshot.connected;
@@ -293,10 +309,13 @@ if (simulatorMode) {
       setState: setDisplayState,
       getSnapshot: () => currentSnapshot ? structuredClone(currentSnapshot) : null,
       getModelState: () => ({
-        starter: creatureViewer?.starter || state.starter,
-        action: creatureViewer?.action || 'idle',
+        ...(creatureViewer?.getState() || {
+          starter: state.starter,
+          action: 'idle',
+          status: screenModel.dataset.modelState || 'loading'
+        }),
         identity: creatureViewer?.identity || '',
-        status: screenModel.dataset.modelState || 'loading'
+        error: lastModelError
       }),
       sampleModel: () => creatureViewer?.samplePixels() || null
     })

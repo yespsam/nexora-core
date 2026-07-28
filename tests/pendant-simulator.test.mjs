@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  PENDANT_SIMULATOR_STORAGE_KEY,
   createPendantSimulatorEnvelope,
   decodePendantSimulatorPayload,
   normalizePendantSimulatorSnapshot,
@@ -60,4 +61,52 @@ test('explicit preview can ignore the previously stored simulator snapshot', asy
   await Promise.resolve();
   stop();
   assert.deepEqual(delivered, []);
+});
+
+test('storage events synchronize the pendant when BroadcastChannel is unavailable', () => {
+  const listeners = new Map();
+  const eventTarget = {
+    addEventListener(type, listener) { listeners.set(type, listener); },
+    removeEventListener(type, listener) {
+      if (listeners.get(type) === listener) listeners.delete(type);
+    }
+  };
+  const delivered = [];
+  const stop = observePendantSimulator(
+    (snapshot) => delivered.push(snapshot),
+    { getItem: () => null },
+    { replayStored: false, eventTarget }
+  );
+  const envelope = createPendantSimulatorEnvelope(JSON.stringify(validSnapshot), 654321);
+
+  listeners.get('storage')({
+    key: PENDANT_SIMULATOR_STORAGE_KEY,
+    newValue: JSON.stringify(envelope)
+  });
+
+  assert.deepEqual(delivered, [validSnapshot]);
+  stop();
+  assert.equal(listeners.has('storage'), false);
+});
+
+test('duplicate storage and broadcast deliveries are applied once', () => {
+  const listeners = new Map();
+  const eventTarget = {
+    addEventListener(type, listener) { listeners.set(type, listener); },
+    removeEventListener() {}
+  };
+  const delivered = [];
+  const stop = observePendantSimulator(
+    (snapshot) => delivered.push(snapshot),
+    { getItem: () => null },
+    { replayStored: false, eventTarget }
+  );
+  const envelope = createPendantSimulatorEnvelope(JSON.stringify(validSnapshot), 777777);
+  const serialized = JSON.stringify(envelope);
+
+  listeners.get('storage')({ key: PENDANT_SIMULATOR_STORAGE_KEY, newValue: serialized });
+  listeners.get('storage')({ key: PENDANT_SIMULATOR_STORAGE_KEY, newValue: serialized });
+
+  assert.equal(delivered.length, 1);
+  stop();
 });

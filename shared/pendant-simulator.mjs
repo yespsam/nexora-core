@@ -83,11 +83,19 @@ export function openPendantSimulatorWriter(storage = globalThis.localStorage) {
 export function observePendantSimulator(
   onSnapshot,
   storage = globalThis.localStorage,
-  { replayStored = true } = {}
+  { replayStored = true, eventTarget = globalThis } = {}
 ) {
+  let lastEnvelopeSignature = '';
   const deliver = (value) => {
+    const signature = value?.snapshot
+      ? `${value.sentAt || 0}:${JSON.stringify(value.snapshot)}`
+      : '';
+    if (signature && signature === lastEnvelopeSignature) return;
     const snapshot = normalizePendantSimulatorSnapshot(value?.snapshot || value);
-    if (snapshot) onSnapshot(snapshot);
+    if (snapshot) {
+      lastEnvelopeSignature = signature;
+      onSnapshot(snapshot);
+    }
   };
   if (replayStored) {
     try {
@@ -99,6 +107,18 @@ export function observePendantSimulator(
   const channel = typeof BroadcastChannel === 'function'
     ? new BroadcastChannel(PENDANT_SIMULATOR_CHANNEL)
     : null;
-  if (channel) channel.addEventListener('message', (event) => deliver(event.data));
-  return () => channel?.close();
+  const onMessage = (event) => deliver(event.data);
+  const onStorage = (event) => {
+    if (event?.key !== PENDANT_SIMULATOR_STORAGE_KEY || !event.newValue) return;
+    try {
+      deliver(JSON.parse(event.newValue));
+    } catch (error) {}
+  };
+  channel?.addEventListener('message', onMessage);
+  eventTarget?.addEventListener?.('storage', onStorage);
+  return () => {
+    channel?.removeEventListener('message', onMessage);
+    channel?.close();
+    eventTarget?.removeEventListener?.('storage', onStorage);
+  };
 }
