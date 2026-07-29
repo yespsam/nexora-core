@@ -1,6 +1,6 @@
 # NEXORA CORE
 
-NEXORA CORE 是一个开源的随身 AI 情感伙伴原型。伙伴以原创 3D 生物形象出现，可以在手机、电脑桌面和 NC-01 项链圆屏模拟器中互动，并通过持续对话形成名字、生日、性格、记忆与成长阶段。
+NEXORA CORE 是一个内部保密的随身 AI 情感伙伴产品原型。伙伴以原创 3D 生物形象出现，可以在手机、电脑桌面和 NC-01 项链圆屏模拟器中互动，并通过持续对话形成名字、生日、性格、记忆与成长阶段。未经书面授权，不得复制、分发、公开或用于衍生产品。
 
 [在线体验](https://nexora-core-ai.netlify.app/soulmate/) · [项链 3D 运行台](https://nexora-core-ai.netlify.app/pendant-display/) · [电脑测试台](https://nexora-core-ai.netlify.app/device-lab/?autorun=1) · [X / Twitter @yesp999](https://x.com/yesp999)
 
@@ -80,10 +80,10 @@ npm run test:computer
 
 不要把 API Key 提交到 GitHub。开发环境使用 `.env` 或 `.env.local`，线上密钥应配置在 Netlify 环境变量中。伴侣资料默认保存在用户浏览器本地，项链 BLE 快照只同步必要的身份、成长和即时状态字段。
 
-## 参与项目
+## 保密与协作
 
-欢迎通过 GitHub Issues 和 Pull Requests 提交问题、角色动作改进、硬件验证结果与新功能。项目动态发布在 [X / Twitter @yesp999](https://x.com/yesp999)。
+仓库仅供获得授权的项目成员使用。问题、角色动作改进、硬件验证结果与新功能应在私有仓库内提交，不得将源代码、模型、固件、打印文件、产品路线或测试数据转发到公开渠道。对外产品动态发布在 [X / Twitter @yesp999](https://x.com/yesp999)。
 
-## License
+## 权利声明
 
-本项目采用 [MIT License](LICENSE)。
+当前私有版本采用 [NEXORA CORE Proprietary Notice](LICENSE)，保留所有权利。此前已经随 MIT License 公开分发的历史版本，继续受其当时附带的许可约束。

@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:public": "node tools/build-public-site.mjs",
     "build:soulmate-assets": "node tools/process-soulmate-starters.mjs",
     "build:pendant-poses": "node tools/process-pendant-poses.mjs",
     "build:creature-references": "node tools/process-creature-turnarounds.mjs",
