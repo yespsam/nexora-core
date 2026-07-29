@@ -1,14 +1,15 @@
-const CACHE_NAME = 'nexora-core-shell-v18';
+const CACHE_NAME = 'nexora-core-shell-v19';
 const SHELL_ASSETS = [
   './',
   './index.html',
   './style.css?v=0.5.0',
-  './app.js?v=0.7.6',
+  './app.js?v=0.8.0',
   './manifest.webmanifest',
   './assets/soulmate-icon-192.png',
   './assets/soulmate-icon-512.png',
-  '../shared/soulmate-profile.mjs',
+  '../shared/soulmate-profile.mjs?v=2',
   '../shared/soulmate-memory.mjs',
+  '../shared/soulmate-sync.mjs?v=1',
   '../shared/pendant-ble.mjs',
   '../shared/pendant-simulator.mjs',
   '../shared/pendant-poses.mjs',

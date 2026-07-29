@@ -14,7 +14,7 @@
     <div>
       <span class="lab-kicker">NEXORA CORE / NC-01</span>
       <h1>电脑虚拟测试台</h1>
-      <p>手机端、虚拟蓝牙与 240×240 项链圆屏同步运行</p>
+      <p>手机、电脑与 240×240 项链圆屏保持同一个伙伴身份</p>
     </div>
     <div class="lab-actions">
       <button id="reset-button" class="secondary-button" type="button">恢复演示数据</button>
@@ -31,6 +31,11 @@
         </div>
       </article>
 
+      <article class="device-bay desktop-bay">
+        <header><strong>电脑伴侣</strong><span>连续身份 / 桌面视口</span></header>
+        <iframe id="desktop-frame" title="NEXORA CORE 电脑端模拟器"></iframe>
+      </article>
+
       <article class="device-bay pendant-bay">
         <header><strong>项链端</strong><span>NC-01 / 240 × 240</span></header>
         <iframe id="pendant-frame" title="NEXORA CORE 项链模拟器"></iframe>
@@ -43,7 +48,7 @@
         <output id="summary" data-status="idle">尚未运行</output>
       </header>
       <div class="test-results" id="test-results">
-        <div data-test="views"><span>双端界面加载</span><output>等待</output></div>
+        <div data-test="views"><span>三端界面加载</span><output>等待</output></div>
         <div data-test="assets"><span>九形态资源与圆屏尺寸</span><output>等待</output></div>
         <div data-test="pair"><span>虚拟蓝牙连接</span><output>等待</output></div>
         <div data-test="identity"><span>名字、形态与共鸣同步</span><output>等待</output></div>
@@ -53,6 +58,7 @@
         <div data-test="speaking"><span>说话状态</span><output>等待</output></div>
         <div data-test="power"><span>低电量、充电与休眠</span><output>等待</output></div>
         <div data-test="chat"><span>连续对话与人格成长</span><output>等待</output></div>
+        <div data-test="continuity"><span>手机、电脑与项链身份连续</span><output>等待</output></div>
         <div data-test="voice"><span>三路线真实声线</span><output>等待</output></div>
         <div data-test="disconnect"><span>断连显示</span><output>等待</output></div>
       </div>
@@ -71,6 +77,6 @@
       <span>吊环强度与佩戴安全</span>
     </section>
   </main>
-  <script type="module" src="./app.js?v=0.2.7"></script>
+  <script type="module" src="./app.js?v=0.3.0"></script>
 </body>
 </html>

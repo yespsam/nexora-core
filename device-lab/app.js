@@ -8,12 +8,13 @@ import {
 } from '../shared/soulmate-profile.mjs';
 import { creatureVoiceResources } from '../shared/companion-data.mjs';
 
-const RELEASE_ID = 'identity-pose-sync-v4';
+const RELEASE_ID = 'cross-device-continuity-v1';
 const FRAME_READY_TIMEOUT_MS = 30000;
 let frameRun = 0;
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const phoneFrame = $('#phone-frame');
+const desktopFrame = $('#desktop-frame');
 const pendantFrame = $('#pendant-frame');
 const runButton = $('#run-button');
 const resetButton = $('#reset-button');
@@ -48,7 +49,8 @@ function seedDemoProfile(force = false) {
 
 function loadFrames() {
   const runId = `${Date.now()}-${frameRun += 1}`;
-  phoneFrame.src = `../soulmate/?lab=1&release=${RELEASE_ID}&run=${runId}`;
+  phoneFrame.src = `../soulmate/?lab=1&surface=phone&release=${RELEASE_ID}&run=${runId}`;
+  desktopFrame.src = `../soulmate/?lab=1&surface=desktop&release=${RELEASE_ID}&run=${runId}`;
   pendantFrame.src = `../pendant-display/?lab=1&state=idle&release=${RELEASE_ID}&run=${runId}`;
 }
 
@@ -137,16 +139,19 @@ async function runAllTests() {
   });
 
   let phone;
+  let desktop;
   let pendant;
   let phoneModelGeneration = 0;
   const results = [];
-  results.push(await check('views', '双端界面加载', async () => {
-    [phone, pendant] = await Promise.all([
+  results.push(await check('views', '三端界面加载', async () => {
+    [phone, desktop, pendant] = await Promise.all([
       waitFor(() => phoneFrame.contentWindow?.__NEXORA_LAB__),
+      waitFor(() => desktopFrame.contentWindow?.__NEXORA_LAB__),
       waitFor(() => pendantFrame.contentWindow?.__NEXORA_PENDANT_LAB__)
     ]);
     assert(phone.getState().profile, '手机端没有伴侣资料');
-    return '双端就绪';
+    assert(desktop.getState().profile, '电脑端没有伴侣资料');
+    return '手机 / 电脑 / 项链就绪';
   }));
 
   results.push(await check('assets', '角色资源与圆屏尺寸', async () => {
@@ -255,6 +260,29 @@ async function runAllTests() {
     assert(after.history.at(-1)?.role === 'assistant', '回答没有写入记录');
     assert(after.profile.bond === before.profile.bond + 8, '对话没有增加共鸣');
     return `已回答 / 共鸣 +${after.profile.bond - before.profile.bond}`;
+  }));
+
+  results.push(await check('continuity', '跨端身份连续', async () => {
+    const phoneState = phone.getState();
+    await waitFor(() => {
+      const desktopState = desktop.getState();
+      return desktopState.profile?.id === phoneState.profile.id
+        && desktopState.profile.bond === phoneState.profile.bond
+        && desktopState.history.at(-1)?.content === phoneState.history.at(-1)?.content;
+    }, 5000);
+    desktop.interact('care');
+    const synchronized = await waitFor(() => {
+      const nextPhone = phone.getState();
+      const nextDesktop = desktop.getState();
+      const nextPendant = pendant.getSnapshot();
+      return nextPhone.profile.bond === phoneState.profile.bond + 5
+        && nextDesktop.profile.bond === nextPhone.profile.bond
+        && nextPendant?.companion?.bond === nextPhone.profile.bond
+        ? nextPhone
+        : null;
+    }, 5000);
+    assert(synchronized.profile.name === phoneState.profile.name, '伙伴名字发生变化');
+    return `${synchronized.profile.name} / 记忆与共鸣三端一致`;
   }));
 
   results.push(await check('voice', '真实声线接口', async () => {

@@ -19,6 +19,7 @@ import {
   encodePendantBleSnapshot
 } from '../shared/pendant-ble.mjs';
 import { openPendantSimulatorWriter } from '../shared/pendant-simulator.mjs';
+import { openSoulmateSync } from '../shared/soulmate-sync.mjs?v=1';
 import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=13';
 import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=5';
 import { shouldBlockRecognizedSpeech } from '../shared/voice-turn.mjs?v=1';
@@ -125,7 +126,8 @@ const state = {
   pendantDevice: null,
   pendantCharacteristic: null,
   pendantSyncTimer: 0,
-  presencePhaseTimer: 0
+  presencePhaseTimer: 0,
+  continuity: null
 };
 
 let creatureViewer = null;
@@ -178,10 +180,12 @@ function loadHistory() {
 
 function saveProfile() {
   if (state.profile) safeWrite(SOULMATE_STORAGE_KEY, state.profile);
+  state.continuity?.publish(state.profile, state.history);
 }
 
 function saveHistory() {
   safeWrite(SOULMATE_HISTORY_KEY, state.history.slice(-12));
+  state.continuity?.publish(state.profile, state.history);
 }
 
 function personaFromStarter(starter = state.profile?.starter || state.birthSelections.starter) {
@@ -333,6 +337,22 @@ function renderCompanion() {
   $('#setting-starter').textContent = (soulmateStarterCatalog[state.profile.starter] || soulmateStarterCatalog.cute).species;
   $('#setting-birthday').textContent = state.profile.birthday;
   renderGrowth();
+}
+
+function applyContinuityState(bundle) {
+  if (!bundle?.profile) return;
+  state.profile = bundle.profile;
+  state.history = bundle.history;
+  safeWrite(SOULMATE_STORAGE_KEY, state.profile);
+  safeWrite(SOULMATE_HISTORY_KEY, state.history);
+  birthFlow.hidden = true;
+  companionView.hidden = false;
+  renderMessages();
+  renderCompanion();
+  queuePendantSync();
+  if (!state.busy && !['listening', 'thinking', 'speaking', 'ready'].includes(state.phase)) {
+    presenceLine.textContent = `${state.profile.name}已在当前设备继续陪伴。`;
+  }
 }
 
 function renderGrowth() {
@@ -906,6 +926,9 @@ if (state.profile) {
   showBirthStep(0);
 }
 
+state.continuity = openSoulmateSync({ onState: applyContinuityState });
+window.addEventListener('pagehide', () => state.continuity?.close(), { once: true });
+
 if (pendantSimulationMode) {
   pendantStatus.textContent = '电脑模拟设备待连接';
   pendantButton.textContent = '连接模拟器';
@@ -913,6 +936,8 @@ if (pendantSimulationMode) {
     configurable: true,
     value: Object.freeze({
       connectPendant,
+      interact: reactToTouch,
+      publishState: () => state.continuity?.publish(state.profile, state.history),
       sendMessage,
       setPhase,
       getState: () => ({

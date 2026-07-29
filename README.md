@@ -2,7 +2,7 @@
 
 NEXORA CORE 是一个内部保密的随身 AI 情感伙伴产品原型。伙伴以原创 3D 生物形象出现，可以在手机、电脑桌面和 NC-01 项链圆屏模拟器中互动，并通过持续对话形成名字、生日、性格、记忆与成长阶段。未经书面授权，不得复制、分发、公开或用于衍生产品。
 
-[在线体验](https://nexora-core-ai.netlify.app/soulmate/) · [项链 3D 运行台](https://nexora-core-ai.netlify.app/pendant-display/) · [电脑测试台](https://nexora-core-ai.netlify.app/device-lab/?autorun=1) · [X / Twitter @yesp999](https://x.com/yesp999)
+[在线体验](https://nexora-core-ai.netlify.app/soulmate/) · [项链 3D 运行台](https://nexora-core-ai.netlify.app/pendant-display/) · [X / Twitter @yesp999](https://x.com/yesp999)
 
 ![NEXORA CORE 3D companion](NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png)
 
@@ -23,7 +23,7 @@ NEXORA CORE 是一个内部保密的随身 AI 情感伙伴产品原型。伙伴�
 - 首次开机设置名字、生日、性别、初始伙伴和声线。
 - 文字或语音对话，并保存版本化的偏好、事实、事件、情绪和关系记忆。
 - 三条原创伙伴路线、九套成长形态和独立动作资源。
-- 手机端、透明桌面端、`240 x 240` 项链圆屏和电脑双端测试台。
+- 手机端、透明桌面端、`240 x 240` 项链圆屏和电脑三端测试台。
 - Web Bluetooth 身份与状态同步协议。
 - Netlify Functions 聊天与云端神经语音接口。
 - ESP32-S3 NC-01 固件、3D 打印外壳、切片模拟和装配资料。
@@ -64,7 +64,7 @@ npm run test:computer
 | --- | --- |
 | `soulmate/` | 手机端伙伴与对话界面 |
 | `pendant-display/` | 只显示 3D 角色的 NC-01 圆屏模拟器 |
-| `device-lab/` | 手机与项链联合自动测试台 |
+| `device-lab/` | 手机、电脑与项链联合自动测试台，仅在私有本地环境发布 |
 | `NEXORA_3D_CREATURES/` | LUMO、VEYR、AERA 模型与动作 |
 | `shared/` | 人格、BLE、3D 和状态机共享模块 |
 | `netlify/functions/` | 聊天与语音云函数 |

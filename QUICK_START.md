@@ -6,7 +6,6 @@ NEXORA CORE 是一个可在手机、电脑和 NC-01 项链圆屏上运行的 3D 
 
 - 手机端：<https://nexora-core-ai.netlify.app/soulmate/>
 - 项链圆屏：<https://nexora-core-ai.netlify.app/pendant-display/>
-- 电脑验收台：<https://nexora-core-ai.netlify.app/device-lab/?autorun=1>
 
 请只收藏上面的稳定地址。旧的 `qiban-companion.netlify.app` 和带部署哈希的
 `--qiban-companion.netlify.app` 地址已经失效，浏览器缓存可能暂时显示旧界面，但它们不会再获得更新。
@@ -38,12 +37,18 @@ http://localhost:8888/soulmate/
 
 本地 Netlify 开发服务器会同时提供网页、对话函数和语音函数。直接双击 HTML 只能预览静态界面，无法完整测试云端对话与真实声音。
 
+私有电脑验收台：
+
+```text
+http://localhost:8888/device-lab/?autorun=1
+```
+
 ## 3. 正确验收
 
 打开电脑验收台并等待自动测试结束。当前有效验收必须同时满足：
 
 - 九个原生 3D 进化形态可读取。
-- 手机端与 240 x 240 项链圆屏同步。
+- 手机、电脑窗口与 240 x 240 项链圆屏保持同一身份、记忆和共鸣。
 - 动作切换不重新创建模型。
 - 三条形象路线分别返回匹配的神经声线。
 - 对话写入历史、增加共鸣并能召回长期记忆。
