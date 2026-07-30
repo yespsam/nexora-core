@@ -1,7 +1,7 @@
 # NEXORA CORE 私有测试云上线清单
 
-状态：Free 私有门禁、production 数据库与隔离分支验收已完成，Identity 为 Invite only，production 设备云功能关闭
-日期：2026-07-30
+状态：Free 私有门禁、production 数据库与隔离分支加密生命周期验收已完成，Identity 为 Invite only，production 设备云功能关闭
+日期：2026-07-31
 
 ## 已选技术路径
 
@@ -41,7 +41,7 @@
 | `NEXORA_DEVICE_CLOUD_MAINTENANCE_ENABLED` | 每小时删除工作器开关 | 初始为 `false`，只和总开关同时启用 |
 | `NEXORA_SUBJECT_PEPPER` | Identity 主体 HMAC | 至少 32 个随机字符，仅 Functions scope |
 
-数据库连接由 Netlify 根据 production、branch deploy 或 Deploy Preview 自动注入，不保存手工连接串。
+数据库连接由 Netlify 根据 production、branch deploy 或 Deploy Preview 自动注入，不保存手工连接串。CLI alias 不属于真实 branch deploy；本次验收仅为绕过平台未注入连接的问题，短时设置了 `device-cloud-test` 分支专用连接串，并在验收后立即删除且重新部署。
 
 ## 部署顺序
 
@@ -51,8 +51,9 @@
 4. 配置 pepper，并保持 production context 的设备云总开关为 `false`。
 5. production 原子部署会应用四份迁移；设备云和维护函数仍由两个独立开关关闭。
 6. 已验证正式域名的未登录页面、API 和 GLB 文件均被拦截；仅在 `branch-deploy` context 开启设备云总开关。
-7. 已用真实 Identity 登录完成首轮 11 项事件链路和跨 owner 隔离验收；新增快照、压缩、撤销和对象联合删除链路需在本次隔离分支重新验收。
-8. 临时验收页面和函数已从发布内容移除；连续一周对账通过后，才开始现有 Blob 快照到事件库的受控双写。
+7. 已用真实 Identity 登录完成事件链路、跨 owner 隔离、加密快照往返、重复快照幂等、保留压缩、删除取消和到期删除验收。
+8. 定向维护执行处理 1 条、失败 0 条，删除 3 个加密对象；独立复核确认账户、快照索引、删除请求和对象存储全部完成。退出流程已跳转到 `signedOut=1` 并确认缓存清理文案。
+9. 临时验收页面、函数和数据库连接串已从发布内容及环境变量移除；连续一周对账通过后，才开始现有 Blob 快照到事件库的受控双写。
 
 ## 上线验收
 
@@ -68,7 +69,7 @@
 
 ## 当前阻断项
 
-- Free 自建门禁与受邀账号登录已通过真实 Netlify 验收；退出和密码恢复流程仍需单独做用户体验验收。
+- Free 自建门禁、受邀账号登录、退出和密码恢复表单已通过真实 Netlify 用户体验验收；密码恢复邮件投递仍需在正式发件域配置后复测。
 - production 设备云和维护开关保持关闭。正式启用前必须为 production context 单独设置长期稳定的 `NEXORA_SUBJECT_PEPPER`，不得复用或轮换测试密钥。
 - 生产依赖审计为 0 个漏洞；完整开发依赖审计仍需单独授权向 npm 外传完整开发依赖图。
-- 快照和删除工作器已实现；仍需在隔离分支完成真实 Netlify Blobs 往返、计划函数手动运行和退出/密码恢复体验验收。
+- 快照、Netlify Blobs 往返和删除工作器已通过隔离分支验收；下一阶段风险集中在受控双写、长期对账、真机网络和 production 独立密钥管理。
