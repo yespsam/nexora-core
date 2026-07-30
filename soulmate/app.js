@@ -85,6 +85,7 @@ const voiceSettingStatus = $('#voice-setting-status');
 const importButton = $('#import-button');
 const importInput = $('#import-input');
 const importStatus = $('#import-status');
+const privateAccessStatus = $('#private-access-status');
 const cloudSyncState = $('#cloud-sync-state');
 const cloudSyncEnable = $('#cloud-sync-enable');
 const cloudSyncNow = $('#cloud-sync-now');
@@ -1145,6 +1146,25 @@ importButton.addEventListener('click', () => importInput.click());
 importInput.addEventListener('change', async () => {
   await importProfile(importInput.files?.[0]);
   importInput.value = '';
+});
+$('#private-logout-button').addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  privateAccessStatus.textContent = '正在安全退出…';
+  try {
+    const response = await fetch('/api/access/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({})
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error('logout failed');
+    location.replace(body.next || '/access/?signedOut=1');
+  } catch (error) {
+    privateAccessStatus.textContent = '暂时无法退出，请稍后重试。';
+    button.disabled = false;
+  }
 });
 $('#reset-button').addEventListener('click', async () => {
   const detail = state.cloudIdentity

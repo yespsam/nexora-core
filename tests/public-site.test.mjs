@@ -22,6 +22,8 @@ test('public build contains only the product runtime allowlist', async () => {
 
   for (const requiredPath of [
     'index.html',
+    'access/index.html',
+    'access/app.js',
     'soulmate/index.html',
     'pendant-display/index.html',
     'shared/soulmate-sync.mjs',

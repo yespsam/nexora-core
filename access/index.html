@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#090c0d">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>NEXORA CORE · 私有访问</title>
+  <link rel="stylesheet" href="./style.css?v=1">
+</head>
+<body>
+  <main class="access-shell">
+    <section class="identity-panel" aria-labelledby="product-name">
+      <div class="wordmark" aria-hidden="true">NX / 01</div>
+      <div class="identity-copy">
+        <p>PRIVATE PROTOTYPE</p>
+        <h1 id="product-name">NEXORA<br>CORE</h1>
+        <span>AUTHORIZED MEMBERS ONLY</span>
+      </div>
+      <div class="signal" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    </section>
+
+    <section class="form-panel">
+      <header>
+        <span class="index">ACCESS / 01</span>
+        <h2 id="form-title">验证身份</h2>
+        <p id="form-copy">使用受邀邮箱进入内部测试环境。</p>
+      </header>
+
+      <form id="login-form" data-mode="login">
+        <label for="login-email">邮箱</label>
+        <input id="login-email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" required>
+        <label for="login-password">密码</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" minlength="10" maxlength="128" required>
+        <button class="primary-command" type="submit">进入 NEXORA CORE</button>
+        <button class="text-command" id="recovery-open" type="button">忘记密码</button>
+      </form>
+
+      <form id="invite-form" data-mode="invite" hidden>
+        <label for="invite-password">设置密码</label>
+        <input id="invite-password" name="password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required>
+        <label for="invite-confirm">确认密码</label>
+        <input id="invite-confirm" name="confirm" type="password" autocomplete="new-password" minlength="10" maxlength="128" required>
+        <button class="primary-command" type="submit">接受邀请并进入</button>
+      </form>
+
+      <form id="recovery-request-form" data-mode="recovery-request" hidden>
+        <label for="recovery-email">受邀邮箱</label>
+        <input id="recovery-email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" required>
+        <button class="primary-command" type="submit">发送重置邮件</button>
+        <button class="text-command" data-back-login type="button">返回登录</button>
+      </form>
+
+      <form id="recovery-complete-form" data-mode="recovery-complete" hidden>
+        <label for="recovery-password">新密码</label>
+        <input id="recovery-password" name="password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required>
+        <label for="recovery-confirm">确认新密码</label>
+        <input id="recovery-confirm" name="confirm" type="password" autocomplete="new-password" minlength="10" maxlength="128" required>
+        <button class="primary-command" type="submit">更新密码并进入</button>
+      </form>
+
+      <p class="status" id="access-status" role="status" aria-live="polite"></p>
+      <footer><span>IDENTITY / ENCRYPTED SESSION</span><b id="access-state">CHECKING</b></footer>
+    </section>
+  </main>
+  <script type="module" src="./app.js?v=1"></script>
+</body>
+</html>

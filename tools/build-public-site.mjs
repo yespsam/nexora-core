@@ -8,6 +8,9 @@ export const publicRoot = path.join(repositoryRoot, 'public');
 
 const publicFiles = [
   'index.html',
+  'access/index.html',
+  'access/app.js',
+  'access/style.css',
   'soulmate/index.html',
   'soulmate/app.js',
   'soulmate/style.css',
