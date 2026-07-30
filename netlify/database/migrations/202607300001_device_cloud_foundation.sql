@@ -1,5 +1,4 @@
 -- Shared by Netlify Database deploys and the local PostgreSQL harness.
-BEGIN;
 
 CREATE SCHEMA IF NOT EXISTS nexora_cloud;
 
@@ -297,5 +296,3 @@ REVOKE ALL ON SCHEMA nexora_cloud FROM PUBLIC;
 REVOKE ALL ON ALL TABLES IN SCHEMA nexora_cloud FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA nexora_cloud FROM PUBLIC;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA nexora_cloud FROM PUBLIC;
-
-COMMIT;

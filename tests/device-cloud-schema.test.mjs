@@ -73,3 +73,9 @@ test('Netlify runtime validates forced RLS without altering platform-owned roles
   assert.match(netlifyRuntimeGuard, /REVOKE ALL ON SCHEMA nexora_cloud FROM PUBLIC/);
   assert.doesNotMatch(netlifyRuntimeGuard, /CREATE ROLE|ALTER ROLE|SET LOCAL ROLE|rolbypassrls/);
 });
+
+test('Netlify owns the migration transaction boundary', () => {
+  for (const migration of [sql, maintenanceMigration, netlifyRuntimeGuard]) {
+    assert.doesNotMatch(migration, /^\s*(BEGIN|COMMIT)\s*;/im);
+  }
+});

@@ -27,7 +27,7 @@
 
 门禁返回 `private, no-store`，Service Worker 不再保存产品 shell；退出时清理 Cache Storage 并注销旧 Service Worker。登录、邀请、确认和密码恢复只接受同源请求，回跳地址仅允许站内路径。
 
-函数使用 `@netlify/database` 提供的当前部署分支连接池。Netlify Database 以平台管理员执行迁移，并向部署代码提供对应 production 或 Preview 分支的连接；迁移不创建或修改平台角色，但会验证所有产品表均启用且强制 RLS，并撤销 `PUBLIC` 权限。每个事务只通过服务端设置 `app.owner_id`，事件删除还需要事务级维护标记。独立的 API/维护角色继续用于本机 PostgreSQL 测试环境。
+函数使用 `@netlify/database` 提供的当前部署分支连接池。Netlify Database 以平台管理员执行迁移，并向部署代码提供对应 production 或 Preview 分支的连接；平台统一管理迁移事务，迁移文件本身不嵌套 `BEGIN/COMMIT`。迁移不创建或修改平台角色，但会验证所有产品表均启用且强制 RLS，并撤销 `PUBLIC` 权限。每个应用事务只通过服务端设置 `app.owner_id`，事件删除还需要事务级维护标记。独立的 API/维护角色和显式事务继续用于本机 PostgreSQL 测试环境。
 
 ## 必需环境变量
 

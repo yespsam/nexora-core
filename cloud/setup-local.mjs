@@ -34,6 +34,7 @@ async function applyFoundation() {
   const connection = client(databaseName);
   await connection.connect();
   try {
+    await connection.query('BEGIN');
     const existing = await connection.query("SELECT to_regclass('nexora_cloud.accounts') AS table_name");
     if (!existing.rows[0].table_name) {
       const migration = await readFile(new URL(
@@ -61,6 +62,10 @@ async function applyFoundation() {
       ? roles
       : roles.replaceAll('nexora_core_dev', databaseName);
     await connection.query(roleSql);
+    await connection.query('COMMIT');
+  } catch (error) {
+    await connection.query('ROLLBACK').catch(() => {});
+    throw error;
   } finally {
     await connection.end();
   }
