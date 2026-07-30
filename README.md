@@ -69,11 +69,14 @@ npm run test:computer
 | `NEXORA_3D_CREATURES/` | LUMO、VEYR、AERA 模型与动作 |
 | `shared/` | 人格、BLE、3D 和状态机共享模块 |
 | `netlify/functions/` | 聊天、语音与密文同步云函数 |
+| `cloud/` | 实体设备 PostgreSQL 迁移、事件存储和密钥边界，不进入公开发布包 |
 | `hardware/soulmate-pendant/` | 固件、外壳、打印和实验资料 |
 
 ## 硬件状态
 
 当前目标板为 Waveshare ESP32-S3-LCD-1.28，圆屏分辨率为 `240 x 240`。浏览器端直接运行 WebGL 3D；实体低功耗固件需要将同一角色设计转换为适合 ESP32-S3 的显示资源。
+
+实体版本的云端基线已定义为“BLE 项链 + 手机网关 + PostgreSQL 只追加密文事件 + 加密对象快照”。详细的数据分类、设备撤销、密钥轮换、保留期限与迁移步骤见 [`docs/NEXORA_DEVICE_CLOUD_ARCHITECTURE.md`](docs/NEXORA_DEVICE_CLOUD_ARCHITECTURE.md)。该架构目前是私有设计基线，尚未连接生产数据库。
 
 电脑模拟不能替代实体麦克风、扬声器、IMU、电池温升、蓝牙距离、跌落和佩戴强度测试。
 
