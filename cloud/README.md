@@ -72,6 +72,8 @@ The local server exposes `/v1/bootstrap`, `/v1/devices`, `/v1/events`, `/v1/snap
 
 `netlify/functions/device-cloud.mjs` provides the disabled-by-default staging adapter at `/api/device-cloud/*`. It uses Netlify Identity for the authenticated subject, Netlify Database for deploy-scoped PostgreSQL branches, derives an internal owner with a server-side HMAC pepper, explicitly scopes every data query to that owner, and rejects state-changing cross-origin requests. See `../docs/NEXORA_PRIVATE_CLOUD_STAGING.md` for environment variables and the gated deployment order.
 
+`../shared/soulmate-device-cloud.mjs` is the client-side migration adapter. After the legacy encrypted sync succeeds, and only when `NEXORA_DEVICE_CLOUD_DUAL_WRITE_ENABLED=true`, it persists encrypted device keys, appends an ES256-signed AES-GCM migration event, reads it back, and verifies its canonical hash and decrypted payload. Failures stay isolated from the legacy sync path and pending events retry with the same identity. The flag is off by default and must not be enabled in production before the staging reconciliation period completes.
+
 Encrypted snapshots use `POST /api/device-cloud/snapshots` and `GET /api/device-cloud/snapshots/latest`; only AES-256-GCM ciphertext crosses the boundary. Deletion requests use a seven-day grace period and may be cancelled before they become due. `device-cloud-maintenance.mjs` runs hourly only when both cloud and maintenance flags are enabled, has no public URL, and removes encrypted objects before marking database deletion complete.
 
 ```bash

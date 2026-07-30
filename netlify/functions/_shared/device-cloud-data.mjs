@@ -47,6 +47,7 @@ export function createDeviceCloudFunction(options) {
   const onError = options.onError || (() => {});
   const getSnapshotObjects = options.getSnapshotObjects || (() => null);
   const getSnapshotNamespace = options.getSnapshotNamespace || (() => 'staging');
+  const dualWriteEnabled = options.dualWriteEnabled === true;
 
   return async function deviceCloudHandler(request, context = {}) {
     if (!enabled) return json({ error: 'not_found' }, 404);
@@ -68,7 +69,7 @@ export function createDeviceCloudFunction(options) {
       const path = url.pathname;
 
       if (request.method === 'GET' && path === '/api/device-cloud/status') {
-        return json({ enabled: true, authenticated: true });
+        return json({ enabled: true, authenticated: true, dualWrite: dualWriteEnabled });
       }
       if (request.method === 'POST' && path === '/api/device-cloud/bootstrap') {
         const body = await readJson(request);

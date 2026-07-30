@@ -32,6 +32,7 @@ export default createDeviceCloudFunction({
   getCurrentUser: getUser,
   verifyOrigin: verifyRequestOrigin,
   subjectPepper: environment('NEXORA_SUBJECT_PEPPER'),
+  dualWriteEnabled: environment('NEXORA_DEVICE_CLOUD_DUAL_WRITE_ENABLED') === 'true',
   getSnapshotObjects: createNetlifySnapshotObjects,
   getSnapshotNamespace: snapshotNamespace,
   onError(error) {

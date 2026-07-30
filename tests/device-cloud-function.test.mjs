@@ -68,6 +68,20 @@ test('device cloud function requires an authenticated Netlify Identity user', as
   assert.equal(harness.calls.length, 0);
 });
 
+test('status exposes the separate dual-write gate without enabling it by default', async () => {
+  const disabled = functionHarness();
+  const disabledResponse = await disabled.handler(new Request('https://example.test/api/device-cloud/status'));
+  assert.equal((await disabledResponse.json()).dualWrite, false);
+
+  const enabled = functionHarness({ dualWriteEnabled: true });
+  const enabledResponse = await enabled.handler(new Request('https://example.test/api/device-cloud/status'));
+  assert.deepEqual(await enabledResponse.json(), {
+    enabled: true,
+    authenticated: true,
+    dualWrite: true
+  });
+});
+
 test('bootstrap derives the RLS owner from Identity and ignores client identity fields', async () => {
   const harness = functionHarness();
   const response = await harness.handler(new Request('https://example.test/api/device-cloud/bootstrap', {

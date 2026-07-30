@@ -270,7 +270,11 @@ export class DeviceCloudStore {
         if (!duplicate.rows[0].content_hash.equals(contentHash)) {
           throw new DeviceCloudError('event identity conflict', 409, 'event_conflict');
         }
-        return { cursor: Number(duplicate.rows[0].cursor), duplicate: true };
+        return {
+          cursor: Number(duplicate.rows[0].cursor),
+          duplicate: true,
+          contentHash: toBase64Url(duplicate.rows[0].content_hash)
+        };
       }
 
       if (event.keyVersion !== device.active_key_version) {

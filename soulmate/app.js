@@ -32,6 +32,11 @@ import {
   saveSoulmateCloudDeviceState,
   uploadSoulmateCloudState
 } from '../shared/soulmate-cloud-sync.mjs?v=1';
+import {
+  clearSoulmateDeviceCloudState,
+  mirrorSoulmateCloudState,
+  requestSoulmateDeviceCloudDeletion
+} from '../shared/soulmate-device-cloud.mjs?v=1';
 import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=13';
 import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=5';
 import { shouldBlockRecognizedSpeech } from '../shared/voice-turn.mjs?v=1';
@@ -466,6 +471,19 @@ async function pushCloudState({ manual = false } = {}) {
     }
     state.cloudRevision = result.revision;
     await persistCloudDeviceState();
+    const mirror = await mirrorSoulmateCloudState(
+      currentCloudBundle(),
+      state.cloudIdentity,
+      state.cloudRevision
+    );
+    if (mirror.enabled && (!mirror.mirrored || !mirror.verified) && mirror.reason !== 'current') {
+      console.warn('[device-cloud-dual-write]', {
+        mirrored: mirror.mirrored === true,
+        verified: mirror.verified === true,
+        reason: String(mirror.reason || 'verification_failed').slice(0, 40),
+        revision: state.cloudRevision
+      });
+    }
     setCloudSyncMessage(`已端到端加密同步 · ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`);
     return true;
   } catch (error) {
@@ -560,6 +578,7 @@ async function restoreCloudSyncAtBirth() {
 async function stopCloudSync() {
   window.clearTimeout(state.cloudSyncTimer);
   try {
+    await clearSoulmateDeviceCloudState(state.cloudIdentity);
     await clearSoulmateCloudDeviceState();
     state.cloudIdentity = null;
     state.cloudRevision = 0;
@@ -576,6 +595,11 @@ async function removeCloudSync() {
   renderCloudSync();
   try {
     await deleteSoulmateCloudState(state.cloudIdentity);
+    const deviceCloudDeletion = await requestSoulmateDeviceCloudDeletion(state.cloudIdentity);
+    if (deviceCloudDeletion.enabled && !deviceCloudDeletion.scheduled) {
+      throw new Error('device cloud deletion unavailable');
+    }
+    await clearSoulmateDeviceCloudState(state.cloudIdentity);
     await clearSoulmateCloudDeviceState();
     state.cloudIdentity = null;
     state.cloudRevision = 0;
@@ -1171,7 +1195,10 @@ $('#reset-button').addEventListener('click', async () => {
     ? '这会停止本机同步并删除当前设备上的名字、人格和共同记忆。云端加密副本仍可通过恢复码找回。确定重新诞生吗？'
     : '这会删除当前伴侣的名字、人格和共同记忆。确定重新诞生吗？';
   if (!window.confirm(detail)) return;
-  if (state.cloudIdentity) await clearSoulmateCloudDeviceState();
+  if (state.cloudIdentity) {
+    await clearSoulmateDeviceCloudState(state.cloudIdentity);
+    await clearSoulmateCloudDeviceState();
+  }
   localStorage.removeItem(SOULMATE_STORAGE_KEY);
   localStorage.removeItem(SOULMATE_HISTORY_KEY);
   location.reload();
