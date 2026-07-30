@@ -4,19 +4,6 @@ DO $$
 BEGIN
   IF EXISTS (
     SELECT 1
-    FROM pg_roles
-    WHERE rolname = CURRENT_USER
-      AND (rolsuper OR rolbypassrls)
-  ) THEN
-    RAISE EXCEPTION 'Netlify Database runtime role must not bypass row-level security';
-  END IF;
-END;
-$$;
-
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'nexora_cloud'
@@ -28,9 +15,10 @@ BEGIN
 END;
 $$;
 
--- Netlify Database owns its deploy-scoped connection role and does not allow
--- migrations to create or alter PostgreSQL roles. FORCE ROW LEVEL SECURITY
--- keeps the platform owner subject to app.owner_id policies.
+-- Netlify executes migrations with a platform-owned administrative role and
+-- gives deployed code a branch-scoped connection. Migrations cannot create or
+-- alter platform roles, so the application boundary is forced RLS plus the
+-- server-derived app.owner_id set at the start of every transaction.
 REVOKE ALL ON SCHEMA nexora_cloud FROM PUBLIC;
 REVOKE ALL ON ALL TABLES IN SCHEMA nexora_cloud FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA nexora_cloud FROM PUBLIC;

@@ -78,7 +78,7 @@ This command runs the Identity-to-Function-to-RLS chain against local PostgreSQL
 
 - `../netlify/database/migrations/202607300001_device_cloud_foundation.sql`: initial PostgreSQL schema and row-level security.
 - `../netlify/database/migrations/202607300002_event_maintenance_policy.sql`: owner-scoped event deletion for the maintenance role.
-- `../netlify/database/migrations/202607300003_device_cloud_runtime_roles.sql`: managed-runtime guard that rejects RLS-bypass connections and verifies forced RLS without altering Netlify-owned roles.
+- `../netlify/database/migrations/202607300003_device_cloud_runtime_roles.sql`: managed-runtime guard that verifies forced RLS and public revocation without altering Netlify-owned roles.
 - `setup-local.mjs`: repeatable local database and role setup.
 - `local-server.mjs`: localhost-only API harness.
 - `simulate-devices.mjs`: three-device encrypted integration test.

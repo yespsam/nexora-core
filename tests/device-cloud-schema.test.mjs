@@ -68,9 +68,8 @@ test('device registration stores public keys only and separates recovery envelop
   assert.match(sql, /wrapping_algorithm = 'HKDF-SHA256\+A256KW'/);
 });
 
-test('Netlify runtime fails closed unless the managed role is subject to forced RLS', () => {
-  assert.match(netlifyRuntimeGuard, /rolsuper OR rolbypassrls/);
+test('Netlify runtime validates forced RLS without altering platform-owned roles', () => {
   assert.match(netlifyRuntimeGuard, /NOT c\.relrowsecurity OR NOT c\.relforcerowsecurity/);
   assert.match(netlifyRuntimeGuard, /REVOKE ALL ON SCHEMA nexora_cloud FROM PUBLIC/);
-  assert.doesNotMatch(netlifyRuntimeGuard, /CREATE ROLE|ALTER ROLE|SET LOCAL ROLE/);
+  assert.doesNotMatch(netlifyRuntimeGuard, /CREATE ROLE|ALTER ROLE|SET LOCAL ROLE|rolbypassrls/);
 });
