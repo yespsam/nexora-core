@@ -1,6 +1,6 @@
 # NEXORA CORE 私有测试云上线清单
 
-状态：Free 私有门禁代码就绪，云资源未创建，生产功能关闭
+状态：Free 私有门禁已配置，测试站已创建，Identity 为 Invite only，设备云功能关闭
 日期：2026-07-30
 
 ## 已选技术路径
@@ -27,7 +27,7 @@
 
 门禁返回 `private, no-store`，Service Worker 不再保存产品 shell；退出时清理 Cache Storage 并注销旧 Service Worker。登录、邀请、确认和密码恢复只接受同源请求，回跳地址仅允许站内路径。
 
-函数使用 `@netlify/database` 提供的当前部署分支连接池。每个 API 事务先执行 `SET LOCAL ROLE nexora_cloud_api`，删除工作器使用 `nexora_cloud_maintenance`；两个角色均为 `NOLOGIN`、`NOBYPASSRLS`，由迁移授予平台连接用户切换权限。
+函数使用 `@netlify/database` 提供的当前部署分支连接池。Netlify Database 管理连接角色且不允许迁移创建或修改 PostgreSQL 角色，因此云端运行时直接使用平台连接；迁移会拒绝任何 `SUPERUSER` 或 `BYPASSRLS` 连接，并验证所有产品表均启用且强制 RLS。每个事务仍只通过服务端设置 `app.owner_id`，事件删除还需要事务级维护标记。独立的 API/维护角色继续用于本机 PostgreSQL 测试环境。
 
 ## 必需环境变量
 
@@ -40,8 +40,8 @@
 
 ## 部署顺序
 
-1. 创建全新的 `nexora-core-staging` 项目，不连接或覆盖账号内现有两个项目。
-2. 在空项目中先开启 Identity，并在任何产品文件部署前把注册改为 Invite only。
+1. 已创建全新的 `nexora-core-staging` 项目，没有连接或覆盖账号内现有两个项目。
+2. 已在空项目中开启 Identity，并在任何产品文件部署前把注册改为 Invite only。
 3. 只邀请内部测试账号，验证未受邀邮箱不能建立会话。
 4. 配置 pepper，并保持 production context 的设备云总开关为 `false`。
 5. 部署 Preview；Netlify 自动创建隔离数据库分支并依次执行三份迁移。
@@ -63,8 +63,7 @@
 
 ## 当前阻断项
 
-- 当前 Netlify 账号没有本项目站点，旧站点 ID 已失效；没有创建或修改账号内现有两个无关项目。
-- Free 自建门禁已完成本机绕过测试，但必须经过真实 Netlify Edge 与 Identity 会话验收。
-- 尚未创建数据库或开启 Netlify Identity。
+- Free 自建门禁已完成本机绕过测试，仍需完成首次成功部署后的真实 Netlify Edge 与 Identity 会话验收。
+- 设备云总开关保持关闭；数据库迁移和真实函数链路尚未完成云端验收。
 - 生产依赖审计为 0 个漏洞；完整开发依赖审计仍需单独授权向 npm 外传完整开发依赖图。
 - 删除工作器和对象存储快照将在测试云资源确定后实现，不能使用用户请求直接执行即时删除。

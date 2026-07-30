@@ -2,40 +2,38 @@ BEGIN;
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'nexora_cloud_api') THEN
-    CREATE ROLE nexora_cloud_api NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'nexora_cloud_maintenance') THEN
-    CREATE ROLE nexora_cloud_maintenance NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+  IF EXISTS (
+    SELECT 1
+    FROM pg_roles
+    WHERE rolname = CURRENT_USER
+      AND (rolsuper OR rolbypassrls)
+  ) THEN
+    RAISE EXCEPTION 'Netlify Database runtime role must not bypass row-level security';
   END IF;
 END;
 $$;
 
-ALTER ROLE nexora_cloud_api NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
-ALTER ROLE nexora_cloud_maintenance NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'nexora_cloud'
+      AND c.relkind IN ('r', 'p')
+      AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)
+  ) THEN
+    RAISE EXCEPTION 'Every NEXORA Cloud table must force row-level security';
+  END IF;
+END;
+$$;
 
-GRANT nexora_cloud_api, nexora_cloud_maintenance TO CURRENT_USER;
-GRANT USAGE ON SCHEMA nexora_cloud TO nexora_cloud_api, nexora_cloud_maintenance;
-GRANT EXECUTE ON FUNCTION nexora_cloud.current_owner_id() TO nexora_cloud_api, nexora_cloud_maintenance;
-GRANT EXECUTE ON FUNCTION nexora_cloud.reject_event_mutation() TO nexora_cloud_maintenance;
-
-GRANT SELECT, INSERT, UPDATE ON
-  nexora_cloud.accounts,
-  nexora_cloud.companion_vaults,
-  nexora_cloud.devices,
-  nexora_cloud.device_key_envelopes,
-  nexora_cloud.recovery_key_envelopes,
-  nexora_cloud.companion_snapshots,
-  nexora_cloud.device_commands,
-  nexora_cloud.telemetry_rollups
-TO nexora_cloud_api;
-
-GRANT SELECT, INSERT ON nexora_cloud.companion_events TO nexora_cloud_api;
-GRANT SELECT, INSERT ON nexora_cloud.deletion_requests TO nexora_cloud_api;
-REVOKE UPDATE, DELETE ON nexora_cloud.deletion_requests FROM nexora_cloud_api;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA nexora_cloud TO nexora_cloud_api;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA nexora_cloud TO nexora_cloud_maintenance;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA nexora_cloud TO nexora_cloud_maintenance;
+-- Netlify Database owns its deploy-scoped connection role and does not allow
+-- migrations to create or alter PostgreSQL roles. FORCE ROW LEVEL SECURITY
+-- keeps the platform owner subject to app.owner_id policies.
+REVOKE ALL ON SCHEMA nexora_cloud FROM PUBLIC;
+REVOKE ALL ON ALL TABLES IN SCHEMA nexora_cloud FROM PUBLIC;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA nexora_cloud FROM PUBLIC;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA nexora_cloud FROM PUBLIC;
 
 COMMIT;

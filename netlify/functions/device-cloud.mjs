@@ -16,8 +16,6 @@ function getStore() {
     store = new DeviceCloudStore({
       apiPool: database.pool,
       maintenancePool: database.pool,
-      apiRole: 'nexora_cloud_api',
-      maintenanceRole: 'nexora_cloud_maintenance',
       subjectPepper: environment('NEXORA_SUBJECT_PEPPER')
     });
   }
