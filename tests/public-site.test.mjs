@@ -25,6 +25,7 @@ test('public build contains only the product runtime allowlist', async () => {
     'soulmate/index.html',
     'pendant-display/index.html',
     'shared/soulmate-sync.mjs',
+    'shared/soulmate-cloud-sync.mjs',
     'shared/creature-3d-viewer.mjs',
     'NEXORA_3D_CREATURES/CUTE_LUMO/model/rigged.glb',
     'NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/rigged.glb',

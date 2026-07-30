@@ -79,6 +79,11 @@
   force = true
 
 [[redirects]]
+  from = "/api/sync"
+  to = "/.netlify/functions/sync"
+  status = 200
+
+[[redirects]]
   from = "/api/voice/status"
   to = "/.netlify/functions/voice-status"
   status = 200

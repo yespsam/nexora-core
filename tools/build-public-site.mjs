@@ -21,6 +21,7 @@ const publicFiles = [
   'shared/soulmate-profile.mjs',
   'shared/soulmate-memory.mjs',
   'shared/soulmate-sync.mjs',
+  'shared/soulmate-cloud-sync.mjs',
   'shared/pendant-ble.mjs',
   'shared/pendant-simulator.mjs',
   'shared/pendant-display.mjs',

@@ -205,6 +205,26 @@ input:focus-visible {
   color: rgba(23, 25, 24, 0.28);
 }
 
+.birth-restore {
+  margin-top: 18px;
+  text-align: center;
+}
+
+.birth-restore-open {
+  min-height: 40px;
+}
+
+.birth-restore-panel {
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(23, 25, 24, 0.12);
+  text-align: left;
+}
+
+.birth-restore-panel .wide-command {
+  margin-top: 10px;
+}
+
 .segmented {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -916,6 +936,48 @@ input:focus-visible {
 
 .setting-row strong {
   font-size: 12px;
+}
+
+.cloud-sync-settings {
+  margin: 18px 0 22px;
+  padding: 0 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.cloud-sync-settings .device-note {
+  margin: 12px 0 4px;
+}
+
+.sync-recovery-input {
+  width: 100%;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 12px;
+  background: rgba(249, 251, 250, 0.88);
+  color: var(--ink);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 11px;
+}
+
+.sync-code {
+  display: block;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid rgba(32, 189, 197, 0.36);
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+  background: rgba(32, 189, 197, 0.07);
+  color: var(--ink);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.55;
+  user-select: all;
+}
+
+.cloud-sync-settings .field-label {
+  display: block;
+  margin: 18px 0 8px;
 }
 
 .voice-settings {

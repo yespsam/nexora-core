@@ -20,6 +20,18 @@ import {
 } from '../shared/pendant-ble.mjs';
 import { openPendantSimulatorWriter } from '../shared/pendant-simulator.mjs';
 import { openSoulmateSync } from '../shared/soulmate-sync.mjs?v=1';
+import {
+  clearSoulmateCloudDeviceState,
+  createSoulmateCloudIdentity,
+  deleteSoulmateCloudState,
+  downloadSoulmateCloudState,
+  formatSoulmateRecoveryCode,
+  loadSoulmateCloudDeviceState,
+  mergeSoulmateSyncBundles,
+  parseSoulmateRecoveryCode,
+  saveSoulmateCloudDeviceState,
+  uploadSoulmateCloudState
+} from '../shared/soulmate-cloud-sync.mjs?v=1';
 import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=13';
 import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=5';
 import { shouldBlockRecognizedSpeech } from '../shared/voice-turn.mjs?v=1';
@@ -38,6 +50,11 @@ const birthNext = $('#birth-next');
 const voicePreview = $('#voice-preview');
 const birthVisualModel = $('#birth-visual-model');
 const birthVisualCaption = $('#birth-visual-caption');
+const birthRestoreOpen = $('#birth-restore-open');
+const birthRestorePanel = $('#birth-restore-panel');
+const birthRestoreInput = $('#birth-restore-input');
+const birthRestoreSubmit = $('#birth-restore-submit');
+const birthRestoreStatus = $('#birth-restore-status');
 const identityLine = $('#identity-line');
 const stageName = $('#stage-name');
 const bondLabel = $('#bond-label');
@@ -68,6 +85,16 @@ const voiceSettingStatus = $('#voice-setting-status');
 const importButton = $('#import-button');
 const importInput = $('#import-input');
 const importStatus = $('#import-status');
+const cloudSyncState = $('#cloud-sync-state');
+const cloudSyncEnable = $('#cloud-sync-enable');
+const cloudSyncNow = $('#cloud-sync-now');
+const cloudSyncShowCode = $('#cloud-sync-show-code');
+const cloudSyncCode = $('#cloud-sync-code');
+const cloudSyncRestoreInput = $('#cloud-sync-restore-input');
+const cloudSyncRestore = $('#cloud-sync-restore');
+const cloudSyncStop = $('#cloud-sync-stop');
+const cloudSyncDelete = $('#cloud-sync-delete');
+const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
 
@@ -127,7 +154,13 @@ const state = {
   pendantCharacteristic: null,
   pendantSyncTimer: 0,
   presencePhaseTimer: 0,
-  continuity: null
+  continuity: null,
+  cloudIdentity: null,
+  cloudRevision: 0,
+  cloudSyncTimer: 0,
+  cloudBusy: false,
+  cloudReady: false,
+  cloudAvailable: true
 };
 
 let creatureViewer = null;
@@ -181,11 +214,13 @@ function loadHistory() {
 function saveProfile() {
   if (state.profile) safeWrite(SOULMATE_STORAGE_KEY, state.profile);
   state.continuity?.publish(state.profile, state.history);
+  queueCloudSync();
 }
 
 function saveHistory() {
   safeWrite(SOULMATE_HISTORY_KEY, state.history.slice(-12));
   state.continuity?.publish(state.profile, state.history);
+  queueCloudSync();
 }
 
 function personaFromStarter(starter = state.profile?.starter || state.birthSelections.starter) {
@@ -350,8 +385,206 @@ function applyContinuityState(bundle) {
   renderMessages();
   renderCompanion();
   queuePendantSync();
+  queueCloudSync();
   if (!state.busy && !['listening', 'thinking', 'speaking', 'ready'].includes(state.phase)) {
     presenceLine.textContent = `${state.profile.name}已在当前设备继续陪伴。`;
+  }
+}
+
+function renderCloudSync() {
+  const active = Boolean(state.cloudIdentity);
+  cloudSyncState.textContent = active ? `已连接 · v${state.cloudRevision}` : '未开启';
+  cloudSyncEnable.hidden = active;
+  cloudSyncNow.hidden = !active;
+  cloudSyncShowCode.hidden = !active;
+  cloudSyncStop.hidden = !active;
+  cloudSyncDelete.hidden = !active;
+  cloudSyncEnable.disabled = state.cloudBusy || !state.cloudAvailable;
+  cloudSyncNow.disabled = state.cloudBusy;
+  cloudSyncShowCode.disabled = state.cloudBusy;
+  cloudSyncRestore.disabled = state.cloudBusy || !state.cloudAvailable;
+  cloudSyncStop.disabled = state.cloudBusy;
+  cloudSyncDelete.disabled = state.cloudBusy;
+  birthRestoreSubmit.disabled = state.cloudBusy || !state.cloudAvailable;
+  if (!active) {
+    cloudSyncCode.hidden = true;
+    cloudSyncCode.textContent = '';
+  }
+}
+
+function setCloudSyncMessage(message) {
+  cloudSyncStatus.textContent = message;
+}
+
+function currentCloudBundle() {
+  return createSoulmateExportBundle(state.profile, state.history);
+}
+
+async function persistCloudDeviceState() {
+  if (!state.cloudIdentity) return;
+  await saveSoulmateCloudDeviceState(state.cloudIdentity, state.cloudRevision);
+}
+
+function applyCloudBundle(bundle, message = '') {
+  if (!bundle?.profile) return;
+  state.profile = bundle.profile;
+  state.history = bundle.history;
+  safeWrite(SOULMATE_STORAGE_KEY, state.profile);
+  safeWrite(SOULMATE_HISTORY_KEY, state.history);
+  birthFlow.hidden = true;
+  companionView.hidden = false;
+  renderMessages();
+  renderCompanion();
+  state.continuity?.publish(state.profile, state.history);
+  queuePendantSync();
+  if (message) presenceLine.textContent = message;
+}
+
+async function pushCloudState({ manual = false } = {}) {
+  if (!state.cloudReady || !state.cloudIdentity || !state.profile || state.cloudBusy) return false;
+  const localBundle = currentCloudBundle();
+  if (!localBundle) return false;
+  state.cloudBusy = true;
+  renderCloudSync();
+  if (manual) setCloudSyncMessage('正在加密并同步');
+  try {
+    let result;
+    try {
+      result = await uploadSoulmateCloudState(localBundle, state.cloudIdentity, state.cloudRevision);
+    } catch (error) {
+      if (error.status !== 409) throw error;
+      if (!error.revision) {
+        state.cloudRevision = 0;
+        result = await uploadSoulmateCloudState(localBundle, state.cloudIdentity, 0);
+      } else {
+        const remote = await downloadSoulmateCloudState(state.cloudIdentity);
+        const merged = mergeSoulmateSyncBundles(localBundle, remote.bundle);
+        applyCloudBundle(merged);
+        result = await uploadSoulmateCloudState(merged, state.cloudIdentity, remote.revision);
+      }
+    }
+    state.cloudRevision = result.revision;
+    await persistCloudDeviceState();
+    setCloudSyncMessage(`已端到端加密同步 · ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`);
+    return true;
+  } catch (error) {
+    setCloudSyncMessage('同步暂时不可用，本地数据已保留');
+    return false;
+  } finally {
+    state.cloudBusy = false;
+    renderCloudSync();
+  }
+}
+
+function queueCloudSync() {
+  window.clearTimeout(state.cloudSyncTimer);
+  if (!state.cloudReady || !state.cloudIdentity || !state.profile) return;
+  state.cloudSyncTimer = window.setTimeout(() => pushCloudState(), 1400);
+}
+
+async function initializeCloudSync() {
+  try {
+    const saved = await loadSoulmateCloudDeviceState();
+    state.cloudIdentity = saved?.identity || null;
+    state.cloudRevision = saved?.revision || 0;
+  } catch (error) {
+    state.cloudAvailable = false;
+    setCloudSyncMessage('当前浏览器不支持安全设备存储');
+  } finally {
+    state.cloudReady = true;
+    renderCloudSync();
+    queueCloudSync();
+  }
+}
+
+async function enableCloudSync() {
+  if (!state.profile || state.cloudBusy) return;
+  state.cloudIdentity = createSoulmateCloudIdentity();
+  state.cloudRevision = 0;
+  cloudSyncCode.textContent = state.cloudIdentity.recoveryCode;
+  cloudSyncCode.hidden = false;
+  try {
+    await persistCloudDeviceState();
+  } catch (error) {
+    state.cloudIdentity = null;
+    state.cloudAvailable = false;
+    renderCloudSync();
+    setCloudSyncMessage('当前浏览器无法安全保存恢复凭证');
+    return;
+  }
+  renderCloudSync();
+  setCloudSyncMessage('请立即保存恢复码。服务器无法替你找回它。');
+  await pushCloudState({ manual: true });
+}
+
+async function restoreCloudSyncFrom(input, setMessage) {
+  const identity = parseSoulmateRecoveryCode(input.value);
+  if (!identity) {
+    setMessage('恢复码格式不正确');
+    return;
+  }
+  state.cloudBusy = true;
+  renderCloudSync();
+  setMessage('正在解密伙伴数据');
+  try {
+    const remote = await downloadSoulmateCloudState(identity);
+    if (state.profile && !window.confirm(`从云端恢复会将当前伴侣替换为「${remote.bundle.profile.name}」。确定继续吗？`)) {
+      setMessage('已取消恢复');
+      return;
+    }
+    await saveSoulmateCloudDeviceState(identity, remote.revision);
+    state.cloudIdentity = identity;
+    state.cloudRevision = remote.revision;
+    applyCloudBundle(remote.bundle, `${remote.bundle.profile.name}已在这台设备醒来。`);
+    input.value = '';
+    setMessage('恢复成功，之后会自动加密同步');
+  } catch (error) {
+    setMessage(error.status === 404 ? '没有找到对应的云端伙伴' : '恢复失败，请检查恢复码或网络');
+  } finally {
+    state.cloudBusy = false;
+    renderCloudSync();
+  }
+}
+
+async function restoreCloudSync() {
+  await restoreCloudSyncFrom(cloudSyncRestoreInput, setCloudSyncMessage);
+}
+
+async function restoreCloudSyncAtBirth() {
+  await restoreCloudSyncFrom(birthRestoreInput, (message) => {
+    birthRestoreStatus.textContent = message;
+  });
+}
+
+async function stopCloudSync() {
+  window.clearTimeout(state.cloudSyncTimer);
+  try {
+    await clearSoulmateCloudDeviceState();
+    state.cloudIdentity = null;
+    state.cloudRevision = 0;
+    renderCloudSync();
+    setCloudSyncMessage('已停止本机同步，云端加密副本仍保留');
+  } catch (error) {
+    setCloudSyncMessage('无法更新本机安全存储，请稍后重试');
+  }
+}
+
+async function removeCloudSync() {
+  if (!state.cloudIdentity || !window.confirm('这会永久删除云端加密副本，其他设备将无法再恢复。确定删除吗？')) return;
+  state.cloudBusy = true;
+  renderCloudSync();
+  try {
+    await deleteSoulmateCloudState(state.cloudIdentity);
+    await clearSoulmateCloudDeviceState();
+    state.cloudIdentity = null;
+    state.cloudRevision = 0;
+    cloudSyncCode.hidden = true;
+    setCloudSyncMessage('云端加密副本已删除，本机伙伴仍保留');
+  } catch (error) {
+    setCloudSyncMessage('删除失败，请稍后重试');
+  } finally {
+    state.cloudBusy = false;
+    renderCloudSync();
   }
 }
 
@@ -816,6 +1049,12 @@ birthNext.addEventListener('click', () => {
 });
 
 birthBack.addEventListener('click', () => showBirthStep(state.birthStep - 1));
+birthRestoreOpen.addEventListener('click', () => {
+  birthRestorePanel.hidden = !birthRestorePanel.hidden;
+  birthRestoreOpen.textContent = birthRestorePanel.hidden ? '已有伙伴？用恢复码唤醒' : '收起恢复';
+  if (!birthRestorePanel.hidden) window.setTimeout(() => birthRestoreInput.focus(), 80);
+});
+birthRestoreSubmit.addEventListener('click', restoreCloudSyncAtBirth);
 birthForm.addEventListener('submit', (event) => {
   event.preventDefault();
   birthNext.click();
@@ -884,14 +1123,35 @@ $$('[data-device-tab]').forEach((button) => {
 bluetoothButton.addEventListener('click', pairBluetooth);
 pendantButton.addEventListener('click', connectPendant);
 bridgeButton.addEventListener('click', detectBridge);
+cloudSyncEnable.addEventListener('click', enableCloudSync);
+cloudSyncNow.addEventListener('click', () => pushCloudState({ manual: true }));
+cloudSyncShowCode.addEventListener('click', async () => {
+  if (!state.cloudIdentity) return;
+  const code = formatSoulmateRecoveryCode(state.cloudIdentity);
+  cloudSyncCode.textContent = code;
+  cloudSyncCode.hidden = false;
+  try {
+    await navigator.clipboard.writeText(code);
+    setCloudSyncMessage('恢复码已显示并复制，请离线保管');
+  } catch (error) {
+    setCloudSyncMessage('恢复码已显示，请离线保管');
+  }
+});
+cloudSyncRestore.addEventListener('click', restoreCloudSync);
+cloudSyncStop.addEventListener('click', stopCloudSync);
+cloudSyncDelete.addEventListener('click', removeCloudSync);
 $('#export-button').addEventListener('click', exportProfile);
 importButton.addEventListener('click', () => importInput.click());
 importInput.addEventListener('change', async () => {
   await importProfile(importInput.files?.[0]);
   importInput.value = '';
 });
-$('#reset-button').addEventListener('click', () => {
-  if (!window.confirm('这会删除当前伴侣的名字、人格和共同记忆。确定重新诞生吗？')) return;
+$('#reset-button').addEventListener('click', async () => {
+  const detail = state.cloudIdentity
+    ? '这会停止本机同步并删除当前设备上的名字、人格和共同记忆。云端加密副本仍可通过恢复码找回。确定重新诞生吗？'
+    : '这会删除当前伴侣的名字、人格和共同记忆。确定重新诞生吗？';
+  if (!window.confirm(detail)) return;
+  if (state.cloudIdentity) await clearSoulmateCloudDeviceState();
   localStorage.removeItem(SOULMATE_STORAGE_KEY);
   localStorage.removeItem(SOULMATE_HISTORY_KEY);
   location.reload();
@@ -927,7 +1187,11 @@ if (state.profile) {
 }
 
 state.continuity = openSoulmateSync({ onState: applyContinuityState });
-window.addEventListener('pagehide', () => state.continuity?.close(), { once: true });
+window.addEventListener('pagehide', () => {
+  window.clearTimeout(state.cloudSyncTimer);
+  state.continuity?.close();
+}, { once: true });
+initializeCloudSync();
 
 if (pendantSimulationMode) {
   pendantStatus.textContent = '电脑模拟设备待连接';

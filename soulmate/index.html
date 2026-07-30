@@ -8,7 +8,7 @@
   <title>NEXORA CORE · 你的数字生命</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/soulmate-icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=0.5.0">
+  <link rel="stylesheet" href="./style.css?v=0.6.1">
 </head>
 <body>
   <main class="app-shell" id="app-shell">
@@ -42,6 +42,15 @@
               <b>AERA</b>
               <strong>优美型</strong><span>月羽灵</span>
             </button>
+          </div>
+          <div class="birth-restore">
+            <button class="text-button birth-restore-open" id="birth-restore-open" type="button">已有伙伴？用恢复码唤醒</button>
+            <div class="birth-restore-panel" id="birth-restore-panel" hidden>
+              <label class="field-label" for="birth-restore-input">恢复码</label>
+              <input class="birth-input" id="birth-restore-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="粘贴 NXR1 恢复码">
+              <button class="wide-command" id="birth-restore-submit" type="button">唤醒我的伙伴</button>
+              <p class="setting-status" id="birth-restore-status" aria-live="polite"></p>
+            </div>
           </div>
         </div>
 
@@ -231,6 +240,23 @@
       <div class="setting-row"><span>初始伙伴</span><strong id="setting-starter"></strong></div>
       <div class="setting-row"><span>诞生日</span><strong id="setting-birthday"></strong></div>
       <div class="setting-row"><span>Hermes 能力核心</span><strong>待授权</strong></div>
+      <section class="cloud-sync-settings" aria-labelledby="cloud-sync-title">
+        <div class="setting-row">
+          <span id="cloud-sync-title">加密跨设备同步</span>
+          <strong id="cloud-sync-state">未开启</strong>
+        </div>
+        <p class="device-note">服务器只保存加密数据。恢复码是新设备找回伙伴的唯一凭证，请离线保管。</p>
+        <button class="wide-command" id="cloud-sync-enable" type="button">创建恢复码并开启</button>
+        <button class="wide-command" id="cloud-sync-now" type="button" hidden>立即同步</button>
+        <button class="wide-command" id="cloud-sync-show-code" type="button" hidden>显示并复制恢复码</button>
+        <output class="sync-code" id="cloud-sync-code" hidden></output>
+        <label class="field-label" for="cloud-sync-restore-input">在新设备恢复</label>
+        <input class="sync-recovery-input" id="cloud-sync-restore-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="粘贴 NXR1 恢复码">
+        <button class="wide-command" id="cloud-sync-restore" type="button">从恢复码载入</button>
+        <button class="wide-command" id="cloud-sync-stop" type="button" hidden>仅停止本机同步</button>
+        <button class="wide-command danger" id="cloud-sync-delete" type="button" hidden>删除云端加密副本</button>
+        <p class="setting-status" id="cloud-sync-status" aria-live="polite"></p>
+      </section>
       <button class="wide-command" id="export-button" type="button">导出伴侣数据</button>
       <button class="wide-command" id="import-button" type="button">导入伴侣数据</button>
       <input id="import-input" type="file" accept="application/json,.json" hidden>
@@ -238,6 +264,6 @@
       <button class="wide-command danger" id="reset-button" type="button">重新诞生</button>
     </dialog>
   </main>
-  <script type="module" src="./app.js?v=0.8.0"></script>
+  <script type="module" src="./app.js?v=0.9.2"></script>
 </body>
 </html>

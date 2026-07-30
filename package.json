@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@andresaya/edge-tts": "^1.8.0",
+    "@netlify/blobs": "^10.7.11",
     "openai": "^6.48.0"
   },
   "devDependencies": {
