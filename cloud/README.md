@@ -16,6 +16,7 @@ Use PostgreSQL 16 or newer and an isolated database role with permission to crea
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f cloud/migrations/001_device_cloud_foundation.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f cloud/migrations/002_event_maintenance_policy.sql
 ```
 
 The migration revokes access from `PUBLIC`. A provider-specific follow-up migration must create narrowly scoped runtime and maintenance roles before an API is connected.
@@ -42,8 +43,34 @@ SET LOCAL app.allow_event_maintenance = 'on';
 COMMIT;
 ```
 
+## Local three-device test
+
+The local harness requires PostgreSQL 16. It creates only the `nexora_core_dev` database and two non-superuser roles.
+
+```bash
+npm run cloud:setup
+npm run cloud:simulate
+```
+
+The simulator generates independent phone, pendant, and desktop P-256 keys. It wraps a real 256-bit vault key, submits 1,000 signed encrypted events, checks duplicate delivery and tenant isolation, rotates the vault key while revoking the pendant, restores the new key through the recovery envelope, and executes account deletion.
+
+Run the development API separately with:
+
+```bash
+NEXORA_LOCAL_API_KEY="replace-with-at-least-32-random-characters" \
+NEXORA_SUBJECT_PEPPER="use-a-different-32-character-secret" \
+npm run cloud:serve
+```
+
+The local server exposes `/v1/bootstrap`, `/v1/devices`, `/v1/events`, device revocation, recovery-envelope lookup, and deletion endpoints on `127.0.0.1:4788`. Its `X-Nexora-Local-Key` and `X-Nexora-Owner-Id` headers are a computer-only test harness. They are not production authentication and must never be exposed to the internet. A production service must derive the owner from a verified identity session and use a separately protected maintenance worker.
+
 ## Files
 
 - `migrations/001_device_cloud_foundation.sql`: initial PostgreSQL schema and row-level security.
+- `migrations/002_event_maintenance_policy.sql`: owner-scoped event deletion for the separately granted maintenance role.
+- `setup-local.mjs`: repeatable local database and role setup.
+- `local-server.mjs`: localhost-only API harness.
+- `simulate-devices.mjs`: three-device encrypted integration test.
 - `../shared/device-cloud-protocol.mjs`: encrypted device-event boundary shared by future clients and APIs.
+- `../shared/device-cloud-crypto.mjs`: P-256 keys, ECDH/AES-KW device envelopes, and HKDF recovery envelopes.
 - `../docs/NEXORA_DEVICE_CLOUD_ARCHITECTURE.md`: product, privacy, retention, and migration decisions.

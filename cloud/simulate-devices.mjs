@@ -1,0 +1,283 @@
+import assert from 'node:assert/strict';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+
+import {
+  canonicalDeviceCloudEvent
+} from '../shared/device-cloud-protocol.mjs';
+import {
+  createDeviceCloudKeys,
+  createRecoveryEnvelope,
+  createVaultKey,
+  toBase64Url,
+  unwrapRecoveryEnvelope,
+  wrapVaultKeyForDevice
+} from '../shared/device-cloud-crypto.mjs';
+import { createDeviceCloudHttpServer } from './local-server.mjs';
+
+const crypto = globalThis.crypto;
+const totalEvents = Math.max(12, Number(process.env.NEXORA_SIM_EVENT_COUNT || 1000));
+
+function publicVaultId() {
+  return randomBytes(16).toString('base64url');
+}
+
+async function device(name, type, vaultKey) {
+  const keys = await createDeviceCloudKeys();
+  return {
+    id: randomUUID(),
+    name,
+    type,
+    keys,
+    keyVersion: 1,
+    sequence: 0,
+    previousEventHash: '',
+    wrappedVaultKey: await wrapVaultKeyForDevice(vaultKey, keys.exchangePublicJwk)
+  };
+}
+
+function registration(value) {
+  return {
+    id: value.id,
+    type: value.type,
+    displayName: value.name,
+    signingKeyId: `device:${value.id}`,
+    signingPublicJwk: value.keys.signingPublicJwk,
+    exchangePublicJwk: value.keys.exchangePublicJwk,
+    firmwareVersion: value.type === 'pendant' ? 'nc01-sim-1' : 'web-sim-1',
+    wrappedVaultKey: value.wrappedVaultKey
+  };
+}
+
+async function encryptedEvent(value, vaultId, index) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = new TextEncoder().encode(JSON.stringify({
+    type: index % 5 === 0 ? 'memory.updated' : 'interaction.completed',
+    companionName: '仅存在于密文中的名字',
+    body: `${value.name} offline interaction ${index}`
+  }));
+  const ciphertext = await crypto.subtle.encrypt({
+    name: 'AES-GCM',
+    iv,
+    additionalData: new TextEncoder().encode(`nexora-device-event-v1:${vaultId}`),
+    tagLength: 128
+  }, value.vaultKey, plaintext);
+  const event = {
+    version: 1,
+    eventId: randomUUID(),
+    vaultId,
+    deviceId: value.id,
+    deviceSequence: value.sequence + 1,
+    occurredAt: new Date().toISOString(),
+    keyVersion: value.keyVersion,
+    previousEventHash: value.previousEventHash,
+    payload: {
+      algorithm: 'A256GCM',
+      iv: toBase64Url(iv),
+      ciphertext: toBase64Url(ciphertext)
+    },
+    auth: {
+      algorithm: 'ES256',
+      keyId: `device:${value.id}`,
+      signature: 'A'.repeat(86)
+    }
+  };
+  const canonical = canonicalDeviceCloudEvent(event);
+  const signature = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    value.keys.signing.privateKey,
+    new TextEncoder().encode(canonical)
+  );
+  event.auth.signature = toBase64Url(signature);
+  return event;
+}
+
+async function main() {
+  const ownerId = randomUUID();
+  const apiKey = randomBytes(32).toString('base64url');
+  const runtime = createDeviceCloudHttpServer({ apiKey, allowImmediateDeletion: true });
+  const baseUrl = await runtime.listen(0);
+  const vaultId = publicVaultId();
+  let vaultKey = await createVaultKey();
+  let recovery = await createRecoveryEnvelope(vaultKey);
+  const devices = [
+    await device('Phone Simulator', 'phone', vaultKey),
+    await device('NC-01 Pendant Simulator', 'pendant', vaultKey),
+    await device('Desktop Simulator', 'desktop', vaultKey)
+  ];
+  for (const value of devices) value.vaultKey = vaultKey;
+  const [phone, pendant, desktop] = devices;
+
+  async function request(path, options = {}) {
+    const response = await fetch(`${baseUrl}${path}`, {
+      method: options.method || 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Nexora-Local-Key': apiKey,
+        'X-Nexora-Owner-Id': options.ownerId || ownerId
+      },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body)
+    });
+    const body = await response.json();
+    return { status: response.status, body };
+  }
+
+  async function append(value, index) {
+    const event = await encryptedEvent(value, vaultId, index);
+    const response = await request('/v1/events', { method: 'POST', body: event });
+    assert.equal(response.status, 201, JSON.stringify(response.body));
+    value.sequence += 1;
+    value.previousEventHash = response.body.contentHash;
+    return event;
+  }
+
+  try {
+    const bootstrap = await request('/v1/bootstrap', {
+      method: 'POST',
+      body: {
+        externalSubject: `local-simulator:${ownerId}`,
+        region: 'local',
+        vaultId,
+        device: registration(phone),
+        recovery: {
+          recoveryKeyId: recovery.recoveryKeyId,
+          wrappedVaultKey: recovery.wrappedVaultKey
+        }
+      }
+    });
+    assert.equal(bootstrap.status, 201, JSON.stringify(bootstrap.body));
+    for (const value of [pendant, desktop]) {
+      const registered = await request('/v1/devices', {
+        method: 'POST',
+        body: { vaultId, device: registration(value) }
+      });
+      assert.equal(registered.status, 201, JSON.stringify(registered.body));
+    }
+
+    const firstEvent = await append(phone, 0);
+    const counts = [Math.ceil(totalEvents / 3), Math.floor(totalEvents / 3), Math.floor(totalEvents / 3)];
+    while (counts.reduce((sum, count) => sum + count, 0) < totalEvents) counts[1] += 1;
+    counts[0] -= 1;
+    let index = 1;
+    while (counts.some((count) => count > 0)) {
+      const round = [];
+      for (let deviceIndex = 0; deviceIndex < devices.length; deviceIndex += 1) {
+        if (counts[deviceIndex] <= 0) continue;
+        counts[deviceIndex] -= 1;
+        round.push(append(devices[deviceIndex], index));
+        index += 1;
+      }
+      await Promise.all(round);
+    }
+    assert.equal(devices.reduce((sum, value) => sum + value.sequence, 0), totalEvents);
+
+    const duplicate = await request('/v1/events', { method: 'POST', body: firstEvent });
+    assert.equal(duplicate.status, 201);
+    assert.equal(duplicate.body.duplicate, true);
+
+    const downloaded = [];
+    let after = 0;
+    do {
+      const page = await request(`/v1/events?vaultId=${vaultId}&deviceId=${phone.id}&after=${after}&limit=137`);
+      assert.equal(page.status, 200, JSON.stringify(page.body));
+      downloaded.push(...page.body.events);
+      after = page.body.nextCursor;
+      if (!page.body.hasMore) break;
+    } while (true);
+    assert.equal(downloaded.length, totalEvents);
+    assert.doesNotMatch(JSON.stringify(downloaded), /仅存在于密文中的名字/);
+    assert.equal(new Set(downloaded.map((event) => event.eventId)).size, totalEvents);
+
+    const foreignOwner = await request(`/v1/events?vaultId=${vaultId}&deviceId=${phone.id}`, {
+      ownerId: randomUUID()
+    });
+    assert.equal(foreignOwner.status, 404);
+
+    const nextVaultKey = await createVaultKey();
+    const nextRecovery = await createRecoveryEnvelope(nextVaultKey, recovery.recoverySecret);
+    const nextEnvelopes = [];
+    for (const value of [phone, desktop]) {
+      nextEnvelopes.push({
+        deviceId: value.id,
+        wrappedVaultKey: await wrapVaultKeyForDevice(nextVaultKey, value.keys.exchangePublicJwk)
+      });
+    }
+    const revoked = await request(`/v1/devices/${pendant.id}/revoke`, {
+      method: 'POST',
+      body: {
+        vaultId,
+        nextKeyVersion: 2,
+        envelopes: nextEnvelopes,
+        recovery: {
+          recoveryKeyId: nextRecovery.recoveryKeyId,
+          wrappedVaultKey: nextRecovery.wrappedVaultKey
+        }
+      }
+    });
+    assert.equal(revoked.status, 200, JSON.stringify(revoked.body));
+    for (const value of [phone, desktop]) {
+      value.vaultKey = nextVaultKey;
+      value.keyVersion = 2;
+    }
+    vaultKey = nextVaultKey;
+    recovery = nextRecovery;
+
+    const revokedEvent = await encryptedEvent(pendant, vaultId, totalEvents + 1);
+    const blockedWrite = await request('/v1/events', { method: 'POST', body: revokedEvent });
+    assert.equal(blockedWrite.status, 403);
+    assert.equal(blockedWrite.body.error, 'device_revoked');
+    const blockedRead = await request(`/v1/events?vaultId=${vaultId}&deviceId=${pendant.id}`);
+    assert.equal(blockedRead.status, 403);
+
+    const recovered = await request('/v1/recovery', {
+      method: 'POST',
+      body: { vaultId, recoveryKeyId: recovery.recoveryKeyId }
+    });
+    assert.equal(recovered.status, 200, JSON.stringify(recovered.body));
+    assert.equal(recovered.body.keyVersion, 2);
+    const recoveredKey = await unwrapRecoveryEnvelope(recovered.body.wrappedVaultKey, recovery.recoverySecret);
+    const [expectedRawKey, actualRawKey] = await Promise.all([
+      crypto.subtle.exportKey('raw', vaultKey),
+      crypto.subtle.exportKey('raw', recoveredKey)
+    ]);
+    assert.equal(Buffer.from(actualRawKey).equals(Buffer.from(expectedRawKey)), true);
+
+    const deletion = await request('/v1/deletions', {
+      method: 'POST',
+      body: { scope: 'account', immediate: true }
+    });
+    assert.equal(deletion.status, 202, JSON.stringify(deletion.body));
+    const deleted = await request(`/v1/deletions/${deletion.body.requestId}/execute`, {
+      method: 'POST',
+      body: {}
+    });
+    assert.equal(deleted.status, 200, JSON.stringify(deleted.body));
+    assert.equal(deleted.body.status, 'complete');
+    const afterDeletion = await request('/v1/recovery', {
+      method: 'POST',
+      body: { vaultId, recoveryKeyId: recovery.recoveryKeyId }
+    });
+    assert.equal(afterDeletion.status, 404);
+
+    const report = {
+      passed: true,
+      database: (await runtime.store.health()).database,
+      virtualDevices: devices.length,
+      encryptedEvents: totalEvents,
+      duplicateDelivery: 'idempotent',
+      tenantIsolation: 'passed',
+      revokedDeviceWrite: 'blocked',
+      revokedDeviceRead: 'blocked',
+      recoveryKeyRoundTrip: createHash('sha256').update(Buffer.from(actualRawKey)).digest('hex')
+        === createHash('sha256').update(Buffer.from(expectedRawKey)).digest('hex'),
+      accountDeletion: 'complete'
+    };
+    console.log(JSON.stringify(report, null, 2));
+  } finally {
+    await runtime.close();
+  }
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

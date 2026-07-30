@@ -16,6 +16,10 @@
     "build:pendant-firmware-fs": "npm run build:pendant-firmware-assets && python3 -m platformio run -d hardware/soulmate-pendant/firmware -t buildfs",
     "package:pendant-firmware": "npm run build:pendant-firmware && npm run build:pendant-firmware-fs && node tools/package-pendant-firmware.mjs",
     "simulate:pendant": "node tools/simulate-nexora-core.mjs",
+    "cloud:setup": "node cloud/setup-local.mjs",
+    "cloud:serve": "node cloud/local-server.mjs",
+    "cloud:simulate": "node cloud/simulate-devices.mjs",
+    "test:cloud": "npm run cloud:setup && npm run cloud:simulate",
     "test:computer": "npm test && npm run build:pendant-firmware && npm run simulate:pendant",
     "build:model:female-head": "node tools/build-curved-face-texture.mjs && node tools/build-browser-head.mjs",
     "build:model:female": "node tools/build-browser-model.mjs female",
@@ -27,7 +31,8 @@
   "dependencies": {
     "@andresaya/edge-tts": "^1.8.0",
     "@netlify/blobs": "^10.7.11",
-    "openai": "^6.48.0"
+    "openai": "^6.48.0",
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "@gltf-transform/cli": "^4.4.1",

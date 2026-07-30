@@ -4,6 +4,10 @@ import test from 'node:test';
 
 const migrationUrl = new URL('../cloud/migrations/001_device_cloud_foundation.sql', import.meta.url);
 const sql = await readFile(migrationUrl, 'utf8');
+const maintenanceMigration = await readFile(
+  new URL('../cloud/migrations/002_event_maintenance_policy.sql', import.meta.url),
+  'utf8'
+);
 
 const userTables = [
   'accounts',
@@ -46,6 +50,8 @@ test('companion events are append-only, idempotent, encrypted, and device signed
   assert.match(sql, /CREATE TRIGGER companion_events_append_only/);
   assert.match(sql, /CREATE POLICY companion_events_insert_policy/);
   assert.doesNotMatch(sql, /CREATE POLICY companion_events_(update|delete)_policy/);
+  assert.match(maintenanceMigration, /FOR DELETE/);
+  assert.match(maintenanceMigration, /current_owner_id\(\)/);
 });
 
 test('device registration stores public keys only and separates recovery envelopes', () => {
