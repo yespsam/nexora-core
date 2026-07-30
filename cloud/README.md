@@ -15,8 +15,8 @@ This directory contains the provider-neutral data foundation for future physical
 Use PostgreSQL 16 or newer and an isolated database role with permission to create the `nexora_cloud` schema.
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f cloud/migrations/001_device_cloud_foundation.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f cloud/migrations/002_event_maintenance_policy.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f netlify/database/migrations/202607300001_device_cloud_foundation.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f netlify/database/migrations/202607300002_event_maintenance_policy.sql
 ```
 
 The migration revokes access from `PUBLIC`. A provider-specific follow-up migration must create narrowly scoped runtime and maintenance roles before an API is connected.
@@ -66,7 +66,7 @@ The local server exposes `/v1/bootstrap`, `/v1/devices`, `/v1/events`, device re
 
 ## Private staging function
 
-`netlify/functions/device-cloud.mjs` provides the disabled-by-default staging adapter at `/api/device-cloud/*`. It uses Netlify Identity for the authenticated subject, derives an internal RLS owner with a server-side HMAC pepper, and rejects state-changing cross-origin requests. See `../docs/NEXORA_PRIVATE_CLOUD_STAGING.md` for environment variables and the gated deployment order.
+`netlify/functions/device-cloud.mjs` provides the disabled-by-default staging adapter at `/api/device-cloud/*`. It uses Netlify Identity for the authenticated subject, Netlify Database for deploy-scoped PostgreSQL branches, derives an internal RLS owner with a server-side HMAC pepper, and rejects state-changing cross-origin requests. See `../docs/NEXORA_PRIVATE_CLOUD_STAGING.md` for environment variables and the gated deployment order.
 
 ```bash
 NEXORA_SIM_EVENT_COUNT=30 npm run cloud:simulate:function
@@ -76,8 +76,9 @@ This command runs the Identity-to-Function-to-RLS chain against local PostgreSQL
 
 ## Files
 
-- `migrations/001_device_cloud_foundation.sql`: initial PostgreSQL schema and row-level security.
-- `migrations/002_event_maintenance_policy.sql`: owner-scoped event deletion for the separately granted maintenance role.
+- `../netlify/database/migrations/202607300001_device_cloud_foundation.sql`: initial PostgreSQL schema and row-level security.
+- `../netlify/database/migrations/202607300002_event_maintenance_policy.sql`: owner-scoped event deletion for the maintenance role.
+- `../netlify/database/migrations/202607300003_device_cloud_runtime_roles.sql`: no-login API and maintenance roles used with `SET LOCAL ROLE`.
 - `setup-local.mjs`: repeatable local database and role setup.
 - `local-server.mjs`: localhost-only API harness.
 - `simulate-devices.mjs`: three-device encrypted integration test.

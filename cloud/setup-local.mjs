@@ -36,7 +36,10 @@ async function applyFoundation() {
   try {
     const existing = await connection.query("SELECT to_regclass('nexora_cloud.accounts') AS table_name");
     if (!existing.rows[0].table_name) {
-      const migration = await readFile(new URL('./migrations/001_device_cloud_foundation.sql', import.meta.url), 'utf8');
+      const migration = await readFile(new URL(
+        '../netlify/database/migrations/202607300001_device_cloud_foundation.sql',
+        import.meta.url
+      ), 'utf8');
       await connection.query(migration);
     }
     const maintenancePolicy = await connection.query(`
@@ -47,7 +50,10 @@ async function applyFoundation() {
         AND policyname = 'companion_events_maintenance_delete_policy'
     `);
     if (!maintenancePolicy.rowCount) {
-      const migration = await readFile(new URL('./migrations/002_event_maintenance_policy.sql', import.meta.url), 'utf8');
+      const migration = await readFile(new URL(
+        '../netlify/database/migrations/202607300002_event_maintenance_policy.sql',
+        import.meta.url
+      ), 'utf8');
       await connection.query(migration);
     }
     const roles = await readFile(new URL('./local/runtime-roles.sql', import.meta.url), 'utf8');

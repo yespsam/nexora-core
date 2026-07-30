@@ -2,10 +2,17 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const migrationUrl = new URL('../cloud/migrations/001_device_cloud_foundation.sql', import.meta.url);
+const migrationUrl = new URL(
+  '../netlify/database/migrations/202607300001_device_cloud_foundation.sql',
+  import.meta.url
+);
 const sql = await readFile(migrationUrl, 'utf8');
 const maintenanceMigration = await readFile(
-  new URL('../cloud/migrations/002_event_maintenance_policy.sql', import.meta.url),
+  new URL('../netlify/database/migrations/202607300002_event_maintenance_policy.sql', import.meta.url),
+  'utf8'
+);
+const netlifyRoles = await readFile(
+  new URL('../netlify/database/migrations/202607300003_device_cloud_runtime_roles.sql', import.meta.url),
   'utf8'
 );
 
@@ -59,4 +66,13 @@ test('device registration stores public keys only and separates recovery envelop
   assert.match(sql, /NOT \(exchange_public_key_jwk \? 'd'\)/);
   assert.match(sql, /wrapping_algorithm = 'ECDH-ES\+A256KW'/);
   assert.match(sql, /wrapping_algorithm = 'HKDF-SHA256\+A256KW'/);
+});
+
+test('Netlify runtime enters explicit no-bypass API and maintenance roles', () => {
+  assert.match(netlifyRoles, /CREATE ROLE nexora_cloud_api NOLOGIN NOSUPERUSER/);
+  assert.match(netlifyRoles, /CREATE ROLE nexora_cloud_maintenance NOLOGIN NOSUPERUSER/);
+  assert.match(netlifyRoles, /NOBYPASSRLS/);
+  assert.match(netlifyRoles, /GRANT nexora_cloud_api, nexora_cloud_maintenance TO CURRENT_USER/);
+  assert.match(netlifyRoles, /SELECT, INSERT ON nexora_cloud\.companion_events TO nexora_cloud_api/);
+  assert.doesNotMatch(netlifyRoles, /DELETE ON nexora_cloud\.companion_events TO nexora_cloud_api/);
 });

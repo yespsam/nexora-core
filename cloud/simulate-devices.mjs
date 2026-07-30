@@ -103,7 +103,11 @@ async function main() {
     ? `netlify-identity:${identityUserId}`
     : `local-simulator:${identityUserId}`;
   const ownerId = ownerIdForExternalSubject(externalSubject, subjectPepper);
-  const store = transport === 'netlify-function' ? new DeviceCloudStore({ subjectPepper }) : null;
+  const store = transport === 'netlify-function' ? new DeviceCloudStore({
+    subjectPepper,
+    apiRole: 'nexora_cloud_api',
+    maintenanceRole: 'nexora_cloud_maintenance'
+  }) : null;
   const runtime = transport === 'local-http'
     ? createDeviceCloudHttpServer({ apiKey, subjectPepper, allowImmediateDeletion: true })
     : null;
@@ -118,6 +122,7 @@ async function main() {
   ];
   for (const value of devices) value.vaultKey = vaultKey;
   const [phone, pendant, desktop] = devices;
+  let functionError;
 
   async function request(path, options = {}) {
     if (transport === 'netlify-function') {
@@ -126,7 +131,8 @@ async function main() {
         getStore: () => store,
         getCurrentUser: async () => ({ id: options.identityUserId || identityUserId }),
         verifyOrigin: () => {},
-        subjectPepper
+        subjectPepper,
+        onError: (error) => { functionError = error; }
       });
       const functionPath = path.replace(/^\/v1/, '/api/device-cloud');
       const response = await handler(new Request(`${baseUrl}${functionPath}`, {
@@ -134,7 +140,9 @@ async function main() {
         headers: { 'Content-Type': 'application/json', Origin: baseUrl },
         body: options.body === undefined ? undefined : JSON.stringify(options.body)
       }));
-      return { status: response.status, body: await response.json() };
+      const body = await response.json();
+      if (response.status >= 500 && functionError) throw functionError;
+      return { status: response.status, body };
     }
     const response = await fetch(`${baseUrl}${path}`, {
       method: options.method || 'GET',

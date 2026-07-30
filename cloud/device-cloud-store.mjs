@@ -49,11 +49,15 @@ function poolConfig(role, environmentName, options = {}) {
   };
 }
 
-async function withOwner(pool, ownerId, operation) {
+const runtimeRoles = new Set(['nexora_cloud_api', 'nexora_cloud_maintenance']);
+
+async function withOwner(pool, ownerId, operation, runtimeRole = '') {
   const owner = requiredUuid(ownerId, 'owner id');
+  if (runtimeRole && !runtimeRoles.has(runtimeRole)) throw new Error('invalid database runtime role');
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    if (runtimeRole) await client.query(`SET LOCAL ROLE ${runtimeRole}`);
     await client.query("SELECT set_config('app.owner_id', $1, true)", [owner]);
     const result = await operation(client, owner);
     await client.query('COMMIT');
@@ -122,6 +126,12 @@ export class DeviceCloudStore {
         'NEXORA_CLOUD_MAINTENANCE_DATABASE_URL',
         { connectionString: options.maintenanceConnectionString, max: options.poolMax }
       ));
+    this.apiRole = String(options.apiRole || '');
+    this.maintenanceRole = String(options.maintenanceRole || '');
+    if (this.apiRole && !runtimeRoles.has(this.apiRole)) throw new Error('invalid API database role');
+    if (this.maintenanceRole && !runtimeRoles.has(this.maintenanceRole)) {
+      throw new Error('invalid maintenance database role');
+    }
   }
 
   async health() {
@@ -169,7 +179,7 @@ export class DeviceCloudStore {
         keyVersion: vault.active_key_version,
         deviceId: device.id
       };
-    });
+    }, this.apiRole);
   }
 
   async registerDevice(ownerId, value) {
@@ -178,7 +188,7 @@ export class DeviceCloudStore {
       if (vault.status !== 'active') throw new DeviceCloudError('vault is not active', 409, 'vault_locked');
       const device = await insertDevice(client, owner, vault, value?.device, vault.active_key_version);
       return { deviceId: device.id, vaultId: vault.public_id, keyVersion: vault.active_key_version };
-    });
+    }, this.apiRole);
   }
 
   async appendEvent(ownerId, value) {
@@ -283,7 +293,7 @@ export class DeviceCloudStore {
         WHERE id = $2
       `, [cursor, device.vault_uuid]);
       return { cursor, duplicate: false, contentHash: toBase64Url(contentHash) };
-    });
+    }, this.apiRole);
   }
 
   async listEvents(ownerId, { vaultId, requesterDeviceId, after = 0, limit = 200 }) {
@@ -334,7 +344,7 @@ export class DeviceCloudStore {
         nextCursor: events.at(-1)?.cursor || cursor,
         hasMore: events.length === pageSize
       };
-    });
+    }, this.apiRole);
   }
 
   async revokeDevice(ownerId, targetDeviceId, value) {
@@ -400,7 +410,7 @@ export class DeviceCloudStore {
         WHERE id = $2
       `, [nextKeyVersion, vault.id]);
       return { revokedDeviceId: targetId, keyVersion: nextKeyVersion, activeDeviceIds: remainingIds };
-    });
+    }, this.apiRole);
   }
 
   async recoverVaultEnvelope(ownerId, value) {
@@ -426,7 +436,7 @@ export class DeviceCloudStore {
         algorithm: result.rows[0].wrapping_algorithm,
         wrappedVaultKey: toBase64Url(result.rows[0].wrapped_vault_key)
       };
-    });
+    }, this.apiRole);
   }
 
   async scheduleDeletion(ownerId, value) {
@@ -449,7 +459,7 @@ export class DeviceCloudStore {
         status: result.rows[0].status,
         executeAfter: result.rows[0].execute_after.toISOString()
       };
-    });
+    }, this.apiRole);
   }
 
   async executeDeletion(ownerId, requestId) {
@@ -507,10 +517,10 @@ export class DeviceCloudStore {
         status: 'complete',
         objectKeysToDelete: snapshots.rows.map((row) => row.object_key)
       };
-    });
+    }, this.maintenanceRole);
   }
 
   async close() {
-    await Promise.all([this.apiPool.end(), this.maintenancePool.end()]);
+    await Promise.all([...new Set([this.apiPool, this.maintenancePool])].map((pool) => pool.end()));
   }
 }

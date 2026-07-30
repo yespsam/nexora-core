@@ -1,3 +1,4 @@
+-- Shared by Netlify Database deploys and the local PostgreSQL harness.
 BEGIN;
 
 CREATE SCHEMA IF NOT EXISTS nexora_cloud;

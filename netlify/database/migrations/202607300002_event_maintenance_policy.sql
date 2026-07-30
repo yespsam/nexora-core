@@ -1,3 +1,4 @@
+-- Event deletion remains owner-scoped and available only to the maintenance role.
 BEGIN;
 
 CREATE POLICY companion_events_maintenance_delete_policy

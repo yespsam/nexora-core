@@ -1,4 +1,5 @@
 import { getUser, verifyRequestOrigin } from '@netlify/identity';
+import { getDatabase } from '@netlify/database';
 
 import { DeviceCloudStore } from '../../cloud/device-cloud-store.mjs';
 import { createDeviceCloudFunction } from './_shared/device-cloud-data.mjs';
@@ -10,16 +11,16 @@ function environment(name) {
 }
 
 function getStore() {
-  const apiConnectionString = environment('NEXORA_CLOUD_API_DATABASE_URL');
-  if (!apiConnectionString) {
-    throw new Error('device cloud database is not configured');
+  if (!store) {
+    const database = getDatabase();
+    store = new DeviceCloudStore({
+      apiPool: database.pool,
+      maintenancePool: database.pool,
+      apiRole: 'nexora_cloud_api',
+      maintenanceRole: 'nexora_cloud_maintenance',
+      subjectPepper: environment('NEXORA_SUBJECT_PEPPER')
+    });
   }
-  if (!store) store = new DeviceCloudStore({
-    apiConnectionString,
-    maintenanceConnectionString: environment('NEXORA_CLOUD_MAINTENANCE_DATABASE_URL'),
-    poolMax: Number(environment('NEXORA_CLOUD_POOL_MAX') || 2),
-    subjectPepper: environment('NEXORA_SUBJECT_PEPPER')
-  });
   return store;
 }
 

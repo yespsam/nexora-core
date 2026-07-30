@@ -88,7 +88,7 @@ test('local registration accepts public P-256 keys and rejects private key mater
 test('local roles keep event deletion out of the API role', async () => {
   const roles = await readFile(new URL('../cloud/local/runtime-roles.sql', import.meta.url), 'utf8');
   const maintenance = await readFile(
-    new URL('../cloud/migrations/002_event_maintenance_policy.sql', import.meta.url),
+    new URL('../netlify/database/migrations/202607300002_event_maintenance_policy.sql', import.meta.url),
     'utf8'
   );
   assert.match(roles, /SELECT, INSERT ON nexora_cloud\.companion_events TO nexora_cloud_api/);
