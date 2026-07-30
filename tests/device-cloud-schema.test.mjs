@@ -15,6 +15,10 @@ const netlifyRuntimeGuard = await readFile(
   new URL('../netlify/database/migrations/202607300003_device_cloud_runtime_roles.sql', import.meta.url),
   'utf8'
 );
+const lifecycleMigration = await readFile(
+  new URL('../netlify/database/migrations/202607300004_device_cloud_data_lifecycle.sql', import.meta.url),
+  'utf8'
+);
 
 const userTables = [
   'accounts',
@@ -75,7 +79,15 @@ test('Netlify runtime validates forced RLS without altering platform-owned roles
 });
 
 test('Netlify owns the migration transaction boundary', () => {
-  for (const migration of [sql, maintenanceMigration, netlifyRuntimeGuard]) {
+  for (const migration of [sql, maintenanceMigration, netlifyRuntimeGuard, lifecycleMigration]) {
     assert.doesNotMatch(migration, /^\s*(BEGIN|COMMIT)\s*;/im);
   }
+});
+
+test('data lifecycle migration exposes only narrow deletion operations', () => {
+  assert.match(lifecycleMigration, /deletion_requests_pending_scope_idx/);
+  assert.match(lifecycleMigration, /cancel_deletion_request/);
+  assert.match(lifecycleMigration, /list_due_deletion_requests/);
+  assert.match(lifecycleMigration, /execute_after <= now\(\)/);
+  assert.match(lifecycleMigration, /REVOKE ALL ON FUNCTION/);
 });

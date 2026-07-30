@@ -92,3 +92,34 @@ export function normalizeRecoveryEnvelope(value) {
     wrappedVaultKey: wrappedKey(value.wrappedVaultKey, 'recovery wrapped vault key')
   };
 }
+
+export function normalizeEncryptedSnapshot(value) {
+  if (!value || typeof value !== 'object') throw new DeviceCloudError('invalid encrypted snapshot');
+  const throughCursor = Number(value.throughCursor);
+  const keyVersion = Number(value.keyVersion);
+  if (!Number.isSafeInteger(throughCursor) || throughCursor < 0) {
+    throw new DeviceCloudError('invalid snapshot cursor');
+  }
+  if (!Number.isSafeInteger(keyVersion) || keyVersion < 1) {
+    throw new DeviceCloudError('invalid snapshot key version');
+  }
+  if (value.payload?.algorithm !== 'A256GCM') {
+    throw new DeviceCloudError('invalid snapshot encryption algorithm');
+  }
+  let iv;
+  let ciphertext;
+  try {
+    iv = Buffer.from(fromBase64Url(value.payload.iv, 12, 12));
+    ciphertext = Buffer.from(fromBase64Url(value.payload.ciphertext, 17, 262144));
+  } catch (error) {
+    throw new DeviceCloudError('invalid encrypted snapshot payload');
+  }
+  return {
+    vaultId: requiredVaultId(value.vaultId),
+    deviceId: requiredUuid(value.deviceId, 'snapshot device id'),
+    throughCursor,
+    keyVersion,
+    iv,
+    ciphertext
+  };
+}

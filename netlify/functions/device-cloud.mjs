@@ -3,6 +3,10 @@ import { getDatabase } from '@netlify/database';
 
 import { DeviceCloudStore } from '../../cloud/device-cloud-store.mjs';
 import { createDeviceCloudFunction } from './_shared/device-cloud-data.mjs';
+import {
+  createNetlifySnapshotObjects,
+  snapshotNamespace
+} from './_shared/device-cloud-objects.mjs';
 
 let store;
 
@@ -28,6 +32,8 @@ export default createDeviceCloudFunction({
   getCurrentUser: getUser,
   verifyOrigin: verifyRequestOrigin,
   subjectPepper: environment('NEXORA_SUBJECT_PEPPER'),
+  getSnapshotObjects: createNetlifySnapshotObjects,
+  getSnapshotNamespace: snapshotNamespace,
   onError(error) {
     console.error('[device-cloud-function]', {
       name: String(error?.name || 'Error').slice(0, 80),

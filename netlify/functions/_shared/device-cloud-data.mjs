@@ -45,8 +45,10 @@ export function createDeviceCloudFunction(options) {
   const verifyOrigin = options.verifyOrigin;
   const subjectPepper = String(options.subjectPepper || '');
   const onError = options.onError || (() => {});
+  const getSnapshotObjects = options.getSnapshotObjects || (() => null);
+  const getSnapshotNamespace = options.getSnapshotNamespace || (() => 'staging');
 
-  return async function deviceCloudHandler(request) {
+  return async function deviceCloudHandler(request, context = {}) {
     if (!enabled) return json({ error: 'not_found' }, 404);
     try {
       const user = await getCurrentUser();
@@ -86,6 +88,18 @@ export function createDeviceCloudFunction(options) {
           limit: Number(url.searchParams.get('limit') || 200)
         }));
       }
+      if (request.method === 'POST' && path === '/api/device-cloud/snapshots') {
+        return json(await store.createSnapshot(ownerId, await readJson(request), {
+          objects: getSnapshotObjects(context),
+          namespace: getSnapshotNamespace(context)
+        }), 201);
+      }
+      if (request.method === 'GET' && path === '/api/device-cloud/snapshots/latest') {
+        return json(await store.latestSnapshot(ownerId, {
+          vaultId: url.searchParams.get('vaultId'),
+          requesterDeviceId: url.searchParams.get('deviceId')
+        }, { objects: getSnapshotObjects(context) }));
+      }
       const revokeMatch = path.match(/^\/api\/device-cloud\/devices\/([0-9a-f-]+)\/revoke$/i);
       if (request.method === 'POST' && revokeMatch) {
         return json(await store.revokeDevice(ownerId, revokeMatch[1], await readJson(request)));
@@ -96,6 +110,10 @@ export function createDeviceCloudFunction(options) {
       if (request.method === 'POST' && path === '/api/device-cloud/deletions') {
         const body = await readJson(request);
         return json(await store.scheduleDeletion(ownerId, { ...body, immediate: false }), 202);
+      }
+      const cancelDeletionMatch = path.match(/^\/api\/device-cloud\/deletions\/([0-9a-f-]+)\/cancel$/i);
+      if (request.method === 'POST' && cancelDeletionMatch) {
+        return json(await store.cancelDeletion(ownerId, cancelDeletionMatch[1]));
       }
       throw new DeviceCloudError('not found', 404, 'not_found');
     } catch (caught) {

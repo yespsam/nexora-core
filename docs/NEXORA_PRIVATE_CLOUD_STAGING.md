@@ -9,7 +9,7 @@
 - 访问：Free 计划使用自建 Edge Function 会话门禁，覆盖页面、API、脚本和 3D 模型。
 - API：Netlify Functions，统一路径 `/api/device-cloud/*`。
 - 数据库：Netlify Database 托管 PostgreSQL；生产和每个 Deploy Preview 使用平台隔离的数据库分支。
-- 对象存储：首轮不上传媒体；后续只保存 AES-256-GCM 加密人格快照。
+- 对象存储：只保存 AES-256-GCM 加密人格快照，不保存明文人格或原始语音；同月自动压缩为最近 3 份并保留每月最新灾备。
 - 现有生产同步：继续使用 `/api/sync`，新设备事件库默认关闭，不参与生产读写。
 
 选择这条路径是为了沿用 Netlify Functions 和部署流程，减少新增供应商。当前账号为 Free 团队，包含每月 300 credits 和硬上限，不会自动产生超额费用；数据库活动时仍会消耗 compute 和 bandwidth credits。
@@ -24,6 +24,8 @@
 4. Identity 用户 ID 经服务端 pepper 和域分离 HMAC 转换为内部 UUID，客户端不能指定数据库所有者。
 5. 每个 PostgreSQL 事务设置 `app.owner_id`，所有用户数据查询同时显式包含 `owner_id` 条件；强制 RLS 作为额外隔离层。
 6. 事件仍须通过设备 ES256 签名、序号、哈希链、密钥版本和撤销状态验证。
+7. 快照上传必须来自未撤销设备，密钥版本和游标不能超前；下载前同时校验对象大小和 SHA-256。
+8. 删除只能由无公开路径的计划函数在宽限期结束后执行；对象清除失败时数据库事务回滚并等待重试。
 
 门禁返回 `private, no-store`，Service Worker 不再保存产品 shell；退出时清理 Cache Storage 并注销旧 Service Worker。登录、邀请、确认和密码恢复只接受同源请求，回跳地址仅允许站内路径。
 
@@ -36,6 +38,7 @@
 | 名称 | 作用 | 生产要求 |
 | --- | --- | --- |
 | `NEXORA_DEVICE_CLOUD_ENABLED` | 云事件 API 总开关 | 初始为 `false` |
+| `NEXORA_DEVICE_CLOUD_MAINTENANCE_ENABLED` | 每小时删除工作器开关 | 初始为 `false`，只和总开关同时启用 |
 | `NEXORA_SUBJECT_PEPPER` | Identity 主体 HMAC | 至少 32 个随机字符，仅 Functions scope |
 
 数据库连接由 Netlify 根据 production、branch deploy 或 Deploy Preview 自动注入，不保存手工连接串。
@@ -46,9 +49,9 @@
 2. 已在空项目中开启 Identity，并在任何产品文件部署前把注册改为 Invite only。
 3. 只邀请内部测试账号，验证未受邀邮箱不能建立会话。
 4. 配置 pepper，并保持 production context 的设备云总开关为 `false`。
-5. 已完成 production 原子部署；Netlify 创建 production 数据库分支并依次应用三份迁移。
+5. production 原子部署会应用四份迁移；设备云和维护函数仍由两个独立开关关闭。
 6. 已验证正式域名的未登录页面、API 和 GLB 文件均被拦截；仅在 `branch-deploy` context 开启设备云总开关。
-7. 已用真实 Identity 登录完成 11 项云函数链路、3 台虚拟设备、12 条加密事件和跨 owner 读/恢复/删除隔离验收；本机 PostgreSQL 另完成 1000 条事件压力模拟。
+7. 已用真实 Identity 登录完成首轮 11 项事件链路和跨 owner 隔离验收；新增快照、压缩、撤销和对象联合删除链路需在本次隔离分支重新验收。
 8. 临时验收页面和函数已从发布内容移除；连续一周对账通过后，才开始现有 Blob 快照到事件库的受控双写。
 
 ## 上线验收
@@ -66,6 +69,6 @@
 ## 当前阻断项
 
 - Free 自建门禁与受邀账号登录已通过真实 Netlify 验收；退出和密码恢复流程仍需单独做用户体验验收。
-- production 数据库的三份迁移已完成，设备云总开关保持关闭。正式启用前必须为 production context 单独设置长期稳定的 `NEXORA_SUBJECT_PEPPER`，不得复用或轮换测试密钥。
+- production 设备云和维护开关保持关闭。正式启用前必须为 production context 单独设置长期稳定的 `NEXORA_SUBJECT_PEPPER`，不得复用或轮换测试密钥。
 - 生产依赖审计为 0 个漏洞；完整开发依赖审计仍需单独授权向 npm 外传完整开发依赖图。
-- 删除工作器和对象存储快照将在测试云资源确定后实现，不能使用用户请求直接执行即时删除。
+- 快照和删除工作器已实现；仍需在隔离分支完成真实 Netlify Blobs 往返、计划函数手动运行和退出/密码恢复体验验收。

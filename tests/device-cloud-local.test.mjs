@@ -14,6 +14,7 @@ import {
 } from '../shared/device-cloud-crypto.mjs';
 import {
   normalizeDevice,
+  normalizeEncryptedSnapshot,
   normalizeRecoveryEnvelope
 } from '../cloud/device-cloud-validation.mjs';
 import {
@@ -85,14 +86,43 @@ test('local registration accepts public P-256 keys and rejects private key mater
   }), /invalid recovery key id/);
 });
 
+test('snapshot boundary accepts canonical AES-GCM ciphertext and rejects plaintext-shaped data', () => {
+  const snapshot = normalizeEncryptedSnapshot({
+    vaultId: 'A'.repeat(22),
+    deviceId: 'ef53f13f-b1a5-47ff-a759-171557c32e13',
+    throughCursor: 9,
+    keyVersion: 2,
+    payload: {
+      algorithm: 'A256GCM',
+      iv: toBase64Url(new Uint8Array(12)),
+      ciphertext: toBase64Url(new Uint8Array(17))
+    }
+  });
+  assert.equal(snapshot.throughCursor, 9);
+  assert.equal(snapshot.ciphertext.byteLength, 17);
+  assert.throws(() => normalizeEncryptedSnapshot({
+    ...snapshot,
+    payload: { algorithm: 'plain', plaintext: 'secret memory' }
+  }), /invalid snapshot encryption algorithm/);
+});
+
 test('local roles keep event deletion out of the API role', async () => {
   const roles = await readFile(new URL('../cloud/local/runtime-roles.sql', import.meta.url), 'utf8');
   const maintenance = await readFile(
     new URL('../netlify/database/migrations/202607300002_event_maintenance_policy.sql', import.meta.url),
     'utf8'
   );
+  const lifecycle = await readFile(
+    new URL('../netlify/database/migrations/202607300004_device_cloud_data_lifecycle.sql', import.meta.url),
+    'utf8'
+  );
   assert.match(roles, /SELECT, INSERT ON nexora_cloud\.companion_events TO nexora_cloud_api/);
   assert.doesNotMatch(roles, /DELETE ON nexora_cloud\.companion_events TO nexora_cloud_api/);
+  assert.match(roles, /GRANT DELETE ON nexora_cloud\.companion_snapshots TO nexora_cloud_api/);
   assert.match(roles, /REVOKE UPDATE, DELETE ON nexora_cloud\.deletion_requests FROM nexora_cloud_api/);
   assert.match(maintenance, /companion_events_maintenance_delete_policy/);
+  assert.match(roles, /cancel_deletion_request\(uuid, uuid\) TO nexora_cloud_api/);
+  assert.match(roles, /list_due_deletion_requests\(integer\) TO nexora_cloud_maintenance/);
+  assert.match(lifecycle, /SECURITY DEFINER/);
+  assert.match(lifecycle, /execute_after <= now\(\)/);
 });

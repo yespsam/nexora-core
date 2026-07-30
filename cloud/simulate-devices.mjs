@@ -8,6 +8,7 @@ import {
   createDeviceCloudKeys,
   createRecoveryEnvelope,
   createVaultKey,
+  fromBase64Url,
   toBase64Url,
   unwrapRecoveryEnvelope,
   wrapVaultKeyForDevice
@@ -16,6 +17,7 @@ import { createDeviceCloudHttpServer } from './local-server.mjs';
 import { ownerIdForExternalSubject } from './device-cloud-identity.mjs';
 import { DeviceCloudStore } from './device-cloud-store.mjs';
 import { createDeviceCloudFunction } from '../netlify/functions/_shared/device-cloud-data.mjs';
+import { createMemorySnapshotObjects } from '../netlify/functions/_shared/device-cloud-objects.mjs';
 
 const crypto = globalThis.crypto;
 const totalEvents = Math.max(12, Number(process.env.NEXORA_SIM_EVENT_COUNT || 1000));
@@ -108,9 +110,12 @@ async function main() {
     apiRole: 'nexora_cloud_api',
     maintenanceRole: 'nexora_cloud_maintenance'
   }) : null;
+  const functionSnapshotObjects = createMemorySnapshotObjects();
   const runtime = transport === 'local-http'
     ? createDeviceCloudHttpServer({ apiKey, subjectPepper, allowImmediateDeletion: true })
     : null;
+  const activeStore = runtime?.store || store;
+  const activeSnapshotObjects = runtime?.snapshotObjects || functionSnapshotObjects;
   const baseUrl = runtime ? await runtime.listen(0) : 'https://nexora-function.test';
   const vaultId = publicVaultId();
   let vaultKey = await createVaultKey();
@@ -132,6 +137,8 @@ async function main() {
         getCurrentUser: async () => ({ id: options.identityUserId || identityUserId }),
         verifyOrigin: () => {},
         subjectPepper,
+        getSnapshotObjects: () => functionSnapshotObjects,
+        getSnapshotNamespace: () => 'local-function',
         onError: (error) => { functionError = error; }
       });
       const functionPath = path.replace(/^\/v1/, '/api/device-cloud');
@@ -223,6 +230,64 @@ async function main() {
     assert.doesNotMatch(JSON.stringify(downloaded), /仅存在于密文中的名字/);
     assert.equal(new Set(downloaded.map((event) => event.eventId)).size, totalEvents);
 
+    const snapshotCursor = downloaded.at(-1).cursor;
+    let snapshotPlaintext;
+    let latestSnapshotBody;
+    for (let offset = 4; offset >= 0; offset -= 1) {
+      const throughCursor = snapshotCursor - offset;
+      snapshotPlaintext = new TextEncoder().encode(JSON.stringify({
+        version: 1,
+        companionName: '仅存在于快照密文中的名字',
+        memories: ['offline snapshot round trip'],
+        throughCursor
+      }));
+      const snapshotIv = crypto.getRandomValues(new Uint8Array(12));
+      const snapshotCiphertext = await crypto.subtle.encrypt({
+        name: 'AES-GCM',
+        iv: snapshotIv,
+        additionalData: new TextEncoder().encode(
+          `nexora-device-snapshot-v1:${vaultId}:1:${throughCursor}`
+        ),
+        tagLength: 128
+      }, vaultKey, snapshotPlaintext);
+      latestSnapshotBody = {
+        vaultId,
+        deviceId: phone.id,
+        throughCursor,
+        keyVersion: 1,
+        payload: {
+          algorithm: 'A256GCM',
+          iv: toBase64Url(snapshotIv),
+          ciphertext: toBase64Url(snapshotCiphertext)
+        }
+      };
+      const snapshot = await request('/v1/snapshots', { method: 'POST', body: latestSnapshotBody });
+      assert.equal(snapshot.status, 201, JSON.stringify(snapshot.body));
+      assert.equal(snapshot.body.duplicate, false);
+    }
+    assert.equal(activeSnapshotObjects.values.size, 3);
+    const duplicateSnapshot = await request('/v1/snapshots', {
+      method: 'POST',
+      body: latestSnapshotBody
+    });
+    assert.equal(duplicateSnapshot.status, 201, JSON.stringify(duplicateSnapshot.body));
+    assert.equal(duplicateSnapshot.body.duplicate, true);
+    assert.equal(activeSnapshotObjects.values.size, 3);
+    const latestSnapshot = await request(
+      `/v1/snapshots/latest?vaultId=${vaultId}&deviceId=${phone.id}`
+    );
+    assert.equal(latestSnapshot.status, 200, JSON.stringify(latestSnapshot.body));
+    assert.doesNotMatch(JSON.stringify(latestSnapshot.body), /仅存在于快照密文中的名字/);
+    const decryptedSnapshot = await crypto.subtle.decrypt({
+      name: 'AES-GCM',
+      iv: fromBase64Url(latestSnapshot.body.payload.iv, 12, 12),
+      additionalData: new TextEncoder().encode(
+        `nexora-device-snapshot-v1:${vaultId}:1:${snapshotCursor}`
+      ),
+      tagLength: 128
+    }, vaultKey, fromBase64Url(latestSnapshot.body.payload.ciphertext, 17, 262144));
+    assert.deepEqual(new Uint8Array(decryptedSnapshot), snapshotPlaintext);
+
     const foreignOwner = await request(`/v1/events?vaultId=${vaultId}&deviceId=${phone.id}`, {
       ownerId: randomUUID(),
       identityUserId: randomUUID()
@@ -278,19 +343,62 @@ async function main() {
     ]);
     assert.equal(Buffer.from(actualRawKey).equals(Buffer.from(expectedRawKey)), true);
 
-    const deletion = await request('/v1/deletions', {
+    const cancellableDeletion = await request('/v1/deletions', {
       method: 'POST',
-      body: { scope: 'account', immediate: true }
+      body: { scope: 'vault', vaultId }
+    });
+    assert.equal(cancellableDeletion.status, 202, JSON.stringify(cancellableDeletion.body));
+    const cancelled = await request(`/v1/deletions/${cancellableDeletion.body.requestId}/cancel`, {
+      method: 'POST',
+      body: {}
+    });
+    assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
+    assert.equal(cancelled.body.status, 'cancelled');
+
+    const failedObjectDeletion = await activeStore.scheduleDeletion(ownerId, {
+      scope: 'vault',
+      vaultId,
+      immediate: true
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    await assert.rejects(
+      activeStore.executeDeletion(ownerId, failedObjectDeletion.requestId, {
+        deleteObjects: async () => { throw new Error('simulated object store outage'); }
+      }),
+      (error) => error?.code === 'snapshot_delete_failed'
+    );
+    const snapshotAfterFailedDeletion = await request(
+      `/v1/snapshots/latest?vaultId=${vaultId}&deviceId=${phone.id}`
+    );
+    assert.equal(snapshotAfterFailedDeletion.status, 200, JSON.stringify(snapshotAfterFailedDeletion.body));
+
+    const deletion = transport === 'netlify-function'
+      ? {
+          status: 202,
+          body: await store.scheduleDeletion(ownerId, { scope: 'account', immediate: true })
+        }
+      : await request('/v1/deletions', {
+          method: 'POST',
+          body: { scope: 'account', immediate: true }
     });
     assert.equal(deletion.status, 202, JSON.stringify(deletion.body));
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    const dueDeletions = await activeStore.listDueDeletions(10);
+    assert.ok(dueDeletions.some((entry) => entry.requestId === deletion.body.requestId));
     const deleted = transport === 'netlify-function'
-      ? { status: 200, body: await store.executeDeletion(ownerId, deletion.body.requestId) }
+      ? {
+          status: 200,
+          body: await store.executeDeletion(ownerId, deletion.body.requestId, {
+            deleteObjects: (keys) => activeSnapshotObjects.deleteMany(keys)
+          })
+        }
       : await request(`/v1/deletions/${deletion.body.requestId}/execute`, {
         method: 'POST',
         body: {}
       });
     assert.equal(deleted.status, 200, JSON.stringify(deleted.body));
     assert.equal(deleted.body.status, 'complete');
+    assert.equal(activeSnapshotObjects.values.size, 0);
     const afterDeletion = await request('/v1/recovery', {
       method: 'POST',
       body: { vaultId, recoveryKeyId: recovery.recoveryKeyId }
@@ -309,6 +417,12 @@ async function main() {
       revokedDeviceRead: 'blocked',
       recoveryKeyRoundTrip: createHash('sha256').update(Buffer.from(actualRawKey)).digest('hex')
         === createHash('sha256').update(Buffer.from(expectedRawKey)).digest('hex'),
+      encryptedSnapshotRoundTrip: 'passed',
+      snapshotRetentionCompaction: 'passed',
+      deletionCancellation: 'passed',
+      deletionFailureRollback: 'passed',
+      scheduledDeletionDiscovery: 'passed',
+      snapshotObjectDeletion: 'passed',
       accountDeletion: 'complete'
     };
     console.log(JSON.stringify(report, null, 2));

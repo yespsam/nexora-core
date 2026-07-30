@@ -18,9 +18,12 @@ function fakeStore(calls) {
     registerDevice: invoke('registerDevice'),
     appendEvent: invoke('appendEvent'),
     listEvents: invoke('listEvents'),
+    createSnapshot: invoke('createSnapshot'),
+    latestSnapshot: invoke('latestSnapshot'),
     revokeDevice: invoke('revokeDevice'),
     recoverVaultEnvelope: invoke('recoverVaultEnvelope'),
-    scheduleDeletion: invoke('scheduleDeletion')
+    scheduleDeletion: invoke('scheduleDeletion'),
+    cancelDeletion: invoke('cancelDeletion')
   };
 }
 
@@ -116,6 +119,42 @@ test('cloud deletion endpoint always enforces the retention window', async () =>
   assert.equal(response.status, 202);
   assert.equal(harness.calls[0].method, 'scheduleDeletion');
   assert.equal(harness.calls[0].args[1].immediate, false);
+});
+
+test('snapshot endpoints pass only authenticated ownership and the configured object adapter', async () => {
+  const objects = { put() {}, get() {} };
+  const harness = functionHarness({
+    getSnapshotObjects: () => objects,
+    getSnapshotNamespace: () => 'branch-test'
+  });
+  const saved = await harness.handler(new Request('https://example.test/api/device-cloud/snapshots', {
+    method: 'POST',
+    headers: { Origin: 'https://example.test' },
+    body: JSON.stringify({ vaultId: 'A'.repeat(22) })
+  }));
+  assert.equal(saved.status, 201);
+  assert.equal(harness.calls[0].method, 'createSnapshot');
+  assert.equal(harness.calls[0].args[2].objects, objects);
+  assert.equal(harness.calls[0].args[2].namespace, 'branch-test');
+
+  const latest = await harness.handler(new Request(
+    `https://example.test/api/device-cloud/snapshots/latest?vaultId=${'A'.repeat(22)}&deviceId=ef53f13f-b1a5-47ff-a759-171557c32e13`
+  ));
+  assert.equal(latest.status, 200);
+  assert.equal(harness.calls[1].method, 'latestSnapshot');
+  assert.equal(harness.calls[1].args[1].requesterDeviceId, 'ef53f13f-b1a5-47ff-a759-171557c32e13');
+});
+
+test('deletion cancellation stays owner-derived and requires a same-origin write', async () => {
+  const harness = functionHarness();
+  const requestId = 'ef53f13f-b1a5-47ff-a759-171557c32e13';
+  const response = await harness.handler(new Request(
+    `https://example.test/api/device-cloud/deletions/${requestId}/cancel`,
+    { method: 'POST', headers: { Origin: 'https://example.test' }, body: '{}' }
+  ));
+  assert.equal(response.status, 200);
+  assert.equal(harness.calls[0].method, 'cancelDeletion');
+  assert.equal(harness.calls[0].args[1], requestId);
 });
 
 test('Netlify route is private, rate-limited, and restricted to read/write methods', () => {

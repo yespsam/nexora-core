@@ -17,6 +17,7 @@ import { externalSubjectHash, ownerIdForExternalSubject } from './device-cloud-i
 import {
   DeviceCloudError,
   normalizeDevice,
+  normalizeEncryptedSnapshot,
   normalizeRecoveryEnvelope,
   requiredUuid,
   requiredVaultId,
@@ -70,15 +71,47 @@ async function withOwner(pool, ownerId, operation, runtimeRole = '') {
   }
 }
 
+async function withMaintenance(pool, operation, runtimeRole = '') {
+  if (runtimeRole && !runtimeRoles.has(runtimeRole)) throw new Error('invalid database runtime role');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    if (runtimeRole) await client.query(`SET LOCAL ROLE ${runtimeRole}`);
+    const result = await operation(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function vaultForOwner(client, ownerId, publicId, lock = false) {
   const result = await client.query(`
-    SELECT id, public_id, active_key_version, status
+    SELECT id, public_id, active_key_version, latest_event_cursor, status
     FROM nexora_cloud.companion_vaults
     WHERE public_id = $1 AND owner_id = $2
     ${lock ? 'FOR UPDATE' : ''}
   `, [requiredVaultId(publicId), requiredUuid(ownerId, 'owner id')]);
   if (!result.rowCount) throw new DeviceCloudError('vault not found', 404, 'not_found');
   return result.rows[0];
+}
+
+function requiredSnapshotObjects(value) {
+  if (!value || typeof value.put !== 'function' || typeof value.get !== 'function') {
+    throw new DeviceCloudError('snapshot object storage unavailable', 503, 'snapshot_storage_unavailable');
+  }
+  return value;
+}
+
+function requiredObjectNamespace(value) {
+  const namespace = String(value || 'staging').toLowerCase();
+  if (!/^[a-z0-9-]{2,32}$/.test(namespace)) {
+    throw new DeviceCloudError('invalid snapshot namespace', 500, 'snapshot_storage_unavailable');
+  }
+  return namespace;
 }
 
 async function insertDevice(client, ownerId, vault, value, keyVersion) {
@@ -349,6 +382,178 @@ export class DeviceCloudStore {
     }, this.apiRole);
   }
 
+  async createSnapshot(ownerId, value, options = {}) {
+    const snapshot = normalizeEncryptedSnapshot(value);
+    const objects = requiredSnapshotObjects(options.objects);
+    if (typeof objects.delete !== 'function') {
+      throw new DeviceCloudError('snapshot object storage unavailable', 503, 'snapshot_storage_unavailable');
+    }
+    const namespace = requiredObjectNamespace(options.namespace);
+    const objectKey = `${namespace}/snapshots/${randomUUID()}.bin`;
+    const contentHash = createHash('sha256').update(snapshot.ciphertext).digest();
+    let objectStored = false;
+
+    try {
+      return await withOwner(this.apiPool, ownerId, async (client, owner) => {
+        const vault = await vaultForOwner(client, owner, snapshot.vaultId, true);
+        if (vault.status !== 'active') throw new DeviceCloudError('vault is not active', 409, 'vault_locked');
+        if (snapshot.keyVersion !== vault.active_key_version) {
+          throw new DeviceCloudError('stale vault key version', 409, 'stale_key');
+        }
+        if (snapshot.throughCursor > Number(vault.latest_event_cursor)) {
+          throw new DeviceCloudError('snapshot cursor is ahead of the event log', 409, 'cursor_ahead');
+        }
+        const requester = await client.query(`
+          SELECT 1 FROM nexora_cloud.devices
+          WHERE id = $1 AND vault_id = $2 AND owner_id = $3 AND revoked_at IS NULL
+        `, [snapshot.deviceId, vault.id, owner]);
+        if (!requester.rowCount) throw new DeviceCloudError('device revoked or unknown', 403, 'device_revoked');
+
+        const existing = await client.query(`
+          SELECT id, key_version, iv, ciphertext_size, content_hash, created_at
+          FROM nexora_cloud.companion_snapshots
+          WHERE vault_id = $1 AND owner_id = $2 AND through_cursor = $3
+          LIMIT 1
+        `, [vault.id, owner, snapshot.throughCursor]);
+        if (existing.rowCount) {
+          const row = existing.rows[0];
+          if (
+            row.key_version !== snapshot.keyVersion
+            || !row.iv.equals(snapshot.iv)
+            || Number(row.ciphertext_size) !== snapshot.ciphertext.byteLength
+            || !row.content_hash.equals(contentHash)
+          ) throw new DeviceCloudError('snapshot cursor conflict', 409, 'snapshot_conflict');
+          return {
+            snapshotId: row.id,
+            vaultId: snapshot.vaultId,
+            throughCursor: snapshot.throughCursor,
+            keyVersion: row.key_version,
+            createdAt: row.created_at.toISOString(),
+            duplicate: true
+          };
+        }
+
+        try {
+          await objects.put(objectKey, snapshot.ciphertext);
+          objectStored = true;
+        } catch (error) {
+          throw new DeviceCloudError('snapshot object storage unavailable', 503, 'snapshot_storage_unavailable');
+        }
+        const inserted = await client.query(`
+          INSERT INTO nexora_cloud.companion_snapshots (
+            owner_id, vault_id, created_by_device_id, through_cursor, key_version,
+            encryption_algorithm, iv, object_key, ciphertext_size, content_hash
+          ) VALUES ($1, $2, $3, $4, $5, 'A256GCM', $6, $7, $8, $9)
+          RETURNING id, created_at
+        `, [
+          owner,
+          vault.id,
+          snapshot.deviceId,
+          snapshot.throughCursor,
+          snapshot.keyVersion,
+          snapshot.iv,
+          objectKey,
+          snapshot.ciphertext.byteLength,
+          contentHash
+        ]);
+        const stale = await client.query(`
+          WITH ranked AS (
+            SELECT
+              id,
+              object_key,
+              row_number() OVER (ORDER BY through_cursor DESC) AS recent_rank,
+              row_number() OVER (
+                PARTITION BY date_trunc('month', created_at)
+                ORDER BY through_cursor DESC
+              ) AS monthly_rank
+            FROM nexora_cloud.companion_snapshots
+            WHERE vault_id = $1 AND owner_id = $2
+          )
+          SELECT id, object_key
+          FROM ranked
+          WHERE recent_rank > 3 AND monthly_rank > 1
+          ORDER BY id
+        `, [vault.id, owner]);
+        let prunedSnapshots = 0;
+        for (const row of stale.rows) {
+          try {
+            await objects.delete(row.object_key);
+          } catch (error) {
+            continue;
+          }
+          await client.query(`
+            DELETE FROM nexora_cloud.companion_snapshots
+            WHERE id = $1 AND owner_id = $2 AND vault_id = $3
+          `, [row.id, owner, vault.id]);
+          prunedSnapshots += 1;
+        }
+        return {
+          snapshotId: inserted.rows[0].id,
+          vaultId: snapshot.vaultId,
+          throughCursor: snapshot.throughCursor,
+          keyVersion: snapshot.keyVersion,
+          createdAt: inserted.rows[0].created_at.toISOString(),
+          duplicate: false,
+          prunedSnapshots
+        };
+      }, this.apiRole);
+    } catch (error) {
+      if (objectStored && typeof objects.delete === 'function') {
+        await objects.delete(objectKey).catch(() => {});
+      }
+      throw error;
+    }
+  }
+
+  async latestSnapshot(ownerId, value, options = {}) {
+    const publicId = requiredVaultId(value?.vaultId);
+    const deviceId = requiredUuid(value?.requesterDeviceId, 'requester device id');
+    const objects = requiredSnapshotObjects(options.objects);
+
+    return withOwner(this.apiPool, ownerId, async (client, owner) => {
+      const vault = await vaultForOwner(client, owner, publicId);
+      const requester = await client.query(`
+        SELECT 1 FROM nexora_cloud.devices
+        WHERE id = $1 AND vault_id = $2 AND owner_id = $3 AND revoked_at IS NULL
+      `, [deviceId, vault.id, owner]);
+      if (!requester.rowCount) throw new DeviceCloudError('device revoked or unknown', 403, 'device_revoked');
+      const result = await client.query(`
+        SELECT id, through_cursor, key_version, iv, object_key, ciphertext_size, content_hash, created_at
+        FROM nexora_cloud.companion_snapshots
+        WHERE vault_id = $1 AND owner_id = $2
+        ORDER BY through_cursor DESC
+        LIMIT 1
+      `, [vault.id, owner]);
+      if (!result.rowCount) throw new DeviceCloudError('snapshot not found', 404, 'not_found');
+      const row = result.rows[0];
+      let ciphertext;
+      try {
+        ciphertext = await objects.get(row.object_key);
+      } catch (error) {
+        throw new DeviceCloudError('snapshot object storage unavailable', 503, 'snapshot_storage_unavailable');
+      }
+      const bytes = ciphertext == null ? null : Buffer.from(ciphertext);
+      if (
+        !bytes
+        || bytes.byteLength !== Number(row.ciphertext_size)
+        || !createHash('sha256').update(bytes).digest().equals(row.content_hash)
+      ) throw new DeviceCloudError('snapshot integrity check failed', 503, 'snapshot_integrity_failed');
+      return {
+        snapshotId: row.id,
+        vaultId: publicId,
+        throughCursor: Number(row.through_cursor),
+        keyVersion: row.key_version,
+        createdAt: row.created_at.toISOString(),
+        contentHash: toBase64Url(row.content_hash),
+        payload: {
+          algorithm: 'A256GCM',
+          iv: toBase64Url(row.iv),
+          ciphertext: toBase64Url(bytes)
+        }
+      };
+    }, this.apiRole);
+  }
+
   async revokeDevice(ownerId, targetDeviceId, value) {
     const targetId = requiredUuid(targetDeviceId, 'device id');
     const publicId = requiredVaultId(value?.vaultId);
@@ -451,6 +656,24 @@ export class DeviceCloudStore {
     return withOwner(this.apiPool, ownerId, async (client, owner) => {
       let vaultUuid = null;
       if (publicId) vaultUuid = (await vaultForOwner(client, owner, publicId)).id;
+      const existing = await client.query(`
+        SELECT id, scope, status, execute_after
+        FROM nexora_cloud.deletion_requests
+        WHERE owner_id = $1 AND scope = $2
+          AND (($3::uuid IS NULL AND vault_id IS NULL) OR vault_id = $3)
+          AND status IN ('scheduled', 'running', 'failed')
+        ORDER BY requested_at DESC
+        LIMIT 1
+      `, [owner, scope, vaultUuid]);
+      if (existing.rowCount) {
+        return {
+          requestId: existing.rows[0].id,
+          scope: existing.rows[0].scope,
+          status: existing.rows[0].status,
+          executeAfter: existing.rows[0].execute_after.toISOString(),
+          duplicate: true
+        };
+      }
       const executeAfter = value?.immediate
         ? new Date(Date.now() + 1000)
         : new Date(Date.now() + 7 * 86400000);
@@ -463,70 +686,132 @@ export class DeviceCloudStore {
         requestId: result.rows[0].id,
         scope: result.rows[0].scope,
         status: result.rows[0].status,
-        executeAfter: result.rows[0].execute_after.toISOString()
+        executeAfter: result.rows[0].execute_after.toISOString(),
+        duplicate: false
       };
     }, this.apiRole);
   }
 
-  async executeDeletion(ownerId, requestId) {
+  async cancelDeletion(ownerId, requestId) {
     const id = requiredUuid(requestId, 'deletion request id');
-    return withOwner(this.maintenancePool, ownerId, async (client, owner) => {
-      await client.query("SELECT set_config('app.allow_event_maintenance', 'on', true)");
-      const request = await client.query(`
-        SELECT id, scope, vault_id, status
+    return withOwner(this.apiPool, ownerId, async (client, owner) => {
+      const cancelled = await client.query(`
+        SELECT id, owner_id, scope, status, execute_after
+        FROM nexora_cloud.cancel_deletion_request($1, $2)
+      `, [owner, id]);
+      if (cancelled.rowCount) {
+        return {
+          requestId: cancelled.rows[0].id,
+          scope: cancelled.rows[0].scope,
+          status: cancelled.rows[0].status,
+          executeAfter: cancelled.rows[0].execute_after.toISOString()
+        };
+      }
+      const existing = await client.query(`
+        SELECT status, execute_after
         FROM nexora_cloud.deletion_requests
         WHERE id = $1 AND owner_id = $2
-        FOR UPDATE
       `, [id, owner]);
-      if (!request.rowCount) throw new DeviceCloudError('deletion request not found', 404, 'not_found');
-      if (!['scheduled', 'failed'].includes(request.rows[0].status)) {
-        throw new DeviceCloudError('deletion request cannot be executed', 409, 'invalid_state');
-      }
-      const vaultFilter = request.rows[0].scope === 'vault' ? request.rows[0].vault_id : null;
-      await client.query(
-        "UPDATE nexora_cloud.deletion_requests SET status = 'running' WHERE id = $1 AND owner_id = $2",
-        [id, owner]
-      );
-      const snapshots = await client.query(`
-        SELECT object_key FROM nexora_cloud.companion_snapshots
-        WHERE owner_id = $1 AND ($2::uuid IS NULL OR vault_id = $2)
-      `, [owner, vaultFilter]);
-      const tables = [
-        'device_commands',
-        'telemetry_rollups',
-        'companion_snapshots',
-        'device_key_envelopes',
-        'recovery_key_envelopes',
-        'companion_events'
-      ];
-      for (const table of tables) {
-        await client.query(`
-          DELETE FROM nexora_cloud.${table}
+      if (!existing.rowCount) throw new DeviceCloudError('deletion request not found', 404, 'not_found');
+      throw new DeviceCloudError('deletion request cannot be cancelled', 409, 'invalid_state');
+    }, this.apiRole);
+  }
+
+  async listDueDeletions(limit = 3) {
+    const pageSize = Math.min(10, Math.max(1, Math.floor(Number(limit) || 3)));
+    return withMaintenance(this.maintenancePool, async (client) => {
+      const result = await client.query(`
+        SELECT id, owner_id
+        FROM nexora_cloud.list_due_deletion_requests($1)
+      `, [pageSize]);
+      return result.rows.map((row) => ({ requestId: row.id, ownerId: row.owner_id }));
+    }, this.maintenanceRole);
+  }
+
+  async executeDeletion(ownerId, requestId, options = {}) {
+    const id = requiredUuid(requestId, 'deletion request id');
+    try {
+      return await withOwner(this.maintenancePool, ownerId, async (client, owner) => {
+        await client.query("SELECT set_config('app.allow_event_maintenance', 'on', true)");
+        const request = await client.query(`
+          SELECT id, scope, vault_id, status, execute_after
+          FROM nexora_cloud.deletion_requests
+          WHERE id = $1 AND owner_id = $2
+          FOR UPDATE
+        `, [id, owner]);
+        if (!request.rowCount) throw new DeviceCloudError('deletion request not found', 404, 'not_found');
+        if (!['scheduled', 'failed'].includes(request.rows[0].status)) {
+          throw new DeviceCloudError('deletion request cannot be executed', 409, 'invalid_state');
+        }
+        if (request.rows[0].execute_after.getTime() > Date.now()) {
+          throw new DeviceCloudError('deletion retention window is still active', 409, 'not_due');
+        }
+        const vaultFilter = request.rows[0].scope === 'vault' ? request.rows[0].vault_id : null;
+        const snapshots = await client.query(`
+          SELECT object_key FROM nexora_cloud.companion_snapshots
           WHERE owner_id = $1 AND ($2::uuid IS NULL OR vault_id = $2)
         `, [owner, vaultFilter]);
+        const objectKeys = snapshots.rows.map((row) => row.object_key);
+        if (objectKeys.length) {
+          if (typeof options.deleteObjects !== 'function') {
+            throw new DeviceCloudError('snapshot deletion unavailable', 503, 'snapshot_delete_failed');
+          }
+          await client.query(
+            "UPDATE nexora_cloud.deletion_requests SET status = 'running' WHERE id = $1 AND owner_id = $2",
+            [id, owner]
+          );
+          try {
+            await options.deleteObjects(objectKeys);
+          } catch (error) {
+            throw new DeviceCloudError('snapshot deletion failed', 503, 'snapshot_delete_failed');
+          }
+        }
+        const tables = [
+          'device_commands',
+          'telemetry_rollups',
+          'companion_snapshots',
+          'device_key_envelopes',
+          'recovery_key_envelopes',
+          'companion_events'
+        ];
+        for (const table of tables) {
+          await client.query(`
+            DELETE FROM nexora_cloud.${table}
+            WHERE owner_id = $1 AND ($2::uuid IS NULL OR vault_id = $2)
+          `, [owner, vaultFilter]);
+        }
+        await client.query(`
+          DELETE FROM nexora_cloud.devices
+          WHERE owner_id = $1 AND ($2::uuid IS NULL OR vault_id = $2)
+        `, [owner, vaultFilter]);
+        await client.query(`
+          DELETE FROM nexora_cloud.companion_vaults
+          WHERE owner_id = $1 AND ($2::uuid IS NULL OR id = $2)
+        `, [owner, vaultFilter]);
+        if (request.rows[0].scope === 'account') {
+          await client.query('DELETE FROM nexora_cloud.accounts WHERE id = $1', [owner]);
+        }
+        await client.query(`
+          UPDATE nexora_cloud.deletion_requests
+          SET status = 'complete', completed_at = now()
+          WHERE id = $1 AND owner_id = $2
+        `, [id, owner]);
+        return {
+          requestId: id,
+          status: 'complete',
+          objectKeysDeleted: objectKeys.length
+        };
+      }, this.maintenanceRole);
+    } catch (error) {
+      if (error?.code === 'snapshot_delete_failed') {
+        await withOwner(this.maintenancePool, ownerId, (client, owner) => client.query(`
+          UPDATE nexora_cloud.deletion_requests
+          SET status = 'failed'
+          WHERE id = $1 AND owner_id = $2 AND status IN ('scheduled', 'running', 'failed')
+        `, [id, owner]), this.maintenanceRole).catch(() => {});
       }
-      await client.query(`
-        DELETE FROM nexora_cloud.devices
-        WHERE owner_id = $1 AND ($2::uuid IS NULL OR vault_id = $2)
-      `, [owner, vaultFilter]);
-      await client.query(`
-        DELETE FROM nexora_cloud.companion_vaults
-        WHERE owner_id = $1 AND ($2::uuid IS NULL OR id = $2)
-      `, [owner, vaultFilter]);
-      if (request.rows[0].scope === 'account') {
-        await client.query('DELETE FROM nexora_cloud.accounts WHERE id = $1', [owner]);
-      }
-      await client.query(`
-        UPDATE nexora_cloud.deletion_requests
-        SET status = 'complete', completed_at = now()
-        WHERE id = $1 AND owner_id = $2
-      `, [id, owner]);
-      return {
-        requestId: id,
-        status: 'complete',
-        objectKeysToDelete: snapshots.rows.map((row) => row.object_key)
-      };
-    }, this.maintenanceRole);
+      throw error;
+    }
   }
 
   async close() {

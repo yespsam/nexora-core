@@ -1,6 +1,6 @@
 # NEXORA CORE Device Cloud
 
-This directory contains the provider-neutral data foundation for future physical NEXORA devices. It is not deployed by the current Netlify production build.
+This directory contains the provider-neutral data foundation for physical NEXORA devices. The Netlify functions are deployed behind disabled-by-default feature flags; production traffic does not use this path yet.
 
 ## Storage contract
 
@@ -17,6 +17,8 @@ Use PostgreSQL 16 or newer and an isolated database role with permission to crea
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f netlify/database/migrations/202607300001_device_cloud_foundation.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f netlify/database/migrations/202607300002_event_maintenance_policy.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f netlify/database/migrations/202607300003_device_cloud_runtime_roles.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f netlify/database/migrations/202607300004_device_cloud_data_lifecycle.sql
 ```
 
 The migration revokes access from `PUBLIC`. A provider-specific follow-up migration must create narrowly scoped runtime and maintenance roles before an API is connected.
@@ -54,7 +56,7 @@ npm run cloud:setup
 npm run cloud:simulate
 ```
 
-The simulator generates independent phone, pendant, and desktop P-256 keys. It wraps a real 256-bit vault key, submits 1,000 signed encrypted events, checks duplicate delivery and tenant isolation, rotates the vault key while revoking the pendant, restores the new key through the recovery envelope, and executes account deletion.
+The simulator generates independent phone, pendant, and desktop P-256 keys. It wraps a real 256-bit vault key, submits signed encrypted events, stores and decrypts encrypted snapshots, compacts five same-month snapshots to the newest three, checks duplicate delivery and tenant isolation, rotates the vault key while revoking the pendant, restores the new key, verifies object-store failure rollback, and executes account deletion across PostgreSQL and object storage.
 
 Run the development API separately with:
 
@@ -64,11 +66,13 @@ NEXORA_SUBJECT_PEPPER="use-a-different-32-character-secret" \
 npm run cloud:serve
 ```
 
-The local server exposes `/v1/bootstrap`, `/v1/devices`, `/v1/events`, device revocation, recovery-envelope lookup, and deletion endpoints on `127.0.0.1:4788`. Its `X-Nexora-Local-Key` and `X-Nexora-Owner-Id` headers are a computer-only test harness. They are not production authentication and must never be exposed to the internet. A production service must derive the owner from a verified identity session and use a separately protected maintenance worker.
+The local server exposes `/v1/bootstrap`, `/v1/devices`, `/v1/events`, `/v1/snapshots`, device revocation, recovery-envelope lookup, and deletion/cancellation endpoints on `127.0.0.1:4788`. Its `X-Nexora-Local-Key` and `X-Nexora-Owner-Id` headers are a computer-only test harness. They are not production authentication and must never be exposed to the internet. A production service derives the owner from a verified identity session and uses the separately flagged maintenance worker.
 
 ## Private staging function
 
 `netlify/functions/device-cloud.mjs` provides the disabled-by-default staging adapter at `/api/device-cloud/*`. It uses Netlify Identity for the authenticated subject, Netlify Database for deploy-scoped PostgreSQL branches, derives an internal owner with a server-side HMAC pepper, explicitly scopes every data query to that owner, and rejects state-changing cross-origin requests. See `../docs/NEXORA_PRIVATE_CLOUD_STAGING.md` for environment variables and the gated deployment order.
+
+Encrypted snapshots use `POST /api/device-cloud/snapshots` and `GET /api/device-cloud/snapshots/latest`; only AES-256-GCM ciphertext crosses the boundary. Deletion requests use a seven-day grace period and may be cancelled before they become due. `device-cloud-maintenance.mjs` runs hourly only when both cloud and maintenance flags are enabled, has no public URL, and removes encrypted objects before marking database deletion complete.
 
 ```bash
 NEXORA_SIM_EVENT_COUNT=30 npm run cloud:simulate:function
@@ -81,10 +85,12 @@ This command runs the Identity-to-Function-to-RLS chain against local PostgreSQL
 - `../netlify/database/migrations/202607300001_device_cloud_foundation.sql`: initial PostgreSQL schema and row-level security.
 - `../netlify/database/migrations/202607300002_event_maintenance_policy.sql`: owner-scoped event deletion for the maintenance role.
 - `../netlify/database/migrations/202607300003_device_cloud_runtime_roles.sql`: managed-runtime guard that verifies forced RLS and public revocation without altering Netlify-owned roles.
+- `../netlify/database/migrations/202607300004_device_cloud_data_lifecycle.sql`: pending-delete uniqueness, cancellation, and narrow due-job discovery.
 - `setup-local.mjs`: repeatable local database and role setup.
 - `local-server.mjs`: localhost-only API harness.
 - `simulate-devices.mjs`: three-device encrypted integration test.
 - `../netlify/functions/device-cloud.mjs`: disabled-by-default authenticated staging endpoint.
+- `../netlify/functions/device-cloud-maintenance.mjs`: disabled-by-default hourly deletion worker.
 - `../shared/device-cloud-protocol.mjs`: encrypted device-event boundary shared by future clients and APIs.
 - `../shared/device-cloud-crypto.mjs`: P-256 keys, ECDH/AES-KW device envelopes, and HKDF recovery envelopes.
 - `../docs/NEXORA_DEVICE_CLOUD_ARCHITECTURE.md`: product, privacy, retention, and migration decisions.

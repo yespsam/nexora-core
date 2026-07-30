@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 import { DeviceCloudStore } from './device-cloud-store.mjs';
 import { DeviceCloudError, requiredUuid } from './device-cloud-validation.mjs';
+import { createMemorySnapshotObjects } from '../netlify/functions/_shared/device-cloud-objects.mjs';
 
 const maximumBodyBytes = 400000;
 
@@ -57,6 +58,7 @@ export function createDeviceCloudHttpServer(options = {}) {
   const store = options.store || new DeviceCloudStore({
     subjectPepper: options.subjectPepper || process.env.NEXORA_SUBJECT_PEPPER || apiKey
   });
+  const snapshotObjects = options.snapshotObjects || createMemorySnapshotObjects();
   const allowImmediateDeletion = options.allowImmediateDeletion ?? process.env.NODE_ENV !== 'production';
 
   const server = createServer(async (request, response) => {
@@ -87,6 +89,18 @@ export function createDeviceCloudHttpServer(options = {}) {
           limit: Number(url.searchParams.get('limit') || 200)
         }));
       }
+      if (request.method === 'POST' && url.pathname === '/v1/snapshots') {
+        return json(response, 201, await store.createSnapshot(ownerId, await readJson(request), {
+          objects: snapshotObjects,
+          namespace: 'local'
+        }));
+      }
+      if (request.method === 'GET' && url.pathname === '/v1/snapshots/latest') {
+        return json(response, 200, await store.latestSnapshot(ownerId, {
+          vaultId: url.searchParams.get('vaultId'),
+          requesterDeviceId: url.searchParams.get('deviceId')
+        }, { objects: snapshotObjects }));
+      }
       const revokeMatch = url.pathname.match(/^\/v1\/devices\/([0-9a-f-]+)\/revoke$/i);
       if (request.method === 'POST' && revokeMatch) {
         return json(response, 200, await store.revokeDevice(ownerId, revokeMatch[1], await readJson(request)));
@@ -101,10 +115,16 @@ export function createDeviceCloudHttpServer(options = {}) {
         }
         return json(response, 202, await store.scheduleDeletion(ownerId, body));
       }
+      const cancelDeletionMatch = url.pathname.match(/^\/v1\/deletions\/([0-9a-f-]+)\/cancel$/i);
+      if (request.method === 'POST' && cancelDeletionMatch) {
+        return json(response, 200, await store.cancelDeletion(ownerId, cancelDeletionMatch[1]));
+      }
       const deletionMatch = url.pathname.match(/^\/v1\/deletions\/([0-9a-f-]+)\/execute$/i);
       if (request.method === 'POST' && deletionMatch) {
         if (!allowImmediateDeletion) throw new DeviceCloudError('manual deletion is disabled', 403, 'forbidden');
-        return json(response, 200, await store.executeDeletion(ownerId, deletionMatch[1]));
+        return json(response, 200, await store.executeDeletion(ownerId, deletionMatch[1], {
+          deleteObjects: (keys) => snapshotObjects.deleteMany(keys)
+        }));
       }
       throw new DeviceCloudError('not found', 404, 'not_found');
     } catch (caught) {
@@ -118,6 +138,7 @@ export function createDeviceCloudHttpServer(options = {}) {
     apiKey,
     server,
     store,
+    snapshotObjects,
     async listen(port = Number(process.env.NEXORA_CLOUD_PORT || 4788), host = '127.0.0.1') {
       await new Promise((resolve, reject) => {
         server.once('error', reject);

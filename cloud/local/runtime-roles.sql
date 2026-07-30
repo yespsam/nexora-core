@@ -16,6 +16,8 @@ GRANT CONNECT ON DATABASE nexora_core_dev TO nexora_cloud_api, nexora_cloud_main
 GRANT USAGE ON SCHEMA nexora_cloud TO nexora_cloud_api, nexora_cloud_maintenance;
 GRANT EXECUTE ON FUNCTION nexora_cloud.current_owner_id() TO nexora_cloud_api, nexora_cloud_maintenance;
 GRANT EXECUTE ON FUNCTION nexora_cloud.reject_event_mutation() TO nexora_cloud_maintenance;
+GRANT EXECUTE ON FUNCTION nexora_cloud.cancel_deletion_request(uuid, uuid) TO nexora_cloud_api;
+GRANT EXECUTE ON FUNCTION nexora_cloud.list_due_deletion_requests(integer) TO nexora_cloud_maintenance;
 
 GRANT SELECT, INSERT, UPDATE ON
   nexora_cloud.accounts,
@@ -27,6 +29,8 @@ GRANT SELECT, INSERT, UPDATE ON
   nexora_cloud.device_commands,
   nexora_cloud.telemetry_rollups
 TO nexora_cloud_api;
+
+GRANT DELETE ON nexora_cloud.companion_snapshots TO nexora_cloud_api;
 
 GRANT SELECT, INSERT ON nexora_cloud.companion_events TO nexora_cloud_api;
 REVOKE UPDATE, DELETE ON nexora_cloud.deletion_requests FROM nexora_cloud_api;

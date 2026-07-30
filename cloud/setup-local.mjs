@@ -57,6 +57,16 @@ async function applyFoundation() {
       ), 'utf8');
       await connection.query(migration);
     }
+    const lifecycleFunctions = await connection.query(`
+      SELECT to_regprocedure('nexora_cloud.list_due_deletion_requests(integer)') AS function_name
+    `);
+    if (!lifecycleFunctions.rows[0].function_name) {
+      const migration = await readFile(new URL(
+        '../netlify/database/migrations/202607300004_device_cloud_data_lifecycle.sql',
+        import.meta.url
+      ), 'utf8');
+      await connection.query(migration);
+    }
     const roles = await readFile(new URL('./local/runtime-roles.sql', import.meta.url), 'utf8');
     const roleSql = databaseName === 'nexora_core_dev'
       ? roles
