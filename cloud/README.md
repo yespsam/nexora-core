@@ -30,6 +30,8 @@ SET LOCAL app.owner_id = '00000000-0000-0000-0000-000000000000';
 COMMIT;
 ```
 
+Managed provider connections may have privileges that bypass PostgreSQL RLS. Every application query must therefore also include an explicit `owner_id` predicate derived from the authenticated server-side identity. RLS remains defense in depth and is not the sole tenant boundary.
+
 Do not expose PostgreSQL directly to browsers or pendants. The API must validate the event protocol, verify the ES256 device signature, check device revocation, decode base64url fields, and then insert the event in one transaction.
 
 `ES256` signatures use the JOSE raw `R || S` representation: 64 bytes before base64url encoding. Device registration must accept public P-256 JWK values only and reject any JWK containing the private `d` field.
@@ -66,7 +68,7 @@ The local server exposes `/v1/bootstrap`, `/v1/devices`, `/v1/events`, device re
 
 ## Private staging function
 
-`netlify/functions/device-cloud.mjs` provides the disabled-by-default staging adapter at `/api/device-cloud/*`. It uses Netlify Identity for the authenticated subject, Netlify Database for deploy-scoped PostgreSQL branches, derives an internal RLS owner with a server-side HMAC pepper, and rejects state-changing cross-origin requests. See `../docs/NEXORA_PRIVATE_CLOUD_STAGING.md` for environment variables and the gated deployment order.
+`netlify/functions/device-cloud.mjs` provides the disabled-by-default staging adapter at `/api/device-cloud/*`. It uses Netlify Identity for the authenticated subject, Netlify Database for deploy-scoped PostgreSQL branches, derives an internal owner with a server-side HMAC pepper, explicitly scopes every data query to that owner, and rejects state-changing cross-origin requests. See `../docs/NEXORA_PRIVATE_CLOUD_STAGING.md` for environment variables and the gated deployment order.
 
 ```bash
 NEXORA_SIM_EVENT_COUNT=30 npm run cloud:simulate:function

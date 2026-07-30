@@ -1,6 +1,6 @@
 # NEXORA CORE 私有测试云上线清单
 
-状态：Free 私有门禁与 production 数据库已部署，Identity 为 Invite only，设备云功能关闭
+状态：Free 私有门禁、production 数据库与隔离分支验收已完成，Identity 为 Invite only，production 设备云功能关闭
 日期：2026-07-30
 
 ## 已选技术路径
@@ -22,12 +22,14 @@
 2. `@netlify/identity` 返回有效用户。
 3. 所有写请求通过同源校验，避免 Cookie 会话被跨站利用。
 4. Identity 用户 ID 经服务端 pepper 和域分离 HMAC 转换为内部 UUID，客户端不能指定数据库所有者。
-5. 每个 PostgreSQL 事务设置 `app.owner_id`，由强制 RLS 再做一次隔离。
+5. 每个 PostgreSQL 事务设置 `app.owner_id`，所有用户数据查询同时显式包含 `owner_id` 条件；强制 RLS 作为额外隔离层。
 6. 事件仍须通过设备 ES256 签名、序号、哈希链、密钥版本和撤销状态验证。
 
 门禁返回 `private, no-store`，Service Worker 不再保存产品 shell；退出时清理 Cache Storage 并注销旧 Service Worker。登录、邀请、确认和密码恢复只接受同源请求，回跳地址仅允许站内路径。
 
-函数使用 `@netlify/database` 提供的当前部署分支连接池。Netlify Database 以平台管理员执行迁移，并向部署代码提供对应 production 或 Preview 分支的连接；平台统一管理迁移事务，迁移文件本身不嵌套 `BEGIN/COMMIT`。迁移不创建或修改平台角色，但会验证所有产品表均启用且强制 RLS，并撤销 `PUBLIC` 权限。每个应用事务只通过服务端设置 `app.owner_id`，事件删除还需要事务级维护标记。独立的 API/维护角色和显式事务继续用于本机 PostgreSQL 测试环境。
+函数使用 `@netlify/database` 提供的当前部署分支连接池。Netlify Database 以平台管理员执行迁移，并向部署代码提供对应 production 或 Preview 分支的连接；平台统一管理迁移事务，迁移文件本身不嵌套 `BEGIN/COMMIT`。迁移不创建或修改平台角色，但会验证所有产品表均启用且强制 RLS，并撤销 `PUBLIC` 权限。
+
+真实分支验收确认 Netlify 托管连接可能绕过 PostgreSQL RLS，因此应用不能只依赖 `app.owner_id` 和策略。`DeviceCloudStore` 的保险库、设备、事件、恢复信封、撤销和删除查询全部显式绑定服务端派生的 `owner_id`；自动化测试会拒绝新增缺少 owner 条件的查询。RLS 在不具备 bypass 权限的运行角色中继续提供第二层隔离。独立的 API/维护角色和显式事务继续用于本机 PostgreSQL 测试环境。
 
 ## 必需环境变量
 
@@ -45,9 +47,9 @@
 3. 只邀请内部测试账号，验证未受邀邮箱不能建立会话。
 4. 配置 pepper，并保持 production context 的设备云总开关为 `false`。
 5. 已完成 production 原子部署；Netlify 创建 production 数据库分支并依次应用三份迁移。
-6. 已验证正式域名的未登录页面、API 和 GLB 文件均被拦截；下一步只在 Preview context 开启设备云总开关。
-7. 运行真实 Identity 登录、RLS、30 条函数链路和 1000 条事件验收。
-8. 连续一周对账通过后，才开始现有 Blob 快照到事件库的受控双写。
+6. 已验证正式域名的未登录页面、API 和 GLB 文件均被拦截；仅在 `branch-deploy` context 开启设备云总开关。
+7. 已用真实 Identity 登录完成 11 项云函数链路、3 台虚拟设备、12 条加密事件和跨 owner 读/恢复/删除隔离验收；本机 PostgreSQL 另完成 1000 条事件压力模拟。
+8. 临时验收页面和函数已从发布内容移除；连续一周对账通过后，才开始现有 Blob 快照到事件库的受控双写。
 
 ## 上线验收
 
@@ -63,7 +65,7 @@
 
 ## 当前阻断项
 
-- Free 自建门禁已通过真实 Netlify Edge 匿名访问验收；仍需由受邀账号完成 Identity 登录、退出和恢复流程。
-- production 数据库的三份迁移已完成；设备云总开关保持关闭，真实 Identity 到数据库的函数链路尚未在隔离 Preview 分支验收。
+- Free 自建门禁与受邀账号登录已通过真实 Netlify 验收；退出和密码恢复流程仍需单独做用户体验验收。
+- production 数据库的三份迁移已完成，设备云总开关保持关闭。正式启用前必须为 production context 单独设置长期稳定的 `NEXORA_SUBJECT_PEPPER`，不得复用或轮换测试密钥。
 - 生产依赖审计为 0 个漏洞；完整开发依赖审计仍需单独授权向 npm 外传完整开发依赖图。
 - 删除工作器和对象存储快照将在测试云资源确定后实现，不能使用用户请求直接执行即时删除。

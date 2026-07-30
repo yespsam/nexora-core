@@ -70,13 +70,13 @@ async function withOwner(pool, ownerId, operation, runtimeRole = '') {
   }
 }
 
-async function vaultForOwner(client, publicId, lock = false) {
+async function vaultForOwner(client, ownerId, publicId, lock = false) {
   const result = await client.query(`
     SELECT id, public_id, active_key_version, status
     FROM nexora_cloud.companion_vaults
-    WHERE public_id = $1
+    WHERE public_id = $1 AND owner_id = $2
     ${lock ? 'FOR UPDATE' : ''}
-  `, [requiredVaultId(publicId)]);
+  `, [requiredVaultId(publicId), requiredUuid(ownerId, 'owner id')]);
   if (!result.rowCount) throw new DeviceCloudError('vault not found', 404, 'not_found');
   return result.rows[0];
 }
@@ -184,7 +184,7 @@ export class DeviceCloudStore {
 
   async registerDevice(ownerId, value) {
     return withOwner(this.apiPool, ownerId, async (client, owner) => {
-      const vault = await vaultForOwner(client, value?.vaultId, true);
+      const vault = await vaultForOwner(client, owner, value?.vaultId, true);
       if (vault.status !== 'active') throw new DeviceCloudError('vault is not active', 409, 'vault_locked');
       const device = await insertDevice(client, owner, vault, value?.device, vault.active_key_version);
       return { deviceId: device.id, vaultId: vault.public_id, keyVersion: vault.active_key_version };
@@ -197,16 +197,17 @@ export class DeviceCloudStore {
     const canonical = canonicalDeviceCloudEvent(event);
     const contentHash = createHash('sha256').update(canonical).digest();
 
-    return withOwner(this.apiPool, ownerId, async (client) => {
+    return withOwner(this.apiPool, ownerId, async (client, owner) => {
       const deviceResult = await client.query(`
         SELECT
           d.id, d.signing_key_id, d.signing_public_key_jwk, d.revoked_at,
           v.id AS vault_uuid, v.public_id, v.active_key_version, v.status
         FROM nexora_cloud.devices d
         JOIN nexora_cloud.companion_vaults v ON v.id = d.vault_id
-        WHERE d.id = $1 AND v.public_id = $2
+        WHERE d.id = $1 AND d.owner_id = $3
+          AND v.public_id = $2 AND v.owner_id = $3
         FOR UPDATE OF d, v
-      `, [event.deviceId, event.vaultId]);
+      `, [event.deviceId, event.vaultId, owner]);
       if (!deviceResult.rowCount) throw new DeviceCloudError('device not found', 404, 'not_found');
       const device = deviceResult.rows[0];
       if (device.revoked_at) throw new DeviceCloudError('device revoked', 403, 'device_revoked');
@@ -228,9 +229,10 @@ export class DeviceCloudStore {
       const duplicate = await client.query(`
         SELECT cursor, content_hash
         FROM nexora_cloud.companion_events
-        WHERE event_id = $1 OR (device_id = $2 AND device_sequence = $3)
+        WHERE owner_id = $4
+          AND (event_id = $1 OR (device_id = $2 AND device_sequence = $3))
         LIMIT 1
-      `, [event.eventId, event.deviceId, event.deviceSequence]);
+      `, [event.eventId, event.deviceId, event.deviceSequence, owner]);
       if (duplicate.rowCount) {
         if (!duplicate.rows[0].content_hash.equals(contentHash)) {
           throw new DeviceCloudError('event identity conflict', 409, 'event_conflict');
@@ -244,10 +246,10 @@ export class DeviceCloudStore {
       const previous = await client.query(`
         SELECT device_sequence, content_hash
         FROM nexora_cloud.companion_events
-        WHERE device_id = $1
+        WHERE device_id = $1 AND owner_id = $2
         ORDER BY device_sequence DESC
         LIMIT 1
-      `, [event.deviceId]);
+      `, [event.deviceId, owner]);
       const expectedSequence = previous.rowCount ? Number(previous.rows[0].device_sequence) + 1 : 1;
       if (event.deviceSequence !== expectedSequence) {
         throw new DeviceCloudError('device sequence gap', 409, 'sequence_gap');
@@ -290,8 +292,8 @@ export class DeviceCloudStore {
       await client.query(`
         UPDATE nexora_cloud.companion_vaults
         SET latest_event_cursor = GREATEST(latest_event_cursor, $1), updated_at = now()
-        WHERE id = $2
-      `, [cursor, device.vault_uuid]);
+        WHERE id = $2 AND owner_id = $3
+      `, [cursor, device.vault_uuid, owner]);
       return { cursor, duplicate: false, contentHash: toBase64Url(contentHash) };
     }, this.apiRole);
   }
@@ -301,22 +303,22 @@ export class DeviceCloudStore {
     const deviceId = requiredUuid(requesterDeviceId, 'requester device id');
     const cursor = Number.isSafeInteger(Number(after)) && Number(after) >= 0 ? Number(after) : 0;
     const pageSize = Math.min(200, Math.max(1, Math.floor(Number(limit) || 200)));
-    return withOwner(this.apiPool, ownerId, async (client) => {
-      const vault = await vaultForOwner(client, publicId);
+    return withOwner(this.apiPool, ownerId, async (client, owner) => {
+      const vault = await vaultForOwner(client, owner, publicId);
       const requester = await client.query(`
         SELECT 1 FROM nexora_cloud.devices
-        WHERE id = $1 AND vault_id = $2 AND revoked_at IS NULL
-      `, [deviceId, vault.id]);
+        WHERE id = $1 AND vault_id = $2 AND owner_id = $3 AND revoked_at IS NULL
+      `, [deviceId, vault.id, owner]);
       if (!requester.rowCount) throw new DeviceCloudError('device revoked or unknown', 403, 'device_revoked');
       const result = await client.query(`
         SELECT
           cursor, event_id, device_id, device_sequence, occurred_at, key_version,
           iv, ciphertext, previous_event_hash, content_hash, signing_key_id, signature
         FROM nexora_cloud.companion_events
-        WHERE vault_id = $1 AND cursor > $2
+        WHERE vault_id = $1 AND owner_id = $4 AND cursor > $2
         ORDER BY cursor ASC
         LIMIT $3
-      `, [vault.id, cursor, pageSize]);
+      `, [vault.id, cursor, pageSize, owner]);
       const events = result.rows.map((row) => ({
         cursor: Number(row.cursor),
         version: 1,
@@ -354,17 +356,17 @@ export class DeviceCloudStore {
     const recovery = normalizeRecoveryEnvelope(value?.recovery);
 
     return withOwner(this.apiPool, ownerId, async (client, owner) => {
-      const vault = await vaultForOwner(client, publicId, true);
+      const vault = await vaultForOwner(client, owner, publicId, true);
       const nextKeyVersion = Number(value?.nextKeyVersion);
       if (!Number.isSafeInteger(nextKeyVersion) || nextKeyVersion !== vault.active_key_version + 1) {
         throw new DeviceCloudError('invalid next key version');
       }
       const devices = await client.query(`
         SELECT id FROM nexora_cloud.devices
-        WHERE vault_id = $1 AND revoked_at IS NULL
+        WHERE vault_id = $1 AND owner_id = $2 AND revoked_at IS NULL
         ORDER BY id
         FOR UPDATE
-      `, [vault.id]);
+      `, [vault.id, owner]);
       if (!devices.rows.some((row) => row.id === targetId)) {
         throw new DeviceCloudError('active device not found', 404, 'not_found');
       }
@@ -384,13 +386,13 @@ export class DeviceCloudStore {
       await client.query(`
         UPDATE nexora_cloud.device_key_envelopes
         SET superseded_at = now()
-        WHERE vault_id = $1 AND superseded_at IS NULL
-      `, [vault.id]);
+        WHERE vault_id = $1 AND owner_id = $2 AND superseded_at IS NULL
+      `, [vault.id, owner]);
       await client.query(`
         UPDATE nexora_cloud.recovery_key_envelopes
         SET superseded_at = now()
-        WHERE vault_id = $1 AND superseded_at IS NULL
-      `, [vault.id]);
+        WHERE vault_id = $1 AND owner_id = $2 AND superseded_at IS NULL
+      `, [vault.id, owner]);
       for (const deviceId of remainingIds) {
         await client.query(`
           INSERT INTO nexora_cloud.device_key_envelopes (
@@ -403,12 +405,15 @@ export class DeviceCloudStore {
           owner_id, vault_id, key_version, recovery_key_id, wrapping_algorithm, wrapped_vault_key
         ) VALUES ($1, $2, $3, $4, 'HKDF-SHA256+A256KW', $5)
       `, [owner, vault.id, nextKeyVersion, recovery.recoveryKeyId, recovery.wrappedVaultKey]);
-      await client.query('UPDATE nexora_cloud.devices SET revoked_at = now() WHERE id = $1', [targetId]);
+      await client.query(
+        'UPDATE nexora_cloud.devices SET revoked_at = now() WHERE id = $1 AND owner_id = $2',
+        [targetId, owner]
+      );
       await client.query(`
         UPDATE nexora_cloud.companion_vaults
         SET active_key_version = $1, updated_at = now()
-        WHERE id = $2
-      `, [nextKeyVersion, vault.id]);
+        WHERE id = $2 AND owner_id = $3
+      `, [nextKeyVersion, vault.id, owner]);
       return { revokedDeviceId: targetId, keyVersion: nextKeyVersion, activeDeviceIds: remainingIds };
     }, this.apiRole);
   }
@@ -421,14 +426,15 @@ export class DeviceCloudStore {
     } catch (error) {
       throw new DeviceCloudError('invalid recovery key id');
     }
-    return withOwner(this.apiPool, ownerId, async (client) => {
+    return withOwner(this.apiPool, ownerId, async (client, owner) => {
       const result = await client.query(`
         SELECT v.active_key_version, r.wrapping_algorithm, r.wrapped_vault_key
         FROM nexora_cloud.companion_vaults v
         JOIN nexora_cloud.recovery_key_envelopes r
           ON r.vault_id = v.id AND r.key_version = v.active_key_version
-        WHERE v.public_id = $1 AND r.recovery_key_id = $2 AND r.superseded_at IS NULL
-      `, [publicId, keyId]);
+        WHERE v.public_id = $1 AND v.owner_id = $3
+          AND r.owner_id = $3 AND r.recovery_key_id = $2 AND r.superseded_at IS NULL
+      `, [publicId, keyId, owner]);
       if (!result.rowCount) throw new DeviceCloudError('recovery envelope not found', 404, 'not_found');
       return {
         vaultId: publicId,
@@ -444,7 +450,7 @@ export class DeviceCloudStore {
     const publicId = scope === 'vault' ? requiredVaultId(value?.vaultId) : null;
     return withOwner(this.apiPool, ownerId, async (client, owner) => {
       let vaultUuid = null;
-      if (publicId) vaultUuid = (await vaultForOwner(client, publicId)).id;
+      if (publicId) vaultUuid = (await vaultForOwner(client, owner, publicId)).id;
       const executeAfter = value?.immediate
         ? new Date(Date.now() + 1000)
         : new Date(Date.now() + 7 * 86400000);
@@ -469,15 +475,18 @@ export class DeviceCloudStore {
       const request = await client.query(`
         SELECT id, scope, vault_id, status
         FROM nexora_cloud.deletion_requests
-        WHERE id = $1
+        WHERE id = $1 AND owner_id = $2
         FOR UPDATE
-      `, [id]);
+      `, [id, owner]);
       if (!request.rowCount) throw new DeviceCloudError('deletion request not found', 404, 'not_found');
       if (!['scheduled', 'failed'].includes(request.rows[0].status)) {
         throw new DeviceCloudError('deletion request cannot be executed', 409, 'invalid_state');
       }
       const vaultFilter = request.rows[0].scope === 'vault' ? request.rows[0].vault_id : null;
-      await client.query("UPDATE nexora_cloud.deletion_requests SET status = 'running' WHERE id = $1", [id]);
+      await client.query(
+        "UPDATE nexora_cloud.deletion_requests SET status = 'running' WHERE id = $1 AND owner_id = $2",
+        [id, owner]
+      );
       const snapshots = await client.query(`
         SELECT object_key FROM nexora_cloud.companion_snapshots
         WHERE owner_id = $1 AND ($2::uuid IS NULL OR vault_id = $2)
@@ -510,8 +519,8 @@ export class DeviceCloudStore {
       await client.query(`
         UPDATE nexora_cloud.deletion_requests
         SET status = 'complete', completed_at = now()
-        WHERE id = $1
-      `, [id]);
+        WHERE id = $1 AND owner_id = $2
+      `, [id, owner]);
       return {
         requestId: id,
         status: 'complete',
