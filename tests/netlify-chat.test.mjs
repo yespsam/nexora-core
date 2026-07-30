@@ -236,9 +236,38 @@ test('handler keeps conversation available when the LLM provider fails', async (
   assert.equal(response.status, 200);
   assert.equal(body.mode, 'cloud_scene_reply');
   assert.equal(body.llm.bound, true);
-  assert.equal(body.llm.failure, 'personal_key_failed');
+  assert.equal(body.llm.failure, 'personal_key_network');
   assert.ok(body.text);
   assert.ok(body.thinking);
+});
+
+test('personal Kimi authentication failures are classified without exposing the key', async (t) => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const warnings = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+  });
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    error: { type: 'authentication_error', code: 'invalid_api_key', message: 'rejected' }
+  }), {
+    status: 401,
+    headers: { 'Content-Type': 'application/json' }
+  });
+  console.warn = (message) => warnings.push(String(message));
+
+  const response = await handler(chatRequest('POST', {
+    text: '你好',
+    persona_short: 'creature:cute',
+    llm_key: 'sk-never-log-this-key'
+  }));
+  const body = await response.json();
+
+  assert.equal(body.llm.failure, 'personal_key_auth');
+  assert.equal(warnings.some((line) => line.includes('"upstream_status":401')), true);
+  assert.equal(warnings.some((line) => line.includes('invalid_api_key')), true);
+  assert.equal(warnings.some((line) => line.includes('sk-never-log-this-key')), false);
 });
 
 test('fallback reports when no real dialogue provider is configured', async (t) => {

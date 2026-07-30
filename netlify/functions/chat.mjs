@@ -42,7 +42,7 @@ function pickReply(list, text) {
 
 const LLM_TIMEOUT_MS = 7000;
 const LLM_MODEL_WHITELIST = new Set([
-  'kimi-k2.5', 'kimi-k2.6',
+  'kimi-k3', 'kimi-k2.5', 'kimi-k2.6', 'kimi-k2.7-code',
   'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'
 ]);
 
@@ -65,7 +65,7 @@ function llmBaseUrl() {
 }
 
 function llmDefaultModel() {
-  return runtimeEnv('LLM_MODEL') || 'kimi-k2.5';
+  return runtimeEnv('LLM_MODEL') || 'kimi-k2.6';
 }
 
 function gatewayModel() {
@@ -81,6 +81,35 @@ function sanitizeLlmKey(value) {
 function sanitizeLlmModel(value) {
   const model = String(value || '').trim();
   return LLM_MODEL_WHITELIST.has(model) ? model : llmDefaultModel();
+}
+
+function safeProviderErrorCode(value) {
+  const code = String(value || '').trim().slice(0, 80);
+  return /^[a-z0-9_.-]+$/i.test(code) ? code : '';
+}
+
+function providerFailureCategory(status, code = '') {
+  const value = String(code || '').toLowerCase();
+  if (/quota|balance|credit|insufficient/.test(value) || status === 402) return 'quota';
+  if (/rate|frequency|too_many/.test(value) || status === 429) return 'rate_limit';
+  if (/auth|token|api_key|credential/.test(value) || status === 401 || status === 403) return 'auth';
+  if (/model/.test(value) || status === 404) return 'model';
+  if (/request|parameter|argument/.test(value) || status === 400 || status === 422) return 'request';
+  if (status >= 500) return 'provider';
+  return 'failed';
+}
+
+async function recordProviderFailure(response, diagnostics) {
+  let code = '';
+  try {
+    const body = await response.json();
+    code = safeProviderErrorCode(body?.error?.code || body?.error?.type);
+  } catch (error) {
+    // The HTTP status is sufficient when the provider body is not JSON.
+  }
+  diagnostics.status = response.status;
+  diagnostics.code = code;
+  diagnostics.category = providerFailureCategory(response.status, code);
 }
 
 function gatewayConfig() {
@@ -238,7 +267,8 @@ async function callKimi(text, kind, history, {
   apiKey,
   baseUrl,
   model,
-  soulmate
+  soulmate,
+  diagnostics = {}
 }) {
   if (!apiKey || !baseUrl) return null;
   const controller = new AbortController();
@@ -253,18 +283,23 @@ async function callKimi(text, kind, history, {
       body: JSON.stringify({
         model,
         messages: buildLLMMessages(text, kind, history, soulmate),
-        temperature: 0.78,
-        max_tokens: 320,
+        max_completion_tokens: 320,
+        ...(model === 'kimi-k2.6' ? { thinking: { type: 'disabled' } } : {}),
         response_format: { type: 'json_object' }
       }),
       signal: controller.signal
     });
-    if (!resp.ok) return null;
+    if (!resp.ok) {
+      await recordProviderFailure(resp, diagnostics);
+      return null;
+    }
     const data = await resp.json();
     const content = data.choices?.[0]?.message?.content || '';
     const parsed = parseLLMReply(content);
+    if (!parsed) diagnostics.category = 'invalid_response';
     return parsed ? { ...parsed, provider: 'kimi', model: data.model || model } : null;
   } catch (error) {
+    diagnostics.category = error?.name === 'AbortError' ? 'timeout' : 'network';
     return null;
   } finally {
     clearTimeout(timer);
@@ -364,11 +399,13 @@ export default async function handler(request) {
   const kimiKey = personalKey || serverKey;
   const kimiModel = sanitizeLlmModel(payload.llm_model);
   const llmBound = Boolean(personalKey);
+  const kimiDiagnostics = {};
   let llm = await callKimi(text, kind, history, {
     apiKey: kimiKey,
     baseUrl: llmBaseUrl(),
     model: kimiModel,
-    soulmate
+    soulmate,
+    diagnostics: kimiDiagnostics
   });
   if (!llm && gateway.available) {
     llm = await callGateway(text, kind, history, gateway, soulmate);
@@ -416,9 +453,9 @@ export default async function handler(request) {
   });
   const creatureProfile = creatureId ? creatureProfiles[creatureId] : null;
   const failure = personalKey
-    ? 'personal_key_failed'
+    ? `personal_key_${kimiDiagnostics.category || 'failed'}`
     : serverKey
-      ? 'server_key_failed'
+      ? `server_key_${kimiDiagnostics.category || 'failed'}`
       : gateway.available
         ? 'gateway_failed'
         : 'not_configured';
@@ -429,6 +466,8 @@ export default async function handler(request) {
     personal_key_present: Boolean(personalKey),
     server_key_present: Boolean(serverKey),
     gateway_available: gateway.available,
+    upstream_status: kimiDiagnostics.status || null,
+    upstream_code: kimiDiagnostics.code || null,
     context_turns: history.length
   }));
   const thinkingPool = creatureProfile

@@ -233,9 +233,20 @@ function renderLlmConnection({ mode = '', provider = '', failure = '' } = {}) {
     llmApiStatus.textContent = '真实模型正在结合前文回答。';
     return;
   }
-  if (hasPersonalKey && ['personal_key_failed', 'request_failed'].includes(failure)) {
+  if (hasPersonalKey && failure) {
+    const failureMessages = {
+      personal_key_auth: 'API 密钥无效，或不是 Kimi 开放平台密钥。',
+      personal_key_quota: 'Kimi API 额度不足，请检查余额。',
+      personal_key_rate_limit: 'Kimi 请求过快，请稍后再试。',
+      personal_key_model: '当前密钥没有所选模型权限。',
+      personal_key_request: 'Kimi 暂时不接受当前请求参数。',
+      personal_key_timeout: 'Kimi 响应超时，请重试。',
+      personal_key_network: '服务器暂时无法连接 Kimi。',
+      personal_key_invalid_response: 'Kimi 返回了无法解析的回答。',
+      request_failed: '聊天服务请求失败，请检查网络。'
+    };
     llmProviderLabel.textContent = 'API 连接失败';
-    llmApiStatus.textContent = '请检查密钥是否有效或额度是否充足。';
+    llmApiStatus.textContent = failureMessages[failure] || '请检查密钥是否有效或额度是否充足。';
     return;
   }
   llmProviderLabel.textContent = hasPersonalKey ? '等待验证' : '未连接';
