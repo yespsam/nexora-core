@@ -8,7 +8,7 @@
   <title>NEXORA CORE · 你的数字生命</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/soulmate-icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=0.6.1">
+  <link rel="stylesheet" href="./style.css?v=0.6.2">
 </head>
 <body>
   <main class="app-shell" id="app-shell">
@@ -237,6 +237,20 @@
         </div>
         <p class="setting-status" id="voice-setting-status" aria-live="polite"></p>
       </section>
+      <section class="model-settings" aria-labelledby="model-settings-title">
+        <div class="setting-row">
+          <span id="model-settings-title">对话模型</span>
+          <strong id="llm-provider-label">正在检查</strong>
+        </div>
+        <label class="field-label" for="llm-api-key">Kimi API Key</label>
+        <input class="provider-key-input" id="llm-api-key" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" placeholder="sk-...">
+        <div class="model-setting-actions">
+          <button class="wide-command" id="llm-api-save" type="button">连接本次会话</button>
+          <button class="wide-command" id="llm-api-clear" type="button" hidden>断开</button>
+        </div>
+        <p class="device-note">密钥只保存在当前浏览器会话，关闭标签页后自动清除。</p>
+        <p class="setting-status" id="llm-api-status" aria-live="polite"></p>
+      </section>
       <div class="setting-row"><span>初始伙伴</span><strong id="setting-starter"></strong></div>
       <div class="setting-row"><span>诞生日</span><strong id="setting-birthday"></strong></div>
       <div class="setting-row"><span>Hermes 能力核心</span><strong>待授权</strong></div>
@@ -267,6 +281,6 @@
       <button class="wide-command danger" id="reset-button" type="button">重新诞生</button>
     </dialog>
   </main>
-  <script type="module" src="./app.js?v=0.9.5"></script>
+  <script type="module" src="./app.js?v=0.9.6"></script>
 </body>
 </html>

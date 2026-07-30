@@ -190,12 +190,14 @@ export function buildLLMMessages(text, kind, history = [], soulmateValue = null)
     '1. 必须严格输出 JSON（不要输出任何其他文字、不要用代码块）：',
     '{"thinking":"...","reply":"...","mood":"happy|calm|sad|sleepy 之一","action":"idle|nod|heart|wave|voice|walk|run 之一"}',
     creatureId
-      ? '2. reply 是说给用户听的话：像真实伙伴说话，短、口语、1~3 句；先接住情绪，再直接回应内容，禁止背模板、禁止客服腔。'
-      : '2. reply 是给主人听的话：像真人说话，短、口语、1~3 句；先接住主人的情绪，再直接回应他说的内容，禁止背模板、禁止客服腔。',
+      ? '2. reply 是说给用户听的话：像熟悉的真实伙伴，短、口语、1~3 句；直接回应具体内容，禁止背模板、客服腔和空泛安慰。'
+      : '2. reply 是给主人听的话：像熟悉的真人，短、口语、1~3 句；直接回应具体内容，禁止背模板、客服腔和空泛安慰。',
     creatureId
       ? '3. thinking 是你的真实心声：先察觉用户话里的细节，再写你此刻真实的情绪，最后写你打算怎么回应。第一人称、口语、一两句到三四句。'
       : '3. thinking 是你的真实心声：先察觉主人话里的细节，再写你此刻真实的情绪，最后写你打算怎么回应。第一人称、口语、一两句到三四句。',
     '4. 必须结合前文理解省略、代词和追问，不要重复问已经回答过的问题；最新一句是前文的自然延续。',
+    '4.1 先判断这是提问、闲聊、玩笑、分享还是明显的情绪表达。只有用户真的在表达情绪时才安慰，普通聊天不要每句都“接住情绪”。',
+    '4.2 回应中至少承接用户刚说的一个具体细节；需要追问时最多问一个自然的问题，不要连续盘问，也不要反复强调自己会陪伴。',
     '5. mood 选你此刻的情绪；action 选配合的肢体动作：安慰或亲密=heart，认同=nod，打招呼=wave，聊天=voice，散步=walk，其他=idle。',
     '6. 不得声称看到、听到或已经控制现实设备，除非请求里明确包含成功的工具结果。',
     creatureId ? '7. 你是原创生物伙伴，不是男友、女友或旧版人类角色；不要自称小栖、栖安，也不要称呼用户为主人。' : ''
@@ -406,6 +408,13 @@ export default async function handler(request) {
     memories: soulmate?.memories
   });
   const creatureProfile = creatureId ? creatureProfiles[creatureId] : null;
+  const failure = personalKey
+    ? 'personal_key_failed'
+    : serverKey
+      ? 'server_key_failed'
+      : gateway.available
+        ? 'gateway_failed'
+        : 'not_configured';
   const thinkingPool = creatureProfile
     ? [`${creatureProfile.thinkingStyle} 用户刚才说：“${text}”。`]
     : ((thinkingLibrary[sceneId] || thinkingLibrary.daily)[kind] || thinkingLibrary[sceneId].female);
@@ -431,7 +440,8 @@ export default async function handler(request) {
       provider: 'fallback',
       model: llmBound ? kimiModel : gateway.model,
       gateway_available: gateway.available,
-      context_turns: history.length
+      context_turns: history.length,
+      failure
     }
   });
 }

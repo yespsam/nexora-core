@@ -236,8 +236,36 @@ test('handler keeps conversation available when the LLM provider fails', async (
   assert.equal(response.status, 200);
   assert.equal(body.mode, 'cloud_scene_reply');
   assert.equal(body.llm.bound, true);
+  assert.equal(body.llm.failure, 'personal_key_failed');
   assert.ok(body.text);
   assert.ok(body.thinking);
+});
+
+test('fallback reports when no real dialogue provider is configured', async (t) => {
+  const originalGatewayKey = process.env.OPENAI_API_KEY;
+  const originalGatewayBase = process.env.OPENAI_BASE_URL;
+  const originalServerKey = process.env.LLM_API_KEY;
+  t.after(() => {
+    if (originalGatewayKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = originalGatewayKey;
+    if (originalGatewayBase === undefined) delete process.env.OPENAI_BASE_URL;
+    else process.env.OPENAI_BASE_URL = originalGatewayBase;
+    if (originalServerKey === undefined) delete process.env.LLM_API_KEY;
+    else process.env.LLM_API_KEY = originalServerKey;
+  });
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_BASE_URL;
+  delete process.env.LLM_API_KEY;
+
+  const response = await handler(chatRequest('POST', {
+    text: '你觉得我今天应该先做什么？',
+    persona_short: 'creature:cute'
+  }));
+  const body = await response.json();
+
+  assert.equal(body.mode, 'cloud_scene_reply');
+  assert.equal(body.llm.provider, 'fallback');
+  assert.equal(body.llm.failure, 'not_configured');
 });
 
 test('handler reports the selected creature identity when the provider fails', async (t) => {

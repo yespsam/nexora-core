@@ -88,6 +88,11 @@ const bluetoothStatus = $('#bluetooth-status');
 const bridgeButton = $('#bridge-button');
 const bridgeStatus = $('#bridge-status');
 const voiceSettingStatus = $('#voice-setting-status');
+const llmProviderLabel = $('#llm-provider-label');
+const llmApiInput = $('#llm-api-key');
+const llmApiSave = $('#llm-api-save');
+const llmApiClear = $('#llm-api-clear');
+const llmApiStatus = $('#llm-api-status');
 const importButton = $('#import-button');
 const importInput = $('#import-input');
 const importStatus = $('#import-status');
@@ -105,6 +110,7 @@ const cloudSyncDiagnostic = $('#cloud-sync-diagnostic');
 const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
+const LLM_SESSION_KEY = 'nexora-llm-session-key';
 
 const phaseLabels = {
   idle: '待机',
@@ -197,6 +203,58 @@ function safeWrite(key, value) {
     return true;
   } catch (error) {
     return false;
+  }
+}
+
+function readSessionLlmKey() {
+  try {
+    return String(sessionStorage.getItem(LLM_SESSION_KEY) || '').trim();
+  } catch (error) {
+    return '';
+  }
+}
+
+function writeSessionLlmKey(value) {
+  try {
+    if (value) sessionStorage.setItem(LLM_SESSION_KEY, value);
+    else sessionStorage.removeItem(LLM_SESSION_KEY);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function renderLlmConnection({ mode = '', provider = '', failure = '' } = {}) {
+  const hasPersonalKey = Boolean(readSessionLlmKey());
+  llmApiClear.hidden = !hasPersonalKey;
+  if (mode === 'cloud_llm') {
+    const label = provider === 'kimi' ? 'Kimi 已连接' : 'Netlify AI 已连接';
+    llmProviderLabel.textContent = label;
+    llmApiStatus.textContent = '真实模型正在结合前文回答。';
+    return;
+  }
+  if (hasPersonalKey && ['personal_key_failed', 'request_failed'].includes(failure)) {
+    llmProviderLabel.textContent = 'API 连接失败';
+    llmApiStatus.textContent = '请检查密钥是否有效或额度是否充足。';
+    return;
+  }
+  llmProviderLabel.textContent = hasPersonalKey ? '等待验证' : '未连接';
+  llmApiStatus.textContent = hasPersonalKey
+    ? '发送下一条消息时验证 API。'
+    : '当前只能使用离线固定回复。';
+}
+
+async function refreshLlmConnection() {
+  renderLlmConnection();
+  try {
+    const response = await fetch('/api/chat', { headers: { Accept: 'application/json' } });
+    if (!response.ok) return;
+    const status = await response.json();
+    if (!readSessionLlmKey() && status.gateway?.available) {
+      renderLlmConnection({ mode: 'cloud_llm', provider: 'netlify_ai_gateway' });
+    }
+  } catch (error) {
+    // The next message will retry the provider check.
   }
 }
 
@@ -735,6 +793,7 @@ function fallbackReply(text) {
 }
 
 async function requestReply(text) {
+  const llmKey = readSessionLlmKey();
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -745,14 +804,21 @@ async function requestReply(text) {
       relationship: 'companion',
       scene: 'daily',
       history: state.history.slice(0, -1),
-      soulmate: soulmatePromptProfile(state.profile, text)
+      soulmate: soulmatePromptProfile(state.profile, text),
+      llm_key: llmKey || undefined
     })
   });
   if (!response.ok) throw new Error(`chat ${response.status}`);
   const body = await response.json();
   const reply = String(body.text || body.reply || '').replace(/\s+/g, ' ').trim().slice(0, 300);
   if (!reply) throw new Error('empty reply');
-  return { reply, mood: body.emotion?.mood || 'calm' };
+  return {
+    reply,
+    mood: body.emotion?.mood || 'calm',
+    mode: String(body.mode || ''),
+    provider: String(body.llm?.provider || ''),
+    failure: String(body.llm?.failure || '')
+  };
 }
 
 async function sendMessage(rawText, { source = 'text' } = {}) {
@@ -770,8 +836,9 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   try {
     result = await requestReply(text);
   } catch (error) {
-    result = { reply: fallbackReply(text), mood: 'calm' };
+    result = { reply: fallbackReply(text), mood: 'calm', failure: 'request_failed' };
   }
+  renderLlmConnection(result);
   appendMessage('assistant', result.reply);
   state.lastAssistantText = result.reply;
   state.lastAssistantAt = Date.now();
@@ -1136,6 +1203,26 @@ $$('[data-setting-voice]').forEach((button) => {
   });
 });
 
+llmApiSave.addEventListener('click', () => {
+  const key = String(llmApiInput.value || '').trim();
+  if (!/^sk-[A-Za-z0-9_-]{8,196}$/.test(key)) {
+    llmApiStatus.textContent = 'API Key 格式不正确，请重新输入。';
+    return;
+  }
+  if (!writeSessionLlmKey(key)) {
+    llmApiStatus.textContent = '浏览器无法保存本次会话密钥。';
+    return;
+  }
+  llmApiInput.value = '';
+  renderLlmConnection();
+});
+
+llmApiClear.addEventListener('click', () => {
+  writeSessionLlmKey('');
+  llmApiInput.value = '';
+  renderLlmConnection();
+});
+
 companionTouch.addEventListener('click', () => reactToTouch('touch'));
 $$('[data-presence-action]').forEach((button) => {
   button.addEventListener('click', () => reactToTouch(button.dataset.presenceAction));
@@ -1265,6 +1352,7 @@ window.addEventListener('pagehide', () => {
   state.continuity?.close();
 }, { once: true });
 initializeCloudSync();
+refreshLlmConnection();
 
 if (pendantSimulationMode) {
   pendantStatus.textContent = '电脑模拟设备待连接';
