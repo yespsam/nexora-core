@@ -1,6 +1,6 @@
 # NEXORA CORE 私有测试云上线清单
 
-状态：Free 私有门禁已配置，测试站已创建，Identity 为 Invite only，设备云功能关闭
+状态：Free 私有门禁与 production 数据库已部署，Identity 为 Invite only，设备云功能关闭
 日期：2026-07-30
 
 ## 已选技术路径
@@ -44,8 +44,8 @@
 2. 已在空项目中开启 Identity，并在任何产品文件部署前把注册改为 Invite only。
 3. 只邀请内部测试账号，验证未受邀邮箱不能建立会话。
 4. 配置 pepper，并保持 production context 的设备云总开关为 `false`。
-5. 部署 Preview；Netlify 自动创建隔离数据库分支并依次执行三份迁移。
-6. 先验证未登录页面、API 和 GLB 文件均被拦截，再在 Preview context 开启设备云总开关。
+5. 已完成 production 原子部署；Netlify 创建 production 数据库分支并依次应用三份迁移。
+6. 已验证正式域名的未登录页面、API 和 GLB 文件均被拦截；下一步只在 Preview context 开启设备云总开关。
 7. 运行真实 Identity 登录、RLS、30 条函数链路和 1000 条事件验收。
 8. 连续一周对账通过后，才开始现有 Blob 快照到事件库的受控双写。
 
@@ -63,7 +63,7 @@
 
 ## 当前阻断项
 
-- Free 自建门禁已完成本机绕过测试，仍需完成首次成功部署后的真实 Netlify Edge 与 Identity 会话验收。
-- 设备云总开关保持关闭；数据库迁移和真实函数链路尚未完成云端验收。
+- Free 自建门禁已通过真实 Netlify Edge 匿名访问验收；仍需由受邀账号完成 Identity 登录、退出和恢复流程。
+- production 数据库的三份迁移已完成；设备云总开关保持关闭，真实 Identity 到数据库的函数链路尚未在隔离 Preview 分支验收。
 - 生产依赖审计为 0 个漏洞；完整开发依赖审计仍需单独授权向 npm 外传完整开发依赖图。
 - 删除工作器和对象存储快照将在测试云资源确定后实现，不能使用用户请求直接执行即时删除。
