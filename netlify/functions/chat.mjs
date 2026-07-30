@@ -374,6 +374,13 @@ export default async function handler(request) {
     llm = await callGateway(text, kind, history, gateway, soulmate);
   }
   if (llm) {
+    console.info(JSON.stringify({
+      event: 'chat_provider_result',
+      mode: 'cloud_llm',
+      provider: llm.provider,
+      model: llm.model,
+      context_turns: history.length
+    }));
     return json({
       text: llm.reply,
       thinking: llm.thinking,
@@ -415,6 +422,15 @@ export default async function handler(request) {
       : gateway.available
         ? 'gateway_failed'
         : 'not_configured';
+  console.warn(JSON.stringify({
+    event: 'chat_provider_result',
+    mode: 'fallback',
+    failure,
+    personal_key_present: Boolean(personalKey),
+    server_key_present: Boolean(serverKey),
+    gateway_available: gateway.available,
+    context_turns: history.length
+  }));
   const thinkingPool = creatureProfile
     ? [`${creatureProfile.thinkingStyle} 用户刚才说：“${text}”。`]
     : ((thinkingLibrary[sceneId] || thinkingLibrary.daily)[kind] || thinkingLibrary[sceneId].female);
