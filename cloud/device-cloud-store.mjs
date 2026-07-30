@@ -1,6 +1,5 @@
 import {
   createHash,
-  createHmac,
   createPublicKey,
   randomBytes,
   randomUUID,
@@ -14,6 +13,7 @@ import {
   normalizeDeviceCloudEvent
 } from '../shared/device-cloud-protocol.mjs';
 import { fromBase64Url, toBase64Url } from '../shared/device-cloud-crypto.mjs';
+import { externalSubjectHash, ownerIdForExternalSubject } from './device-cloud-identity.mjs';
 import {
   DeviceCloudError,
   normalizeDevice,
@@ -25,14 +25,27 @@ import {
 
 const { Pool } = pg;
 
-function poolConfig(role, environmentName) {
-  const connectionString = process.env[environmentName];
-  if (connectionString) return { connectionString, max: 6 };
+function poolConfig(role, environmentName, options = {}) {
+  const connectionString = options.connectionString || process.env[environmentName];
+  const configuredMaximum = Number(options.max || process.env.NEXORA_CLOUD_POOL_MAX || 2);
+  const max = Number.isSafeInteger(configuredMaximum)
+    ? Math.min(8, Math.max(1, configuredMaximum))
+    : 2;
+  const common = {
+    max,
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 10000,
+    query_timeout: 9000,
+    statement_timeout: 8000,
+    allowExitOnIdle: true,
+    application_name: 'nexora-device-cloud'
+  };
+  if (connectionString) return { ...common, connectionString };
   return {
+    ...common,
     database: process.env.NEXORA_CLOUD_DATABASE || 'nexora_core_dev',
     host: process.env.PGHOST || '/tmp',
-    user: role,
-    max: 6
+    user: role
   };
 }
 
@@ -98,9 +111,17 @@ export class DeviceCloudStore {
       || randomBytes(32).toString('base64url')
     );
     if (this.subjectPepper.length < 32) throw new Error('NEXORA_SUBJECT_PEPPER must contain at least 32 characters');
-    this.apiPool = options.apiPool || new Pool(poolConfig('nexora_cloud_api', 'NEXORA_CLOUD_API_DATABASE_URL'));
+    this.apiPool = options.apiPool || new Pool(poolConfig(
+      'nexora_cloud_api',
+      'NEXORA_CLOUD_API_DATABASE_URL',
+      { connectionString: options.apiConnectionString, max: options.poolMax }
+    ));
     this.maintenancePool = options.maintenancePool
-      || new Pool(poolConfig('nexora_cloud_maintenance', 'NEXORA_CLOUD_MAINTENANCE_DATABASE_URL'));
+      || new Pool(poolConfig(
+        'nexora_cloud_maintenance',
+        'NEXORA_CLOUD_MAINTENANCE_DATABASE_URL',
+        { connectionString: options.maintenanceConnectionString, max: options.poolMax }
+      ));
   }
 
   async health() {
@@ -118,7 +139,11 @@ export class DeviceCloudStore {
     if (!/^[a-z0-9-]{2,16}$/.test(region)) throw new DeviceCloudError('invalid region');
     const recovery = normalizeRecoveryEnvelope(value?.recovery);
     const vaultUuid = value?.vaultUuid ? requiredUuid(value.vaultUuid, 'vault uuid') : randomUUID();
-    const subjectHash = createHmac('sha256', this.subjectPepper).update(externalSubject).digest();
+    const expectedOwner = ownerIdForExternalSubject(externalSubject, this.subjectPepper);
+    if (String(ownerId).toLowerCase() !== expectedOwner) {
+      throw new DeviceCloudError('owner does not match authenticated subject', 403, 'owner_mismatch');
+    }
+    const subjectHash = externalSubjectHash(externalSubject, this.subjectPepper);
 
     return withOwner(this.apiPool, ownerId, async (client, owner) => {
       await client.query(`

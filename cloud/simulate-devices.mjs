@@ -13,9 +13,13 @@ import {
   wrapVaultKeyForDevice
 } from '../shared/device-cloud-crypto.mjs';
 import { createDeviceCloudHttpServer } from './local-server.mjs';
+import { ownerIdForExternalSubject } from './device-cloud-identity.mjs';
+import { DeviceCloudStore } from './device-cloud-store.mjs';
+import { createDeviceCloudFunction } from '../netlify/functions/_shared/device-cloud-data.mjs';
 
 const crypto = globalThis.crypto;
 const totalEvents = Math.max(12, Number(process.env.NEXORA_SIM_EVENT_COUNT || 1000));
+const transport = process.env.NEXORA_SIM_TRANSPORT === 'netlify-function' ? 'netlify-function' : 'local-http';
 
 function publicVaultId() {
   return randomBytes(16).toString('base64url');
@@ -92,10 +96,18 @@ async function encryptedEvent(value, vaultId, index) {
 }
 
 async function main() {
-  const ownerId = randomUUID();
   const apiKey = randomBytes(32).toString('base64url');
-  const runtime = createDeviceCloudHttpServer({ apiKey, allowImmediateDeletion: true });
-  const baseUrl = await runtime.listen(0);
+  const subjectPepper = randomBytes(32).toString('base64url');
+  const identityUserId = randomUUID();
+  const externalSubject = transport === 'netlify-function'
+    ? `netlify-identity:${identityUserId}`
+    : `local-simulator:${identityUserId}`;
+  const ownerId = ownerIdForExternalSubject(externalSubject, subjectPepper);
+  const store = transport === 'netlify-function' ? new DeviceCloudStore({ subjectPepper }) : null;
+  const runtime = transport === 'local-http'
+    ? createDeviceCloudHttpServer({ apiKey, subjectPepper, allowImmediateDeletion: true })
+    : null;
+  const baseUrl = runtime ? await runtime.listen(0) : 'https://nexora-function.test';
   const vaultId = publicVaultId();
   let vaultKey = await createVaultKey();
   let recovery = await createRecoveryEnvelope(vaultKey);
@@ -108,6 +120,22 @@ async function main() {
   const [phone, pendant, desktop] = devices;
 
   async function request(path, options = {}) {
+    if (transport === 'netlify-function') {
+      const handler = createDeviceCloudFunction({
+        enabled: true,
+        getStore: () => store,
+        getCurrentUser: async () => ({ id: options.identityUserId || identityUserId }),
+        verifyOrigin: () => {},
+        subjectPepper
+      });
+      const functionPath = path.replace(/^\/v1/, '/api/device-cloud');
+      const response = await handler(new Request(`${baseUrl}${functionPath}`, {
+        method: options.method || 'GET',
+        headers: { 'Content-Type': 'application/json', Origin: baseUrl },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body)
+      }));
+      return { status: response.status, body: await response.json() };
+    }
     const response = await fetch(`${baseUrl}${path}`, {
       method: options.method || 'GET',
       headers: {
@@ -134,7 +162,7 @@ async function main() {
     const bootstrap = await request('/v1/bootstrap', {
       method: 'POST',
       body: {
-        externalSubject: `local-simulator:${ownerId}`,
+        externalSubject,
         region: 'local',
         vaultId,
         device: registration(phone),
@@ -188,7 +216,8 @@ async function main() {
     assert.equal(new Set(downloaded.map((event) => event.eventId)).size, totalEvents);
 
     const foreignOwner = await request(`/v1/events?vaultId=${vaultId}&deviceId=${phone.id}`, {
-      ownerId: randomUUID()
+      ownerId: randomUUID(),
+      identityUserId: randomUUID()
     });
     assert.equal(foreignOwner.status, 404);
 
@@ -246,10 +275,12 @@ async function main() {
       body: { scope: 'account', immediate: true }
     });
     assert.equal(deletion.status, 202, JSON.stringify(deletion.body));
-    const deleted = await request(`/v1/deletions/${deletion.body.requestId}/execute`, {
-      method: 'POST',
-      body: {}
-    });
+    const deleted = transport === 'netlify-function'
+      ? { status: 200, body: await store.executeDeletion(ownerId, deletion.body.requestId) }
+      : await request(`/v1/deletions/${deletion.body.requestId}/execute`, {
+        method: 'POST',
+        body: {}
+      });
     assert.equal(deleted.status, 200, JSON.stringify(deleted.body));
     assert.equal(deleted.body.status, 'complete');
     const afterDeletion = await request('/v1/recovery', {
@@ -260,7 +291,8 @@ async function main() {
 
     const report = {
       passed: true,
-      database: (await runtime.store.health()).database,
+      database: (await (runtime?.store || store).health()).database,
+      transport,
       virtualDevices: devices.length,
       encryptedEvents: totalEvents,
       duplicateDelivery: 'idempotent',
@@ -273,7 +305,8 @@ async function main() {
     };
     console.log(JSON.stringify(report, null, 2));
   } finally {
-    await runtime.close();
+    if (runtime) await runtime.close();
+    else await store.close();
   }
 }
 

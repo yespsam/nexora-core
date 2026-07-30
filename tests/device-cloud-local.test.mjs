@@ -16,6 +16,10 @@ import {
   normalizeDevice,
   normalizeRecoveryEnvelope
 } from '../cloud/device-cloud-validation.mjs';
+import {
+  externalSubjectHash,
+  ownerIdForExternalSubject
+} from '../cloud/device-cloud-identity.mjs';
 
 const crypto = globalThis.crypto;
 
@@ -26,6 +30,16 @@ test('base64url conversion is canonical and browser-compatible', () => {
   assert.deepEqual(fromBase64Url(encoded, 32, 32), bytes);
   assert.throws(() => fromBase64Url(`${encoded}=`, 32, 32), /invalid base64url/);
   assert.throws(() => fromBase64Url('A', 0, 32), /invalid base64url/);
+});
+
+test('authenticated subjects map to stable domain-separated owner identifiers', () => {
+  const subject = 'netlify-identity:7aa47f0a-0c8f-4a40-bb73-97fb54d5a480';
+  const pepper = 'P'.repeat(43);
+  const ownerId = ownerIdForExternalSubject(subject, pepper);
+  assert.match(ownerId, /^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.equal(ownerIdForExternalSubject(subject, pepper), ownerId);
+  assert.notEqual(ownerIdForExternalSubject(`${subject}-other`, pepper), ownerId);
+  assert.notEqual(externalSubjectHash(subject, pepper).subarray(0, 16).toString('hex'), ownerId.replaceAll('-', ''));
 });
 
 test('device and recovery envelopes wrap a real 256-bit vault key', async () => {

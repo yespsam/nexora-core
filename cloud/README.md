@@ -64,6 +64,16 @@ npm run cloud:serve
 
 The local server exposes `/v1/bootstrap`, `/v1/devices`, `/v1/events`, device revocation, recovery-envelope lookup, and deletion endpoints on `127.0.0.1:4788`. Its `X-Nexora-Local-Key` and `X-Nexora-Owner-Id` headers are a computer-only test harness. They are not production authentication and must never be exposed to the internet. A production service must derive the owner from a verified identity session and use a separately protected maintenance worker.
 
+## Private staging function
+
+`netlify/functions/device-cloud.mjs` provides the disabled-by-default staging adapter at `/api/device-cloud/*`. It uses Netlify Identity for the authenticated subject, derives an internal RLS owner with a server-side HMAC pepper, and rejects state-changing cross-origin requests. See `../docs/NEXORA_PRIVATE_CLOUD_STAGING.md` for environment variables and the gated deployment order.
+
+```bash
+NEXORA_SIM_EVENT_COUNT=30 npm run cloud:simulate:function
+```
+
+This command runs the Identity-to-Function-to-RLS chain against local PostgreSQL without provisioning a paid cloud resource.
+
 ## Files
 
 - `migrations/001_device_cloud_foundation.sql`: initial PostgreSQL schema and row-level security.
@@ -71,6 +81,7 @@ The local server exposes `/v1/bootstrap`, `/v1/devices`, `/v1/events`, device re
 - `setup-local.mjs`: repeatable local database and role setup.
 - `local-server.mjs`: localhost-only API harness.
 - `simulate-devices.mjs`: three-device encrypted integration test.
+- `../netlify/functions/device-cloud.mjs`: disabled-by-default authenticated staging endpoint.
 - `../shared/device-cloud-protocol.mjs`: encrypted device-event boundary shared by future clients and APIs.
 - `../shared/device-cloud-crypto.mjs`: P-256 keys, ECDH/AES-KW device envelopes, and HKDF recovery envelopes.
 - `../docs/NEXORA_DEVICE_CLOUD_ARCHITECTURE.md`: product, privacy, retention, and migration decisions.

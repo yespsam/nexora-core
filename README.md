@@ -76,7 +76,7 @@ npm run test:computer
 
 当前目标板为 Waveshare ESP32-S3-LCD-1.28，圆屏分辨率为 `240 x 240`。浏览器端直接运行 WebGL 3D；实体低功耗固件需要将同一角色设计转换为适合 ESP32-S3 的显示资源。
 
-实体版本的云端基线已定义为“BLE 项链 + 手机网关 + PostgreSQL 只追加密文事件 + 加密对象快照”。详细的数据分类、设备撤销、密钥轮换、保留期限与迁移步骤见 [`docs/NEXORA_DEVICE_CLOUD_ARCHITECTURE.md`](docs/NEXORA_DEVICE_CLOUD_ARCHITECTURE.md)。本机 PostgreSQL 已通过三设备、1000 条密文事件、撤销、恢复和删除闭环；该能力尚未连接生产数据库。
+实体版本的云端基线已定义为“BLE 项链 + 手机网关 + PostgreSQL 只追加密文事件 + 加密对象快照”。详细的数据分类、设备撤销、密钥轮换、保留期限与迁移步骤见 [`docs/NEXORA_DEVICE_CLOUD_ARCHITECTURE.md`](docs/NEXORA_DEVICE_CLOUD_ARCHITECTURE.md)。本机 PostgreSQL 已通过三设备、1000 条密文事件、撤销、恢复和删除闭环；Netlify Identity 私有测试云适配见 [`docs/NEXORA_PRIVATE_CLOUD_STAGING.md`](docs/NEXORA_PRIVATE_CLOUD_STAGING.md)，默认关闭且尚未创建付费云资源。
 
 电脑模拟不能替代实体麦克风、扬声器、IMU、电池温升、蓝牙距离、跌落和佩戴强度测试。
 
