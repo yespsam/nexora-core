@@ -515,6 +515,34 @@ export async function mirrorSoulmateCloudState(bundleValue, identityValue, sourc
   }
 }
 
+export async function getSoulmateDeviceCloudDiagnostic(identityValue, options = {}) {
+  const identity = normalizeSoulmateCloudIdentity(identityValue);
+  if (!identity) return null;
+  try {
+    const crypto = cryptoApi(options.crypto || globalThis.crypto);
+    const storage = options.storage || createSoulmateDeviceCloudStorage(options.indexedDb);
+    const state = await loadState(identity, storage, crypto);
+    if (!state) {
+      return {
+        registered: false,
+        mirroredRevision: 0,
+        verifiedRevision: 0,
+        cursor: 0,
+        pending: false
+      };
+    }
+    return {
+      registered: state.registered,
+      mirroredRevision: state.lastMirroredRevision,
+      verifiedRevision: state.lastVerifiedRevision,
+      cursor: state.latestCursor,
+      pending: Boolean(state.pendingEvent)
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
 export async function requestSoulmateDeviceCloudDeletion(identityValue, options = {}) {
   const identity = normalizeSoulmateCloudIdentity(identityValue);
   if (!identity) return { enabled: false, scheduled: false, reason: 'invalid' };

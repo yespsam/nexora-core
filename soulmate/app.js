@@ -34,9 +34,10 @@ import {
 } from '../shared/soulmate-cloud-sync.mjs?v=1';
 import {
   clearSoulmateDeviceCloudState,
+  getSoulmateDeviceCloudDiagnostic,
   mirrorSoulmateCloudState,
   requestSoulmateDeviceCloudDeletion
-} from '../shared/soulmate-device-cloud.mjs?v=1';
+} from '../shared/soulmate-device-cloud.mjs?v=2';
 import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=13';
 import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=5';
 import { shouldBlockRecognizedSpeech } from '../shared/voice-turn.mjs?v=1';
@@ -100,6 +101,7 @@ const cloudSyncRestoreInput = $('#cloud-sync-restore-input');
 const cloudSyncRestore = $('#cloud-sync-restore');
 const cloudSyncStop = $('#cloud-sync-stop');
 const cloudSyncDelete = $('#cloud-sync-delete');
+const cloudSyncDiagnostic = $('#cloud-sync-diagnostic');
 const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
@@ -166,7 +168,8 @@ const state = {
   cloudSyncTimer: 0,
   cloudBusy: false,
   cloudReady: false,
-  cloudAvailable: true
+  cloudAvailable: true,
+  cloudDiagnostic: null
 };
 
 let creatureViewer = null;
@@ -400,6 +403,21 @@ function applyContinuityState(bundle) {
 function renderCloudSync() {
   const active = Boolean(state.cloudIdentity);
   cloudSyncState.textContent = active ? `已连接 · v${state.cloudRevision}` : '未开启';
+  const diagnostic = state.cloudDiagnostic;
+  let diagnosticText = '';
+  if (active && diagnostic) {
+    if (diagnostic.pending) {
+      diagnosticText = `事件镜像待重试 · v${diagnostic.mirroredRevision}`;
+    } else if (diagnostic.verifiedRevision > 0) {
+      diagnosticText = `事件镜像已验证 · v${diagnostic.verifiedRevision} · 游标 ${diagnostic.cursor}`;
+    } else if (diagnostic.registered) {
+      diagnosticText = '事件镜像等待验证';
+    } else {
+      diagnosticText = '事件镜像等待首次同步';
+    }
+  }
+  cloudSyncDiagnostic.textContent = diagnosticText;
+  cloudSyncDiagnostic.hidden = !diagnosticText;
   cloudSyncEnable.hidden = active;
   cloudSyncNow.hidden = !active;
   cloudSyncShowCode.hidden = !active;
@@ -476,6 +494,7 @@ async function pushCloudState({ manual = false } = {}) {
       state.cloudIdentity,
       state.cloudRevision
     );
+    state.cloudDiagnostic = await getSoulmateDeviceCloudDiagnostic(state.cloudIdentity);
     if (mirror.enabled && (!mirror.mirrored || !mirror.verified) && mirror.reason !== 'current') {
       console.warn('[device-cloud-dual-write]', {
         mirrored: mirror.mirrored === true,
@@ -506,6 +525,9 @@ async function initializeCloudSync() {
     const saved = await loadSoulmateCloudDeviceState();
     state.cloudIdentity = saved?.identity || null;
     state.cloudRevision = saved?.revision || 0;
+    state.cloudDiagnostic = state.cloudIdentity
+      ? await getSoulmateDeviceCloudDiagnostic(state.cloudIdentity)
+      : null;
   } catch (error) {
     state.cloudAvailable = false;
     setCloudSyncMessage('当前浏览器不支持安全设备存储');
@@ -520,6 +542,7 @@ async function enableCloudSync() {
   if (!state.profile || state.cloudBusy) return;
   state.cloudIdentity = createSoulmateCloudIdentity();
   state.cloudRevision = 0;
+  state.cloudDiagnostic = null;
   cloudSyncCode.textContent = state.cloudIdentity.recoveryCode;
   cloudSyncCode.hidden = false;
   try {
@@ -554,6 +577,7 @@ async function restoreCloudSyncFrom(input, setMessage) {
     await saveSoulmateCloudDeviceState(identity, remote.revision);
     state.cloudIdentity = identity;
     state.cloudRevision = remote.revision;
+    state.cloudDiagnostic = null;
     applyCloudBundle(remote.bundle, `${remote.bundle.profile.name}已在这台设备醒来。`);
     input.value = '';
     setMessage('恢复成功，之后会自动加密同步');
@@ -582,6 +606,7 @@ async function stopCloudSync() {
     await clearSoulmateCloudDeviceState();
     state.cloudIdentity = null;
     state.cloudRevision = 0;
+    state.cloudDiagnostic = null;
     renderCloudSync();
     setCloudSyncMessage('已停止本机同步，云端加密副本仍保留');
   } catch (error) {
@@ -603,6 +628,7 @@ async function removeCloudSync() {
     await clearSoulmateCloudDeviceState();
     state.cloudIdentity = null;
     state.cloudRevision = 0;
+    state.cloudDiagnostic = null;
     cloudSyncCode.hidden = true;
     setCloudSyncMessage('云端加密副本已删除，本机伙伴仍保留');
   } catch (error) {

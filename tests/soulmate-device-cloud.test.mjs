@@ -8,6 +8,7 @@ import {
 import { fromBase64Url, toBase64Url } from '../shared/device-cloud-crypto.mjs';
 import {
   clearSoulmateDeviceCloudState,
+  getSoulmateDeviceCloudDiagnostic,
   mirrorSoulmateCloudState,
   requestSoulmateDeviceCloudDeletion
 } from '../shared/soulmate-device-cloud.mjs';
@@ -157,6 +158,13 @@ test('dual write registers one device, appends encrypted events, and verifies re
   assert.equal(first.mirrored, true);
   assert.equal(first.verified, true);
   assert.equal(cloud.events.length, 1);
+  assert.deepEqual(await getSoulmateDeviceCloudDiagnostic(identity, { storage }), {
+    registered: true,
+    mirroredRevision: 1,
+    verifiedRevision: 1,
+    cursor: 1,
+    pending: false
+  });
   assert.doesNotMatch(JSON.stringify(cloud.events[0].event), /星澜|雨天散步/);
   assert.equal(cloud.calls.filter((call) => call.path.endsWith('/bootstrap')).length, 1);
 
