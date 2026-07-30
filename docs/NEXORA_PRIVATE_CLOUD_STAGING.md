@@ -1,6 +1,6 @@
 # NEXORA CORE 私有测试云上线清单
 
-状态：Free 私有门禁、production 数据库与隔离分支加密生命周期验收已完成，Identity 为 Invite only，production 设备云功能关闭
+状态：Free 私有门禁、production 数据库与隔离分支加密生命周期验收已完成，私有 GitHub 持续部署已连接，Identity 为 Invite only，production 设备云功能关闭
 日期：2026-07-31
 
 ## 已选技术路径
@@ -11,6 +11,7 @@
 - 数据库：Netlify Database 托管 PostgreSQL；生产和每个 Deploy Preview 使用平台隔离的数据库分支。
 - 对象存储：只保存 AES-256-GCM 加密人格快照，不保存明文人格或原始语音；同月自动压缩为最近 3 份并保留每月最新灾备。
 - 现有生产同步：继续使用 `/api/sync`；客户端双写只有在独立开关明确开启时才镜像到设备事件库，旧同步始终先完成并保持权威读源。
+- 持续部署：私有仓库 `yespsam/nexora-core` 连接到 Netlify 项目 `nexora-core-staging`；`main` 是生产分支，`product/private-cloud-staging` 是允许的隔离测试分支。
 
 选择这条路径是为了沿用 Netlify Functions 和部署流程，减少新增供应商。当前账号为 Free 团队，包含每月 300 credits 和硬上限，不会自动产生超额费用；数据库活动时仍会消耗 compute 和 bandwidth credits。
 
@@ -46,7 +47,7 @@
 
 ## 部署顺序
 
-1. 已创建全新的 `nexora-core-staging` 项目，没有连接或覆盖账号内现有两个项目。
+1. 已创建全新的 `nexora-core-staging` 项目，没有连接或覆盖账号内现有两个项目；Netlify GitHub App 只获准读取私有仓库 `yespsam/nexora-core`。
 2. 已在空项目中开启 Identity，并在任何产品文件部署前把注册改为 Invite only。
 3. 只邀请内部测试账号，验证未受邀邮箱不能建立会话。
 4. 配置 pepper，并保持 production context 的设备云总开关为 `false`。
