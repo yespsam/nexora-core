@@ -40,7 +40,10 @@ import {
 } from '../shared/soulmate-device-cloud.mjs?v=2';
 import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=13';
 import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=5';
-import { shouldBlockRecognizedSpeech } from '../shared/voice-turn.mjs?v=1';
+import {
+  shouldBlockRecognizedSpeech,
+  voiceControlState
+} from '../shared/voice-turn.mjs?v=2';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -113,7 +116,7 @@ const pageParams = new URLSearchParams(location.search);
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
 const LLM_SESSION_KEY = 'nexora-llm-session-key';
 const LLM_PROVIDER_SESSION_KEY = 'nexora-llm-session-provider';
-const APP_RELEASE = 'natural-dialogue-v67';
+const APP_RELEASE = 'voice-turn-v68';
 const llmProviderNames = Object.freeze({
   'kimi-cn': 'Kimi 中国',
   'kimi-global': 'Kimi 全球'
@@ -177,7 +180,11 @@ const state = {
   recognition: null,
   recognitionSupported: false,
   recognitionAccepting: false,
+  listeningTimer: 0,
   echoGuardUntil: 0,
+  voiceRequestController: null,
+  voiceRequestId: 0,
+  playbackId: 0,
   currentAudio: null,
   currentAudioUrl: '',
   queuedAudio: null,
@@ -363,15 +370,20 @@ function setPhase(phase) {
     const stage = stageProgress(state.profile).stage.id;
     creatureViewer?.load(state.profile.starter, creatureActionForPhase[phase] || 'idle', stage);
   }
-  const voiceBusy = ['thinking', 'speaking', 'ready'].includes(phase) || state.busy;
-  micButton.disabled = !state.recognitionSupported || voiceBusy;
-  if (!state.recognitionSupported) {
-    micButton.textContent = '不可用';
-    micButton.setAttribute('aria-pressed', 'false');
-  } else {
-    micButton.textContent = phase === 'listening' ? '停止' : '说话';
-    micButton.setAttribute('aria-pressed', phase === 'listening' ? 'true' : 'false');
-  }
+  const voiceControl = voiceControlState({
+    recognitionSupported: state.recognitionSupported,
+    phase,
+    busy: state.busy,
+    hasVoiceOutput: Boolean(
+      state.voiceRequestController
+      || state.currentAudio
+      || state.queuedAudio
+    )
+  });
+  micButton.disabled = voiceControl.disabled;
+  micButton.textContent = voiceControl.label;
+  micButton.setAttribute('aria-label', voiceControl.ariaLabel);
+  micButton.setAttribute('aria-pressed', voiceControl.pressed ? 'true' : 'false');
   queuePendantSync();
 }
 
@@ -923,7 +935,7 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   const text = String(rawText || '').replace(/\s+/g, ' ').trim().slice(0, 160);
   if (!text || state.busy || (source === 'voice' && looksLikeEcho(text))) return;
   stopListening();
-  stopAudio();
+  stopAudio({ clearQueue: true });
   state.busy = true;
   chatInput.value = '';
   appendMessage('user', text);
@@ -954,7 +966,7 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   await speakText(result.reply, { mood: result.mood, allowQueue: true });
 }
 
-async function fetchVoice(text, mood = 'happy') {
+async function fetchVoice(text, mood = 'happy', signal) {
   const body = JSON.stringify({
     text,
     persona: personaFromStarter(),
@@ -969,15 +981,20 @@ async function fetchVoice(text, mood = 'happy') {
       const response = await fetch('/api/voice/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body
+        body,
+        signal
       });
       const type = response.headers.get('content-type') || '';
       if (response.ok && type.includes('audio')) return response.blob();
       lastError = new Error(`voice ${response.status}`);
     } catch (error) {
+      if (error?.name === 'AbortError' || signal?.aborted) throw error;
       lastError = error;
     }
-    if (attempt === 0) await new Promise((resolve) => window.setTimeout(resolve, 320));
+    if (attempt === 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, 320));
+      if (signal?.aborted) throw new DOMException('Voice request aborted', 'AbortError');
+    }
   }
   throw lastError || new Error('voice unavailable');
 }
@@ -989,22 +1006,40 @@ function clearQueuedAudio() {
   queuedAudioButton.hidden = true;
 }
 
-function stopAudio() {
-  const wasGuardingOutput = state.echoGuardUntil === Number.MAX_SAFE_INTEGER;
+function stopAudio({ clearQueue = false, guardMs = 1000 } = {}) {
+  if (state.voiceRequestController) state.voiceRequestController.abort();
+  state.voiceRequestController = null;
+  state.voiceRequestId += 1;
+  state.playbackId += 1;
+  const hadOutput = Boolean(state.currentAudio)
+    || state.echoGuardUntil === Number.MAX_SAFE_INTEGER;
   if (state.currentAudio) {
     state.currentAudio.pause();
+    state.currentAudio.onended = null;
+    state.currentAudio.onerror = null;
     state.currentAudio.removeAttribute('src');
   }
   if (state.currentAudioUrl) URL.revokeObjectURL(state.currentAudioUrl);
   state.currentAudio = null;
   state.currentAudioUrl = '';
-  if (wasGuardingOutput) state.echoGuardUntil = Date.now() + 1000;
+  if (clearQueue) clearQueuedAudio();
+  if (hadOutput) {
+    const existingGuard = state.echoGuardUntil === Number.MAX_SAFE_INTEGER
+      ? 0
+      : state.echoGuardUntil;
+    state.echoGuardUntil = Math.max(
+      Number.isFinite(existingGuard) ? existingGuard : 0,
+      Date.now() + guardMs
+    );
+  }
+  setPhase(state.phase);
 }
 
 async function playAudioBlob(blob, allowQueue = true) {
   stopListening();
-  stopAudio();
-  clearQueuedAudio();
+  stopAudio({ clearQueue: true, guardMs: 0 });
+  const playbackId = state.playbackId + 1;
+  state.playbackId = playbackId;
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
   audio.playsInline = true;
@@ -1012,21 +1047,21 @@ async function playAudioBlob(blob, allowQueue = true) {
   state.currentAudioUrl = url;
   state.echoGuardUntil = Number.MAX_SAFE_INTEGER;
   audio.onended = () => {
-    state.echoGuardUntil = Date.now() + 1800;
-    stopAudio();
+    if (playbackId !== state.playbackId) return;
+    stopAudio({ guardMs: 1800 });
     setPhase('idle');
   };
   audio.onerror = () => {
-    state.echoGuardUntil = Date.now() + 800;
-    stopAudio();
+    if (playbackId !== state.playbackId) return;
+    stopAudio({ guardMs: 800 });
     setPhase('error');
   };
   setPhase('speaking');
   try {
     await audio.play();
   } catch (error) {
-    state.echoGuardUntil = Date.now();
-    stopAudio();
+    if (playbackId !== state.playbackId) return false;
+    stopAudio({ guardMs: 0 });
     if (!allowQueue) {
       setPhase('error');
       return false;
@@ -1041,11 +1076,20 @@ async function playAudioBlob(blob, allowQueue = true) {
 
 async function speakText(text, { mood = 'happy', allowQueue = false } = {}) {
   stopListening();
+  stopAudio({ clearQueue: true, guardMs: 0 });
+  const requestId = state.voiceRequestId + 1;
+  const controller = new AbortController();
+  state.voiceRequestId = requestId;
+  state.voiceRequestController = controller;
   setPhase('thinking');
   try {
-    const blob = await fetchVoice(text, mood);
+    const blob = await fetchVoice(text, mood, controller.signal);
+    if (controller.signal.aborted || requestId !== state.voiceRequestId) return false;
+    state.voiceRequestController = null;
     return await playAudioBlob(blob, allowQueue);
   } catch (error) {
+    if (state.voiceRequestController === controller) state.voiceRequestController = null;
+    if (controller.signal.aborted || requestId !== state.voiceRequestId) return false;
     setPhase('offline');
     return false;
   }
@@ -1090,27 +1134,46 @@ function setupRecognition() {
 }
 
 function startListening() {
-  if (!state.recognition || state.busy || ['thinking', 'speaking', 'ready'].includes(state.phase)) return;
-  if (Date.now() < state.echoGuardUntil) {
-    presenceLine.textContent = '等声音播放结束后，我再认真听你说。';
-    return;
-  }
-  if (state.phase === 'listening') {
+  if (!state.recognition || state.busy) return;
+  if (state.phase === 'listening' || state.listeningTimer) {
     stopListening();
     return;
   }
-  stopAudio();
-  try {
-    state.recognitionAccepting = true;
-    state.recognition.start();
-    setPhase('listening');
-  } catch (error) {
-    state.recognitionAccepting = false;
-    setPhase('idle');
+  const interrupting = Boolean(
+    state.voiceRequestController
+    || state.currentAudio
+    || state.queuedAudio
+    || ['speaking', 'ready'].includes(state.phase)
+  );
+  stopAudio({ clearQueue: true, guardMs: interrupting ? 500 : 0 });
+  if (interrupting) presenceLine.textContent = '回答已打断，我在听你说。';
+  const delay = Math.max(0, state.echoGuardUntil - Date.now(), interrupting ? 220 : 0);
+  const beginListening = () => {
+    state.listeningTimer = 0;
+    if (state.busy || state.voiceRequestController || state.currentAudio) {
+      setPhase('idle');
+      return;
+    }
+    try {
+      state.recognitionAccepting = true;
+      state.recognition.start();
+      setPhase('listening');
+    } catch (error) {
+      state.recognitionAccepting = false;
+      setPhase('idle');
+    }
+  };
+  setPhase('listening');
+  if (delay > 0) {
+    state.listeningTimer = window.setTimeout(beginListening, delay + 30);
+  } else {
+    beginListening();
   }
 }
 
 function stopListening() {
+  window.clearTimeout(state.listeningTimer);
+  state.listeningTimer = 0;
   if (!state.recognition) return;
   state.recognitionAccepting = false;
   try { state.recognition.abort(); } catch (error) {}

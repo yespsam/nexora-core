@@ -135,8 +135,8 @@ export const creatureVoiceResources = Object.freeze([
     name: '幼灵',
     description: '轻快、稚气的精灵声线',
     voice: 'zh-CN-YunxiaNeural',
-    rate: '+9%',
-    pitch: '+14Hz'
+    rate: '+5%',
+    pitch: '+7Hz'
   },
   {
     id: 'edge',
@@ -145,8 +145,8 @@ export const creatureVoiceResources = Object.freeze([
     name: '锋鸣',
     description: '克制、锐利的守护者声线',
     voice: 'zh-CN-YunjianNeural',
-    rate: '-5%',
-    pitch: '-7Hz'
+    rate: '-2%',
+    pitch: '-3Hz'
   },
   {
     id: 'aether',
@@ -155,8 +155,8 @@ export const creatureVoiceResources = Object.freeze([
     name: '星语',
     description: '安静、空灵的中性精灵声线',
     voice: 'zh-CN-YunxiNeural',
-    rate: '-2%',
-    pitch: '+4Hz'
+    rate: '-4%',
+    pitch: '+1Hz'
   }
 ]);
 
