@@ -53,6 +53,7 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 const birthFlow = $('#birth-flow');
 const companionView = $('#companion-view');
+const startupStatus = $('#startup-status');
 const birthForm = $('#birth-form');
 const birthName = $('#birth-name');
 const birthDate = $('#birth-date');
@@ -120,7 +121,7 @@ const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
 const LLM_SESSION_KEY = 'nexora-llm-session-key';
 const LLM_PROVIDER_SESSION_KEY = 'nexora-llm-session-provider';
-const APP_RELEASE = 'identity-recovery-v69';
+const APP_RELEASE = 'identity-recovery-v70';
 const llmProviderNames = Object.freeze({
   'kimi-cn': 'Kimi 中国',
   'kimi-global': 'Kimi 全球'
@@ -521,6 +522,7 @@ function applyContinuityState(bundle) {
   state.history = merged.history;
   safeWrite(SOULMATE_STORAGE_KEY, state.profile);
   safeWrite(SOULMATE_HISTORY_KEY, state.history);
+  startupStatus.hidden = true;
   birthFlow.hidden = true;
   companionView.hidden = false;
   renderMessages();
@@ -587,6 +589,7 @@ function applyCloudBundle(bundle, message = '') {
   state.history = bundle.history;
   safeWrite(SOULMATE_STORAGE_KEY, state.profile);
   safeWrite(SOULMATE_HISTORY_KEY, state.history);
+  startupStatus.hidden = true;
   birthFlow.hidden = true;
   companionView.hidden = false;
   renderMessages();
@@ -1567,25 +1570,35 @@ state.continuity = openSoulmateSync({
   onState: applyContinuityState,
   hydrateStoredState: !resetRequested
 });
-await initializeCloudSync();
+
+function revealInitialSurface() {
+  startupStatus.hidden = true;
+  if (state.profile) {
+    saveProfile();
+    birthFlow.hidden = true;
+    companionView.hidden = false;
+    renderMessages();
+    renderCompanion();
+    setPhase('idle');
+  } else {
+    birthFlow.hidden = false;
+    companionView.hidden = true;
+    showBirthStep(0);
+    if (state.cloudRecoveryBlocked) {
+      birthRestorePanel.hidden = false;
+      birthRestoreOpen.textContent = '云端恢复暂时不可用';
+      birthRestoreStatus.textContent = '请检查网络后刷新页面，或粘贴恢复码重试。';
+      birthNext.disabled = true;
+    }
+  }
+}
 
 if (state.profile) {
-  saveProfile();
-  birthFlow.hidden = true;
-  companionView.hidden = false;
-  renderMessages();
-  renderCompanion();
-  setPhase('idle');
+  revealInitialSurface();
+  void initializeCloudSync();
 } else {
-  birthFlow.hidden = false;
-  companionView.hidden = true;
-  showBirthStep(0);
-  if (state.cloudRecoveryBlocked) {
-    birthRestorePanel.hidden = false;
-    birthRestoreOpen.textContent = '云端恢复暂时不可用';
-    birthRestoreStatus.textContent = '请检查网络后刷新页面，或粘贴恢复码重试。';
-    birthNext.disabled = true;
-  }
+  await initializeCloudSync();
+  revealInitialSurface();
 }
 
 window.addEventListener('pagehide', () => {

@@ -8,10 +8,14 @@
   <title>NEXORA CORE · 你的数字生命</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/soulmate-icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=0.6.2">
+  <link rel="stylesheet" href="./style.css?v=0.6.3">
 </head>
 <body>
   <main class="app-shell" id="app-shell">
+    <section class="startup-status" id="startup-status" aria-live="polite">
+      <span class="wordmark">NEXORA <b>CORE</b></span>
+      <p>正在唤醒你的伙伴</p>
+    </section>
     <section class="birth-flow" id="birth-flow" aria-label="NEXORA CORE 诞生仪式" hidden>
       <header class="birth-header">
         <span class="wordmark">NEXORA <b>CORE</b></span>
@@ -285,6 +289,6 @@
       <button class="wide-command danger" id="reset-button" type="button">重新诞生</button>
     </dialog>
   </main>
-  <script type="module" src="./app.js?v=0.9.10"></script>
+  <script type="module" src="./app.js?v=0.9.11"></script>
 </body>
 </html>

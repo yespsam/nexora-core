@@ -68,6 +68,24 @@ input:focus-visible {
   font-weight: 760;
 }
 
+.startup-status {
+  min-height: 100svh;
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.startup-status .wordmark {
+  font-size: 18px;
+}
+
+.startup-status p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
 .birth-flow {
   min-height: 100svh;
   display: grid;
