@@ -47,9 +47,12 @@ import {
   creatureActionForResponse
 } from '../shared/creature-3d-data.mjs?v=6';
 import {
+  recognitionFailureMessage,
+  recognitionTranscript,
   shouldBlockRecognizedSpeech,
+  VOICE_LISTEN_TIMEOUT_MS,
   voiceControlState
-} from '../shared/voice-turn.mjs?v=2';
+} from '../shared/voice-turn.mjs?v=3';
 import {
   canResumeSoulmateCloudSync,
   soulmateCloudRetryDelay
@@ -122,7 +125,7 @@ const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
 const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
-const APP_RELEASE = 'managed-llm-v77';
+const APP_RELEASE = 'voice-loop-v78';
 const llmFailureMessages = Object.freeze({
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
   server_key_quota: '云端 Kimi 额度不足，请联系管理员处理。',
@@ -183,7 +186,9 @@ const state = {
   recognition: null,
   recognitionSupported: false,
   recognitionAccepting: false,
+  recognitionResultReceived: false,
   listeningTimer: 0,
+  recognitionTimeout: 0,
   echoGuardUntil: 0,
   voiceRequestController: null,
   voiceRequestId: 0,
@@ -1161,24 +1166,37 @@ function setupRecognition() {
   recognition.continuous = false;
   recognition.interimResults = false;
   recognition.onresult = (event) => {
-    const text = event.results?.[0]?.[0]?.transcript || '';
+    const text = recognitionTranscript(event.results);
     const accepting = state.recognitionAccepting
       && state.phase === 'listening'
       && Date.now() >= state.echoGuardUntil;
+    state.recognitionResultReceived = Boolean(text);
     stopListening();
+    if (!text) {
+      presenceLine.textContent = recognitionFailureMessage('no-speech');
+      return;
+    }
     if (!accepting || looksLikeEcho(text)) {
       presenceLine.textContent = '已阻止语音回声，没有将它当成你的话。';
       return;
     }
     sendMessage(text, { source: 'voice' });
   };
-  recognition.onerror = () => {
+  recognition.onerror = (event) => {
+    const message = recognitionFailureMessage(event?.error);
+    window.clearTimeout(state.recognitionTimeout);
+    state.recognitionTimeout = 0;
     state.recognitionAccepting = false;
     if (state.phase === 'listening') setPhase('idle');
+    if (message) presenceLine.textContent = message;
   };
   recognition.onend = () => {
+    const endedWithoutResult = state.recognitionAccepting && !state.recognitionResultReceived;
+    window.clearTimeout(state.recognitionTimeout);
+    state.recognitionTimeout = 0;
     state.recognitionAccepting = false;
     if (state.phase === 'listening') setPhase('idle');
+    if (endedWithoutResult) presenceLine.textContent = recognitionFailureMessage('no-speech');
   };
   state.recognition = recognition;
   state.recognitionSupported = true;
@@ -1208,7 +1226,14 @@ function startListening() {
     }
     try {
       state.recognitionAccepting = true;
+      state.recognitionResultReceived = false;
       state.recognition.start();
+      window.clearTimeout(state.recognitionTimeout);
+      state.recognitionTimeout = window.setTimeout(() => {
+        if (!state.recognitionAccepting) return;
+        presenceLine.textContent = '这次收音已结束，再按一次就能继续说。';
+        stopListening();
+      }, VOICE_LISTEN_TIMEOUT_MS);
       setPhase('listening');
     } catch (error) {
       state.recognitionAccepting = false;
@@ -1225,7 +1250,9 @@ function startListening() {
 
 function stopListening() {
   window.clearTimeout(state.listeningTimer);
+  window.clearTimeout(state.recognitionTimeout);
   state.listeningTimer = 0;
+  state.recognitionTimeout = 0;
   if (!state.recognition) return;
   state.recognitionAccepting = false;
   try { state.recognition.abort(); } catch (error) {}

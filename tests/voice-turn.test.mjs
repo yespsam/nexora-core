@@ -2,10 +2,35 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  recognitionFailureMessage,
+  recognitionTranscript,
   shouldBlockRecognizedSpeech,
   speechOverlapRatio,
+  VOICE_LISTEN_TIMEOUT_MS,
   voiceControlState
 } from '../shared/voice-turn.mjs';
+
+test('recognition combines final speech segments and bounds the message', () => {
+  const results = [
+    Object.assign([{ transcript: '今天中午' }], { isFinal: true }),
+    Object.assign([{ transcript: '想吃火锅' }], { isFinal: true }),
+    Object.assign([{ transcript: '还在识别' }], { isFinal: false })
+  ];
+  assert.equal(recognitionTranscript(results), '今天中午 想吃火锅');
+  assert.equal(recognitionTranscript(null), '');
+  assert.equal(recognitionTranscript([
+    Object.assign([{ transcript: 'a'.repeat(220) }], { isFinal: true })
+  ]).length, 160);
+  assert.equal(VOICE_LISTEN_TIMEOUT_MS, 12000);
+});
+
+test('recognition failures give recoverable user-facing guidance', () => {
+  assert.match(recognitionFailureMessage('not-allowed'), /麦克风权限/);
+  assert.match(recognitionFailureMessage('audio-capture'), /麦克风/);
+  assert.match(recognitionFailureMessage('no-speech'), /没有听清/);
+  assert.match(recognitionFailureMessage('network'), /网络/);
+  assert.equal(recognitionFailureMessage('aborted'), '');
+});
 
 test('speech output guard rejects late recognition events', () => {
   assert.equal(shouldBlockRecognizedSpeech({

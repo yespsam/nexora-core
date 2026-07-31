@@ -2,6 +2,31 @@ export function normalizeSpeech(value) {
   return String(value || '').replace(/[\s，。！？,.!?]/g, '').toLowerCase();
 }
 
+export const VOICE_LISTEN_TIMEOUT_MS = 12000;
+
+export function recognitionTranscript(results) {
+  return Array.from(results || [])
+    .filter((result) => result?.isFinal !== false)
+    .map((result) => String(result?.[0]?.transcript || '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 160);
+}
+
+export function recognitionFailureMessage(code) {
+  const normalized = String(code || '').toLowerCase();
+  if (normalized === 'aborted') return '';
+  if (normalized === 'not-allowed' || normalized === 'service-not-allowed') {
+    return '需要允许麦克风权限，才能听见你。';
+  }
+  if (normalized === 'audio-capture') return '没有找到可用的麦克风。';
+  if (normalized === 'no-speech') return '这次没有听清，再说一次吧。';
+  if (normalized === 'network') return '语音识别网络暂时不可用，请稍后重试。';
+  return '语音识别暂时不可用，请改用文字输入。';
+}
+
 function speechBigrams(value) {
   const grams = new Set();
   for (let index = 0; index < value.length - 1; index += 1) {
