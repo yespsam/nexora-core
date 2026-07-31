@@ -18,10 +18,42 @@ function boundedNumber(value, fallback, min, max) {
 
 function memoryType(text) {
   if (/喜欢|最爱|偏爱|讨厌|不喜欢|习惯|更想要|更愿意/.test(text)) return 'preference';
-  if (/生日|住在|来自|名字|叫(?:做|作)?|职业|工作是|学校|家人|宠物/.test(text)) return 'fact';
+  if (/生日|住在|来自|名字|叫(?:做|作)?|职业|工作是|学校|家人|宠物|我是|我的.+是|我(?:有|没有|在用|正在用)/.test(text)) return 'fact';
   if (/难过|开心|焦虑|压力|生气|害怕|委屈|孤独|疲惫|累了/.test(text)) return 'emotion';
   if (/我们|一起|想你|爱你|谢谢你|陪我|第一次见/.test(text)) return 'relationship';
   return 'event';
+}
+
+function memorySummary(text, type) {
+  let summary = cleanText(text, 120)
+    .replace(/^(?:请)?(?:记住|别忘了)[：:，,\s]*/u, '')
+    .replace(/[，,。.\s]*(?:你)?(?:记住了吗|知道了吗|明白了吗)[？?]?$/u, '')
+    .trim();
+  if (type === 'fact' || type === 'preference') {
+    summary = summary.replace(/^我想让你知道[：:，,\s]*/u, '');
+  }
+  return cleanText(summary, 120);
+}
+
+function isQuestionLike(text) {
+  return /[？?]/.test(text)
+    || /(?:吗|么|呢|什么|哪(?:个|里|些)?|谁|怎么|为什么|是否|能不能|可不可以|有没有|还记得)[呀啊吧]?[。！!]*$/u.test(text);
+}
+
+function isMetaPrompt(text) {
+  return /(?:连续)?(?:对话|语音|记忆|功能)?测试|不要泛泛回答|请用.{0,24}(?:告诉|回答|说|重复)|(?:回答|重复).{0,12}(?:一句|一遍)/u.test(text);
+}
+
+function isDurableEvent(text) {
+  return /今天|明天|昨天|刚刚|刚才|这周|下周|周[一二三四五六日天]|准备|计划|决定|完成|开始|去了|要去|发布会|旅行|会议|约会|考试|搬家|买了|做了|看了|吃了|喝了|喝过|工作|学习|项目|下雨|天气/u.test(text);
+}
+
+function shouldRemember(text, type) {
+  if (!text || isMetaPrompt(text) || isQuestionLike(text)) return false;
+  if (/^(?:请)?(?:告诉我|回答我|重复|打开|关闭|播放|发送|执行|控制|帮我|给我)/u.test(text)) {
+    return false;
+  }
+  return type !== 'event' || isDurableEvent(text);
 }
 
 function importanceFor(type, text) {
@@ -48,9 +80,12 @@ function memoryId(type, text, createdAt) {
 
 export function normalizeSoulmateMemory(value, now = Date.now(), index = 0) {
   if (!value || typeof value !== 'object') return null;
-  const summary = cleanText(value.summary || value.text || value.sourceText, 120);
+  const originalSummary = cleanText(value.summary || value.text || value.sourceText, 120);
+  if (!originalSummary) return null;
+  const type = memoryTypes.has(value.type) ? value.type : memoryType(originalSummary);
+  if (!shouldRemember(originalSummary, type)) return null;
+  const summary = memorySummary(originalSummary, type);
   if (!summary) return null;
-  const type = memoryTypes.has(value.type) ? value.type : memoryType(summary);
   const createdAt = boundedNumber(value.createdAt, now + index, 0, now);
   return {
     version: SOULMATE_MEMORY_VERSION,
@@ -82,11 +117,14 @@ export function extractSoulmateMemory(text, now = Date.now()) {
   const sourceText = cleanText(text, 120);
   if (sourceText.length < 4 || /^(你好|嗨|哈喽|在吗|晚安|早上好)[呀啊。！!，, ]*$/.test(sourceText)) return null;
   const type = memoryType(sourceText);
+  if (!shouldRemember(sourceText, type)) return null;
+  const summary = memorySummary(sourceText, type);
+  if (!summary) return null;
   return normalizeSoulmateMemory({
     type,
-    summary: sourceText,
+    summary,
     sourceText,
-    importance: importanceFor(type, sourceText),
+    importance: importanceFor(type, summary),
     createdAt: now,
     updatedAt: now,
     mentionCount: 1

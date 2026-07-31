@@ -75,13 +75,12 @@ test('legacy default voices migrate while explicit voice choices remain stable',
   assert.equal(normalizeSoulmateProfile(customized, 1000).voiceCustomized, true);
 });
 
-test('chat grows bond, traits, and bounded memories', () => {
+test('chat grows bond and traits without storing question noise', () => {
   let profile = createSoulmateProfile({ name: '星澜' }, 1000);
   for (let index = 0; index < 60; index += 1) {
     profile = growSoulmate(profile, { kind: 'chat', text: `我想知道今天的第 ${index} 件事？` }, 2000 + index);
   }
-  assert.equal(profile.memories.length, 48);
-  assert.ok(profile.memories.every((memory) => memory.version === 1 && memory.summary));
+  assert.equal(profile.memories.length, 0);
   assert.ok(profile.bond >= 240);
   assert.equal(stageForBond(profile.bond).id, 'resonance');
   assert.ok(profile.traits.curiosity > 42);

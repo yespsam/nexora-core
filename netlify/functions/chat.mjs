@@ -40,7 +40,7 @@ function pickReply(list, text) {
   return list[Math.abs(seed + jitter) % list.length];
 }
 
-const LLM_TIMEOUT_MS = 7000;
+const LLM_TIMEOUT_MS = 12000;
 const LLM_MODEL_WHITELIST = new Set([
   'kimi-k3', 'kimi-k2.5', 'kimi-k2.6', 'kimi-k2.7-code',
   'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'

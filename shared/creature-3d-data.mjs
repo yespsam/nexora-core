@@ -63,6 +63,16 @@ export const creatureActionForPhase = Object.freeze({
   sleep: 'idle'
 });
 
+export const creatureActionForResponse = Object.freeze({
+  idle: 'idle',
+  nod: 'nod',
+  heart: 'affection',
+  wave: 'wave',
+  voice: 'speaking',
+  walk: 'walk',
+  run: 'run'
+});
+
 export function creature3DEntry(starter = 'cute', stage = 'seed') {
   const entry = creature3DCatalog[starter] || creature3DCatalog.cute;
   const form = entry.forms[stage] || entry.forms.seed;

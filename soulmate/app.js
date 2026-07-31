@@ -42,7 +42,10 @@ import {
   requestSoulmateDeviceCloudDeletion
 } from '../shared/soulmate-device-cloud.mjs?v=2';
 import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=13';
-import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=5';
+import {
+  creatureActionForPhase,
+  creatureActionForResponse
+} from '../shared/creature-3d-data.mjs?v=6';
 import {
   shouldBlockRecognizedSpeech,
   voiceControlState
@@ -121,7 +124,7 @@ const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
 const LLM_SESSION_KEY = 'nexora-llm-session-key';
 const LLM_PROVIDER_SESSION_KEY = 'nexora-llm-session-provider';
-const APP_RELEASE = 'identity-recovery-v70';
+const APP_RELEASE = 'dialogue-memory-v71';
 const llmProviderNames = Object.freeze({
   'kimi-cn': 'Kimi 中国',
   'kimi-global': 'Kimi 全球'
@@ -369,13 +372,16 @@ function voiceArchetype(voice = state.profile?.voice || state.birthSelections.vo
   return 'aether';
 }
 
-function setPhase(phase) {
+function setPhase(phase, responseAction = '') {
   state.phase = phase;
   companionView.dataset.conversationPhase = phase;
   conversationStateLabel.textContent = phaseLabels[phase] || phaseLabels.idle;
   if (state.profile) {
     const stage = stageProgress(state.profile).stage.id;
-    creatureViewer?.load(state.profile.starter, creatureActionForPhase[phase] || 'idle', stage);
+    const action = phase === 'thinking' && creatureActionForResponse[responseAction]
+      ? creatureActionForResponse[responseAction]
+      : creatureActionForPhase[phase] || 'idle';
+    creatureViewer?.load(state.profile.starter, action, stage);
   }
   const voiceControl = voiceControlState({
     recognitionSupported: state.recognitionSupported,
@@ -960,6 +966,7 @@ async function requestReply(text, {
   return {
     reply,
     mood: body.emotion?.mood || 'calm',
+    action: String(body.actions?.find((item) => item?.target === 'companion')?.action || 'voice'),
     mode: String(body.mode || ''),
     provider: String(body.llm?.provider || ''),
     failure: String(body.llm?.failure || '')
@@ -998,7 +1005,11 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   state.lastAssistantAt = Date.now();
   presenceLine.textContent = result.reply;
   state.busy = false;
-  await speakText(result.reply, { mood: result.mood, allowQueue: true });
+  await speakText(result.reply, {
+    mood: result.mood,
+    action: result.action,
+    allowQueue: true
+  });
 }
 
 async function fetchVoice(text, mood = 'happy', signal) {
@@ -1109,14 +1120,18 @@ async function playAudioBlob(blob, allowQueue = true) {
   return true;
 }
 
-async function speakText(text, { mood = 'happy', allowQueue = false } = {}) {
+async function speakText(text, {
+  mood = 'happy',
+  action = '',
+  allowQueue = false
+} = {}) {
   stopListening();
   stopAudio({ clearQueue: true, guardMs: 0 });
   const requestId = state.voiceRequestId + 1;
   const controller = new AbortController();
   state.voiceRequestId = requestId;
   state.voiceRequestController = controller;
-  setPhase('thinking');
+  setPhase('thinking', action);
   try {
     const blob = await fetchVoice(text, mood, controller.signal);
     if (controller.signal.aborted || requestId !== state.voiceRequestId) return false;

@@ -17,6 +17,31 @@ test('memory engine classifies durable relationship facts and preferences', () =
   assert.equal(extractSoulmateMemory('你好', 1000), null);
 });
 
+test('memory engine rejects questions, commands, and test prompts', () => {
+  assert.equal(extractSoulmateMemory('我刚才说发布会要安排在哪个城市？不要泛泛回答。', 1000), null);
+  assert.equal(extractSoulmateMemory('请用一句简短的话告诉我：语音测试成功。', 1000), null);
+  assert.equal(extractSoulmateMemory('你还记得我的猫叫什么吗？', 1000), null);
+  assert.equal(extractSoulmateMemory('帮我打开电脑上的音乐', 1000), null);
+});
+
+test('memory engine keeps meaningful plans and cleans memory instructions', () => {
+  const plan = extractSoulmateMemory('我准备把产品发布会安排在上海', 1000);
+  const birthday = extractSoulmateMemory('请记住我的生日是七月二十八日', 2000);
+  assert.equal(plan.type, 'event');
+  assert.match(plan.summary, /上海/);
+  assert.equal(birthday.type, 'fact');
+  assert.equal(birthday.summary, '我的生日是七月二十八日');
+});
+
+test('memory normalization removes previously stored prompt noise', () => {
+  const memories = normalizeSoulmateMemories([
+    { text: '我喜欢雨天喝热可可', createdAt: 1000 },
+    { text: '请用一句简短的话告诉我：语音测试成功。', createdAt: 2000 },
+    { text: '我刚才说了什么？', createdAt: 3000 }
+  ], 4000);
+  assert.deepEqual(memories.map((memory) => memory.summary), ['我喜欢雨天喝热可可']);
+});
+
 test('memory engine merges repeated memories instead of filling the store', () => {
   let memories = rememberSoulmateInteraction([], '我最喜欢在雨天喝热可可', 1000);
   memories = rememberSoulmateInteraction(memories, '我最喜欢在雨天喝热可可', 2000);

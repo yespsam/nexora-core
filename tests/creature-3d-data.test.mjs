@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { creature3DCatalog, creature3DEntry } from '../shared/creature-3d-data.mjs';
+import {
+  creature3DCatalog,
+  creature3DEntry,
+  creatureActionForResponse
+} from '../shared/creature-3d-data.mjs';
 
 test('3D catalog exposes nine distinct native evolution forms', () => {
   const models = new Set();
@@ -31,4 +35,11 @@ test('unknown evolution stages safely resolve to the seed form', () => {
   const entry = creature3DEntry('cute', 'missing');
   assert.equal(entry.stage, 'seed');
   assert.equal(entry.model, creature3DCatalog.cute.forms.seed.model);
+});
+
+test('dialogue actions map to native creature animations', () => {
+  assert.equal(creatureActionForResponse.heart, 'affection');
+  assert.equal(creatureActionForResponse.voice, 'speaking');
+  assert.equal(creatureActionForResponse.nod, 'nod');
+  assert.equal(creatureActionForResponse.walk, 'walk');
 });
