@@ -249,7 +249,7 @@ const state = {
 let creatureViewer = null;
 let birthViewer = null;
 try {
-  creatureViewer = new Creature3DViewer(companionModel);
+  creatureViewer = new Creature3DViewer(companionModel, { frustumHeight: 2.78 });
   birthViewer = new Creature3DViewer(birthVisualModel, { frustumHeight: 3.05 });
   birthViewer.load('cute', 'idle', 'seed');
 } catch (error) {

@@ -475,6 +475,21 @@ input:focus-visible {
   -webkit-tap-highlight-color: transparent;
 }
 
+.companion-touch::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  bottom: 15%;
+  width: 27%;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(23, 25, 24, 0.12);
+  box-shadow: 0 0 9px 5px rgba(23, 25, 24, 0.06);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
 .companion-model {
   position: absolute;
   z-index: 1;
@@ -1236,7 +1251,7 @@ input:focus-visible {
 
 @media (min-width: 761px) {
   .companion-touch {
-    width: min(34vw, 40svh, 420px);
+    width: min(38vw, 44svh, 460px);
   }
 
   .stage-heading {
