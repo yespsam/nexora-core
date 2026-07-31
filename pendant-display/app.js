@@ -307,6 +307,18 @@ if (simulatorMode) {
         render();
       },
       setState: setDisplayState,
+      setCompanionForm(starter, stage = 'seed') {
+        if (!soulmateStarterCatalog[starter]) return false;
+        state.starter = starter;
+        state.stage = stage;
+        syncStageOptions();
+        render();
+        return true;
+      },
+      loadModel(starter, action = 'idle', stage = 'seed') {
+        const viewer = ensureCreatureViewer();
+        return viewer ? viewer.load(starter, action, stage) : Promise.resolve(false);
+      },
       getSnapshot: () => currentSnapshot ? structuredClone(currentSnapshot) : null,
       getModelState: () => ({
         ...(creatureViewer?.getState() || {

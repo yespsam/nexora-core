@@ -8,8 +8,11 @@ import {
 } from '../shared/soulmate-profile.mjs';
 import { creatureVoiceResources } from '../shared/companion-data.mjs';
 
-const RELEASE_ID = 'cross-device-continuity-v1';
+const RELEASE_ID = 'full-creature-matrix-v2';
 const FRAME_READY_TIMEOUT_MS = 30000;
+const STARTERS = Object.freeze(['cute', 'cool', 'beautiful']);
+const STAGES = Object.freeze(['seed', 'young', 'resonance']);
+const MODEL_ACTIONS = Object.freeze(['idle', 'nod', 'affection', 'wave', 'speaking', 'walk', 'run']);
 let frameRun = 0;
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -127,6 +130,30 @@ async function waitForPendantAction(pendant, action, timeout = 20000) {
   throw new Error(`${action} 动作 20 秒未就绪，当前 ${status}`);
 }
 
+async function waitForPendantModel(pendant, {
+  starter,
+  stage,
+  action
+}, timeout = 20000) {
+  const started = Date.now();
+  let current = null;
+  while (Date.now() - started < timeout) {
+    current = pendant.getModelState();
+    if (current?.error) throw new Error(`${starter}/${stage}/${action}：${current.error}`);
+    if (
+      current?.status === 'ready'
+      && current.starter === starter
+      && current.stage === stage
+      && current.action === action
+    ) return current;
+    await delay(100);
+  }
+  const status = current
+    ? `${current.starter || '?'}/${current.stage || '?'}/${current.action || '?'}/${current.status || '?'}`
+    : '无模型状态';
+  throw new Error(`${starter}/${stage}/${action} 20 秒未就绪，当前 ${status}`);
+}
+
 async function runAllTests() {
   runButton.disabled = true;
   runButton.textContent = '正在测试';
@@ -175,6 +202,46 @@ async function runAllTests() {
     const size = roundDisplay.getBoundingClientRect();
     assert(Math.abs(size.width - 240) <= 2 && Math.abs(size.height - 240) <= 2, `圆屏为 ${Math.round(size.width)}×${Math.round(size.height)}`);
     return '9 个原生 3D 形态 / 240×240';
+  }));
+
+  results.push(await check('form-matrix', '九形态逐一渲染', async () => {
+    let loaded = 0;
+    for (const starter of STARTERS) {
+      for (const stage of STAGES) {
+        assert(pendant.setCompanionForm(starter, stage), `${starter}/${stage} 无法选择`);
+        await waitForPendantModel(pendant, { starter, stage, action: 'idle' });
+        const pixels = pendant.sampleModel();
+        assert(pixels?.opaque > 100, `${starter}/${stage} 画面为空`);
+        loaded += 1;
+      }
+    }
+    return `${loaded} / 9 原生形态实际可见`;
+  }));
+
+  results.push(await check('action-matrix', '三路线动作矩阵', async () => {
+    let loaded = 0;
+    for (const starter of STARTERS) {
+      assert(pendant.setCompanionForm(starter, 'seed'), `${starter} 无法选择`);
+      const baseline = await waitForPendantModel(pendant, {
+        starter,
+        stage: 'seed',
+        action: 'idle'
+      });
+      for (const action of MODEL_ACTIONS) {
+        assert(await pendant.loadModel(starter, action, 'seed'), `${starter}/${action} 加载失败`);
+        const current = await waitForPendantModel(pendant, {
+          starter,
+          stage: 'seed',
+          action
+        });
+        assert(
+          current.modelGeneration === baseline.modelGeneration,
+          `${starter}/${action} 错误重建模型`
+        );
+        loaded += 1;
+      }
+    }
+    return `${loaded} / 21 动作切换通过`;
   }));
 
   results.push(await check('pair', '虚拟蓝牙连接', async () => {
@@ -303,8 +370,9 @@ async function runAllTests() {
       const type = response.headers.get('content-type') || '';
       assert(response.ok, `${cast.name}接口返回 ${response.status}`);
       assert(type.includes('audio'), `${cast.name}没有返回音频`);
-      assert(response.headers.get('x-qiban-archetype') === cast.archetype, `${cast.name}路由错误`);
-      assert(response.headers.get('x-qiban-voice') === cast.voice, `${cast.name}声线错误`);
+      assert(response.headers.get('x-nexora-archetype') === cast.archetype, `${cast.name}路由错误`);
+      assert(response.headers.get('x-nexora-voice') === cast.voice, `${cast.name}声线错误`);
+      assert(response.headers.get('x-nexora-voice-profile') === 'natural-v2', `${cast.name}不是自然声线`);
       const audio = await response.blob();
       assert(audio.size > 1000, `${cast.name}音频内容为空`);
       totalBytes += audio.size;
