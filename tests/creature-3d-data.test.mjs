@@ -39,7 +39,7 @@ test('unknown evolution stages safely resolve to the seed form', () => {
   assert.equal(entry.model, creature3DCatalog.cute.forms.seed.model);
 });
 
-test('dialogue actions map to native creature animations', () => {
+test('dialogue responses map to creature motion states', () => {
   assert.equal(creatureActionForResponse.heart, 'affection');
   assert.equal(creatureActionForResponse.voice, 'speaking');
   assert.equal(creatureActionForResponse.nod, 'nod');
@@ -57,14 +57,18 @@ test('device states use distinct coordinated motion profiles', () => {
   }
   assert.ok(creatureActionProfiles.listening.lean < 0);
   assert.ok(creatureActionProfiles.sleep.lean > creatureActionProfiles['low-power'].lean);
-  for (const action of ['idle', 'listening', 'nod', 'affection', 'wave', 'speaking', 'walk', 'run', 'charging', 'low-power', 'sleep']) {
+  for (const action of ['listening', 'nod', 'affection', 'wave', 'charging', 'low-power', 'sleep']) {
     assert.equal(creatureActionProfiles[action].freezePose, true);
     assert.equal(creatureActionProfiles[action].procedural, action);
   }
-  assert.equal(creature3DEntry('cute', 'seed').actions.walk, creature3DEntry('cute', 'seed').actions.idle);
-  assert.equal(creature3DEntry('cute', 'seed').actions.run, creature3DEntry('cute', 'seed').actions.idle);
-  assert.ok(creatureActionProfiles.run.bobRate > creatureActionProfiles.walk.bobRate);
-  assert.ok(creatureActionProfiles.run.lean < creatureActionProfiles.walk.lean);
+  for (const action of ['idle', 'speaking', 'walk', 'run']) {
+    assert.equal(creatureActionProfiles[action].freezePose, undefined);
+    assert.equal(creatureActionProfiles[action].procedural, undefined);
+    assert.match(creature3DEntry('cute', 'seed').actions[action], new RegExp(`/animations/${action}\\.glb$`));
+  }
+  for (const action of ['nod', 'affection', 'wave']) {
+    assert.equal(creature3DEntry('cute', 'seed').actions[action], creature3DEntry('cute', 'seed').actions.idle);
+  }
   assert.equal(creature3DEntry('cute', 'resonance').yaw, 0);
   assert.equal(creature3DEntry('beautiful', 'young').yaw, -Math.PI / 2);
 });

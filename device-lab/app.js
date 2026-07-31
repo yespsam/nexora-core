@@ -9,7 +9,7 @@ import {
 import { creatureVoiceResources } from '../shared/companion-data.mjs';
 import { PENDANT_DISPLAY_SIZE } from '../shared/pendant-display.mjs';
 
-const RELEASE_ID = 'voice-actions-v82';
+const RELEASE_ID = 'native-motion-v83';
 const FRAME_READY_TIMEOUT_MS = 30000;
 const MOTION_SOAK_MS = 30000;
 const STARTERS = Object.freeze(['cute', 'cool', 'beautiful']);
@@ -175,7 +175,7 @@ async function sampleStableMotion(pendant, expected, duration = 600) {
     const current = pendant.getModelState();
     assert(current?.status === 'ready', `${expected.starter}/${expected.stage}/${expected.action} 未保持就绪`);
     assert(current.action === expected.action, `${expected.action} 动作被意外替换`);
-    assert(current.motion?.procedural === expected.action, `${expected.action} 没有使用定制骨骼步态`);
+    assert(current.motion?.native, `${expected.action} 没有使用原生动作片段`);
     assert(current.motion?.stabilized && current.motion?.finite, `${expected.action} 根运动不稳定`);
     assert(Math.abs(current.motion.offsetX) < 0.02, `${expected.action} 横向漂移 ${current.motion.offsetX}`);
     assert(Math.abs(current.motion.offsetZ) < 0.02, `${expected.action} 纵向漂移 ${current.motion.offsetZ}`);

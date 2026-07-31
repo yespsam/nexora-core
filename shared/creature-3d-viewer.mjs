@@ -5,7 +5,7 @@ import {
   creature3DEntry,
   creatureActionForPhase,
   creatureActionProfiles
-} from './creature-3d-data.mjs?v=13';
+} from './creature-3d-data.mjs?v=14';
 
 const PROCEDURAL_BONES = Object.freeze([
   'Hips',
@@ -78,7 +78,12 @@ export class Creature3DViewer {
     this.proceduralQuaternion = new THREE.Quaternion();
     this.hipsWorldPosition = new THREE.Vector3();
     this.hipsLocalPosition = new THREE.Vector3();
+    this.compensatedHipsPosition = new THREE.Vector3();
+    this.upAxis = new THREE.Vector3(0, 1, 0);
     this.actionHipsPosition = new THREE.Vector3();
+    this.motionResidualX = 0;
+    this.motionResidualZ = 0;
+    this.motionResidualYaw = 0;
     this.hipsWorldQuaternion = new THREE.Quaternion();
     this.rootWorldQuaternion = new THREE.Quaternion();
     this.hipsLocalQuaternion = new THREE.Quaternion();
@@ -357,6 +362,7 @@ export class Creature3DViewer {
     this.proceduralBones = new Map(PROCEDURAL_BONES
       .map((name) => [name, animatedModel.getObjectByName(name)])
       .filter(([, bone]) => Boolean(bone)));
+    this.captureMotionAnchor();
   }
 
   playClip(action, clip, fadeDuration = 0.24) {
@@ -369,14 +375,22 @@ export class Creature3DViewer {
     this.actionMotion = creatureActionProfiles[action] || creatureActionProfiles.idle;
     this.motionRoot?.position.set(0, 0, 0);
     this.motionRoot?.rotation.set(0, 0, 0);
+    if (this.actionMotion.freezePose) {
+      for (const [name, bone] of this.proceduralBones) {
+        const bind = this.bindPose.get(name);
+        if (bind) bone.quaternion.copy(bind.quaternion);
+      }
+    }
     const nextAction = this.mixer.clipAction(clip);
     const previousAction = this.activeMixerAction;
     const freezePose = Boolean(this.actionMotion.freezePose);
+    const loopOnce = Boolean(this.actionMotion.loopOnce);
     nextAction.enabled = true;
     nextAction.reset();
     nextAction.setEffectiveTimeScale(this.actionMotion.timeScale || 1);
     nextAction.setEffectiveWeight(1);
-    nextAction.setLoop(THREE.LoopRepeat, Infinity);
+    nextAction.setLoop(loopOnce ? THREE.LoopOnce : THREE.LoopRepeat, loopOnce ? 1 : Infinity);
+    nextAction.clampWhenFinished = loopOnce;
     nextAction.play();
     if (freezePose && previousAction && previousAction !== nextAction) {
       previousAction.stop();
@@ -394,7 +408,6 @@ export class Creature3DViewer {
     this.actionStartedAt = performance.now();
     this.captureProceduralPose();
     this.proceduralTransitionPose = outgoingPose;
-    this.captureMotionAnchor();
   }
 
   captureProceduralPose() {
@@ -420,12 +433,12 @@ export class Creature3DViewer {
     const motion = this.actionMotion?.procedural;
     if (!motion || !this.proceduralPose.size) return;
     const elapsed = Math.max(0, now - this.actionStartedAt);
+    const localTime = elapsed * 0.001;
     const rawWeight = Math.min(1, elapsed / 320);
     const weight = rawWeight * rawWeight * (3 - 2 * rawWeight);
-    const time = now * 0.001;
-    const breath = Math.sin(time * 1.7);
-    const gesture = Math.sin(time * 4.2);
-    const wave = Math.sin(time * 6.2);
+    const breath = Math.sin(localTime * 1.7);
+    const gesture = Math.sin(localTime * 5.2);
+    const wave = Math.sin(Math.max(0, localTime - 0.38) * 8.6);
     const apply = (name, x = 0, y = 0, z = 0) => {
       this.applyBoneDelta(name, x * weight, y * weight, z * weight, weight);
     };
@@ -445,24 +458,29 @@ export class Creature3DViewer {
       apply('Spine02', -0.035 + breath * 0.012, 0, 0.025);
       apply('Head', -0.055 + breath * 0.01, 0, 0.09);
     } else if (motion === 'nod') {
-      apply('Spine02', gesture * 0.025, 0, 0);
-      apply('Head', gesture * 0.14, 0, Math.sin(time * 2.1) * 0.018);
+      apply('Spine02', gesture * 0.045, 0, 0);
+      apply('Head', gesture * 0.28, 0, Math.sin(localTime * 2.6) * 0.012);
     } else if (motion === 'affection') {
-      apply('Spine02', -0.035 + breath * 0.018, 0, breath * 0.01);
-      apply('Head', -0.04 + breath * 0.012, 0, -0.055);
-      apply('LeftArm', 0.04, 0, 0.2);
-      apply('RightArm', 0.04, 0, -0.2);
-      apply('LeftForeArm', 0.14, 0, 0.05);
-      apply('RightForeArm', 0.14, 0, -0.05);
+      const approach = Math.sin(Math.min(1, localTime / 0.52) * Math.PI * 0.5);
+      const reach = approach * (0.96 + Math.sin(localTime * 2.4) * 0.04);
+      apply('Spine02', -0.16 * reach + breath * 0.012, 0, breath * 0.006);
+      apply('Head', -0.12 * reach + breath * 0.008, 0, -0.04 * reach);
+      apply('LeftArm', -0.88 * reach, -0.24 * reach, -0.52 * reach);
+      apply('RightArm', -0.88 * reach, 0.24 * reach, 0.52 * reach);
+      apply('LeftForeArm', -0.18 * reach, -0.18 * reach, 0.62 * reach);
+      apply('RightForeArm', -0.18 * reach, 0.18 * reach, -0.62 * reach);
+      apply('LeftHand', -0.08 * reach, 0, 0.12 * reach);
+      apply('RightHand', -0.08 * reach, 0, -0.12 * reach);
     } else if (motion === 'wave') {
-      apply('Spine02', 0, 0, -0.025);
-      apply('Head', 0, 0, 0.035);
-      apply('RightArm', -0.08, 0, -0.42);
-      apply('RightForeArm', -0.12, wave * 0.18, -0.12);
-      apply('RightHand', 0, wave * 0.28, 0);
+      const lift = Math.sin(Math.min(1, localTime / 0.42) * Math.PI * 0.5);
+      apply('Spine02', 0, 0, -0.045 * lift);
+      apply('Head', 0, 0, 0.07 * lift);
+      apply('RightArm', -1.25 * lift, 0.5 * lift, (1.25 + wave * 0.08) * lift);
+      apply('RightForeArm', -0.28 * lift, 0.5 * lift, (-0.5 + wave * 0.34) * lift);
+      apply('RightHand', -0.2 * lift, -0.35 * lift, (0.25 + wave * 0.48) * lift);
     } else if (motion === 'speaking') {
       apply('Spine02', breath * 0.018, gesture * 0.018, 0);
-      apply('Head', gesture * 0.025, Math.sin(time * 2.4) * 0.025, 0);
+      apply('Head', gesture * 0.025, Math.sin(localTime * 2.4) * 0.025, 0);
       apply('LeftArm', 0, 0, 0.04 + gesture * 0.035);
       apply('RightArm', 0, 0, -0.04 - gesture * 0.035);
       apply('LeftForeArm', 0.04 + gesture * 0.025, 0, 0);
@@ -470,14 +488,14 @@ export class Creature3DViewer {
     } else if (motion === 'walk' || motion === 'run') {
       const running = motion === 'run';
       const rate = running ? 6.2 : 3.6;
-      const stride = Math.sin(time * rate);
+      const stride = Math.sin(localTime * rate);
       const strideOpposite = -stride;
       const leftLift = Math.max(0, stride);
       const rightLift = Math.max(0, strideOpposite);
       const legSwing = running ? 0.38 : 0.24;
       const kneeBend = running ? 0.52 : 0.3;
       const armSwing = running ? 0.28 : 0.17;
-      const torsoSway = Math.sin(time * rate * 0.5) * (running ? 0.025 : 0.014);
+      const torsoSway = Math.sin(localTime * rate * 0.5) * (running ? 0.025 : 0.014);
       apply('Spine01', running ? -0.045 : -0.012, 0, torsoSway);
       apply('Spine02', running ? -0.035 : -0.008, 0, -torsoSway * 0.75);
       apply('Head', running ? 0.04 : 0.012, 0, torsoSway * 0.35);
@@ -531,26 +549,18 @@ export class Creature3DViewer {
     if (!this.motionRoot || !this.hips || !this.animatedRoot) return;
     const profile = this.actionMotion || creatureActionProfiles.idle;
     this.animatedRoot.updateMatrixWorld(true);
-
-    if (profile.stabilizeXZ) {
-      this.hips.getWorldPosition(this.hipsWorldPosition);
-      this.hipsLocalPosition.copy(this.hipsWorldPosition);
-      this.animatedRoot.worldToLocal(this.hipsLocalPosition);
-      this.motionRoot.position.x = this.actionHipsPosition.x - this.hipsLocalPosition.x;
-      this.motionRoot.position.z = this.actionHipsPosition.z - this.hipsLocalPosition.z;
-    } else {
-      this.motionRoot.position.x = 0;
-      this.motionRoot.position.z = 0;
-    }
+    this.hips.getWorldPosition(this.hipsWorldPosition);
+    this.hipsLocalPosition.copy(this.hipsWorldPosition);
+    this.animatedRoot.worldToLocal(this.hipsLocalPosition);
+    this.hips.getWorldQuaternion(this.hipsWorldQuaternion);
+    this.animatedRoot.getWorldQuaternion(this.rootWorldQuaternion);
+    this.hipsLocalQuaternion
+      .copy(this.rootWorldQuaternion)
+      .invert()
+      .multiply(this.hipsWorldQuaternion);
+    this.hipsEuler.setFromQuaternion(this.hipsLocalQuaternion, 'YXZ');
 
     if (profile.stabilizeYaw) {
-      this.hips.getWorldQuaternion(this.hipsWorldQuaternion);
-      this.animatedRoot.getWorldQuaternion(this.rootWorldQuaternion);
-      this.hipsLocalQuaternion
-        .copy(this.rootWorldQuaternion)
-        .invert()
-        .multiply(this.hipsWorldQuaternion);
-      this.hipsEuler.setFromQuaternion(this.hipsLocalQuaternion, 'YXZ');
       const deltaYaw = Math.atan2(
         Math.sin(this.hipsEuler.y - this.actionHipsYaw),
         Math.cos(this.hipsEuler.y - this.actionHipsYaw)
@@ -560,8 +570,36 @@ export class Creature3DViewer {
       this.motionRoot.rotation.y = 0;
     }
 
+    if (profile.stabilizeXZ) {
+      this.compensatedHipsPosition
+        .copy(this.hipsLocalPosition)
+        .applyAxisAngle(this.upAxis, this.motionRoot.rotation.y);
+      this.motionRoot.position.x = this.actionHipsPosition.x - this.compensatedHipsPosition.x;
+      this.motionRoot.position.z = this.actionHipsPosition.z - this.compensatedHipsPosition.z;
+    } else {
+      this.motionRoot.position.x = 0;
+      this.motionRoot.position.z = 0;
+    }
+
     this.motionRoot.rotation.x = Number(profile.lean || 0);
     this.motionRoot.rotation.z = Math.sin(now * 0.00145) * Number(profile.sway || 0);
+    this.model.updateMatrixWorld(true);
+    this.hips.getWorldPosition(this.hipsWorldPosition);
+    this.hipsLocalPosition.copy(this.hipsWorldPosition);
+    this.model.worldToLocal(this.hipsLocalPosition);
+    this.motionResidualX = this.hipsLocalPosition.x - this.actionHipsPosition.x;
+    this.motionResidualZ = this.hipsLocalPosition.z - this.actionHipsPosition.z;
+    this.hips.getWorldQuaternion(this.hipsWorldQuaternion);
+    this.model.getWorldQuaternion(this.rootWorldQuaternion);
+    this.hipsLocalQuaternion
+      .copy(this.rootWorldQuaternion)
+      .invert()
+      .multiply(this.hipsWorldQuaternion);
+    this.hipsEuler.setFromQuaternion(this.hipsLocalQuaternion, 'YXZ');
+    this.motionResidualYaw = Math.atan2(
+      Math.sin(this.hipsEuler.y - this.actionHipsYaw),
+      Math.cos(this.hipsEuler.y - this.actionHipsYaw)
+    );
   }
 
   setPhase(phase) {
@@ -574,9 +612,9 @@ export class Creature3DViewer {
 
   getState() {
     const motionValues = [
-      this.motionRoot?.position.x || 0,
-      this.motionRoot?.position.z || 0,
-      this.motionRoot?.rotation.y || 0
+      this.motionResidualX,
+      this.motionResidualZ,
+      this.motionResidualYaw
     ];
     return {
       status: this.host.dataset.modelState || 'idle',
@@ -587,6 +625,8 @@ export class Creature3DViewer {
       cachedClips: this.clipCache.size,
       motion: {
         procedural: this.actionMotion?.procedural || null,
+        native: !this.actionMotion?.procedural,
+        loopOnce: Boolean(this.actionMotion?.loopOnce),
         stabilized: Boolean(this.actionMotion?.stabilizeXZ && this.actionMotion?.stabilizeYaw),
         finite: motionValues.every(Number.isFinite),
         offsetX: motionValues[0],

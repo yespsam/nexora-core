@@ -41,11 +41,11 @@ import {
   mirrorSoulmateCloudState,
   requestSoulmateDeviceCloudDeletion
 } from '../shared/soulmate-device-cloud.mjs?v=2';
-import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=21';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=23';
 import {
   creatureActionForPhase,
   creatureActionForResponse
-} from '../shared/creature-3d-data.mjs?v=13';
+} from '../shared/creature-3d-data.mjs?v=14';
 import {
   recognitionFailureMessage,
   recognitionTranscript,
@@ -130,7 +130,7 @@ const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
 const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
-const APP_RELEASE = 'voice-actions-v82';
+const APP_RELEASE = 'native-motion-v83';
 const llmFailureMessages = Object.freeze({
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
   server_key_quota: '云端 Kimi 额度不足，请联系管理员处理。',
@@ -161,9 +161,9 @@ const phaseLabels = {
 };
 
 const companionActions = Object.freeze({
-  wave: Object.freeze({ label: '正在向你招手', line: '它抬起手向你打招呼。', duration: 1900 }),
-  nod: Object.freeze({ label: '正在点头', line: '它认真地点了点头。', duration: 1500 }),
-  affection: Object.freeze({ label: '正在靠近你', line: '它轻轻靠近了你。', duration: 1700 }),
+  wave: Object.freeze({ label: '正在向你招手', line: '它抬起手向你打招呼。', duration: 2600 }),
+  nod: Object.freeze({ label: '正在点头', line: '它认真地点了点头。', duration: 2200 }),
+  affection: Object.freeze({ label: '正在靠近你', line: '它轻轻靠近了你。', duration: 2800 }),
   walk: Object.freeze({ label: '正在行走', line: '它在你面前走了起来。', duration: 2600 }),
   run: Object.freeze({ label: '正在奔跑', line: '它轻快地跑了起来。', duration: 2400 }),
   idle: Object.freeze({ label: '待机', line: '它停下来，重新看向你。', duration: 0 })

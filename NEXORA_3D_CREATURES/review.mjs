@@ -1,5 +1,5 @@
-import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=21';
-import { creature3DEntry } from '../shared/creature-3d-data.mjs?v=13';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=23';
+import { creature3DEntry } from '../shared/creature-3d-data.mjs?v=14';
 
 const stage = document.querySelector('#model-stage');
 const name = document.querySelector('#model-name');

@@ -2,6 +2,7 @@ const assetUrl = (path) => new URL(`../NEXORA_3D_CREATURES/${path}`, import.meta
 
 const creature = (id, name, species, directory, voice, formYaw = {}) => {
   const idleAction = assetUrl(`${directory}/animations/idle.glb`);
+  const nativeAction = (action) => assetUrl(`${directory}/animations/${action}.glb`);
   const forms = Object.freeze({
     seed: Object.freeze({
       id: 'seed',
@@ -36,9 +37,9 @@ const creature = (id, name, species, directory, voice, formYaw = {}) => {
       nod: idleAction,
       affection: idleAction,
       wave: idleAction,
-      speaking: idleAction,
-      walk: idleAction,
-      run: idleAction,
+      speaking: nativeAction('speaking'),
+      walk: nativeAction('walk'),
+      run: nativeAction('run'),
       charging: idleAction,
       'low-power': idleAction,
       sleep: idleAction
@@ -74,12 +75,9 @@ export const creatureActionForPhase = Object.freeze({
 export const creatureActionProfiles = Object.freeze({
   idle: Object.freeze({
     timeScale: 1,
-    freezePose: true,
-    procedural: 'idle',
     stabilizeYaw: true,
     stabilizeXZ: true,
-    bob: 0.012,
-    sway: 0.004
+    bob: 0
   }),
   listening: Object.freeze({
     timeScale: 0.58,
@@ -92,59 +90,46 @@ export const creatureActionProfiles = Object.freeze({
     lean: -0.035
   }),
   nod: Object.freeze({
-    timeScale: 1.35,
+    timeScale: 1,
     freezePose: true,
     procedural: 'nod',
     stabilizeYaw: true,
     stabilizeXZ: true,
-    bob: 0.006
+    bob: 0
   }),
   affection: Object.freeze({
-    timeScale: 1.05,
+    timeScale: 1,
     freezePose: true,
     procedural: 'affection',
     stabilizeYaw: true,
     stabilizeXZ: true,
-    bob: 0.008
+    bob: 0
   }),
   wave: Object.freeze({
-    timeScale: 1.05,
+    timeScale: 1,
     freezePose: true,
     procedural: 'wave',
     stabilizeYaw: true,
     stabilizeXZ: true,
-    bob: 0.008
+    bob: 0
   }),
   speaking: Object.freeze({
     timeScale: 1,
-    freezePose: true,
-    procedural: 'speaking',
     stabilizeYaw: true,
     stabilizeXZ: true,
-    bob: 0.01,
-    sway: 0.004
+    bob: 0
   }),
   walk: Object.freeze({
-    timeScale: 1,
-    freezePose: true,
-    procedural: 'walk',
+    timeScale: 0.92,
     stabilizeYaw: true,
     stabilizeXZ: true,
-    bob: 0.012,
-    bobRate: 3.6,
-    bobMode: 'step',
-    lean: -0.012
+    bob: 0
   }),
   run: Object.freeze({
-    timeScale: 1,
-    freezePose: true,
-    procedural: 'run',
+    timeScale: 0.9,
     stabilizeYaw: true,
     stabilizeXZ: true,
-    bob: 0.022,
-    bobRate: 6.2,
-    bobMode: 'step',
-    lean: -0.045
+    bob: 0
   }),
   charging: Object.freeze({
     timeScale: 0.46,
