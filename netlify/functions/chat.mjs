@@ -7,10 +7,7 @@ import {
   creatureProfiles,
   interactionScenes
 } from '../../shared/companion-data.mjs';
-import {
-  contextualFallbackReply,
-  inferSceneId
-} from '../../shared/fallback-dialogue.mjs';
+import { inferSceneId } from '../../shared/fallback-dialogue.mjs';
 
 const sceneLibrary = Object.fromEntries(interactionScenes.map((scene) => [scene.id, {
   mood: scene.mood,
@@ -18,11 +15,6 @@ const sceneLibrary = Object.fromEntries(interactionScenes.map((scene) => [scene.
   female: scene.replies.female,
   male: scene.replies.male
 }]));
-
-const thinkingLibrary = Object.fromEntries(interactionScenes.map((scene) => [
-  scene.id,
-  scene.thinking
-]));
 
 function cleanText(value) {
   return String(value || '')
@@ -32,14 +24,6 @@ function cleanText(value) {
     .slice(0, 180);
 }
 
-function pickReply(list, text) {
-  if (!list.length) return '';
-  // 文本种子 + 随机扰动：同一句话不再永远命中同一条回复。
-  const seed = [...text].reduce((sum, char) => sum + char.charCodeAt(0), text.length);
-  const jitter = Math.floor(Math.random() * list.length);
-  return list[Math.abs(seed + jitter) % list.length];
-}
-
 const LLM_TIMEOUT_MS = 12000;
 const LLM_COMPLETION_TOKEN_LIMIT = 220;
 const RECENT_HISTORY_LIMIT = 10;
@@ -47,19 +31,6 @@ const LLM_MODEL_WHITELIST = new Set([
   'kimi-k3', 'kimi-k2.5', 'kimi-k2.6', 'kimi-k2.7-code',
   'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'
 ]);
-const PERSONAL_LLM_PROVIDERS = Object.freeze({
-  'kimi-cn': Object.freeze({
-    baseUrl: 'https://api.moonshot.cn/v1',
-    model: 'kimi-k2.6',
-    responseProvider: 'kimi_cn'
-  }),
-  'kimi-global': Object.freeze({
-    baseUrl: 'https://api.moonshot.ai/v1',
-    model: 'kimi-k2.6',
-    responseProvider: 'kimi_global'
-  })
-});
-
 function runtimeEnv(name) {
   try {
     const value = globalThis.Netlify?.env?.get?.(name);
@@ -86,20 +57,9 @@ function gatewayModel() {
   return runtimeEnv('NETLIFY_AI_MODEL') || 'gpt-4.1-mini';
 }
 
-function sanitizeLlmKey(value) {
-  const key = String(value || '').trim();
-  if (!key || key.length > 200 || !key.startsWith('sk-')) return '';
-  return key;
-}
-
 function sanitizeLlmModel(value) {
   const model = String(value || '').trim();
   return LLM_MODEL_WHITELIST.has(model) ? model : llmDefaultModel();
-}
-
-function sanitizePersonalLlmProvider(value) {
-  const provider = String(value || '').trim();
-  return PERSONAL_LLM_PROVIDERS[provider] ? provider : 'kimi-cn';
 }
 
 function safeLogToken(value) {
@@ -403,9 +363,9 @@ export default async function handler(request) {
       },
       kimi: {
         server_key_available: Boolean(serverKey),
-        byok_supported: true,
+        managed: true,
         default_model: llmDefaultModel(),
-        personal_providers: Object.keys(PERSONAL_LLM_PROVIDERS)
+        base_url: llmBaseUrl()
       }
     });
   }
@@ -436,27 +396,18 @@ export default async function handler(request) {
     || creatureKind(soulmate?.species);
   const kind = creatureId || personaKind(payload.persona || payload.persona_short);
 
-  const personalKey = sanitizeLlmKey(payload.llm_key);
-  const personalProviderId = sanitizePersonalLlmProvider(payload.llm_provider);
-  const personalProvider = PERSONAL_LLM_PROVIDERS[personalProviderId];
-  const kimiKey = personalKey || serverKey;
-  const kimiModel = personalKey
-    ? (LLM_MODEL_WHITELIST.has(String(payload.llm_model || '').trim())
-      ? String(payload.llm_model).trim()
-      : personalProvider.model)
-    : sanitizeLlmModel(payload.llm_model);
-  const llmBound = Boolean(personalKey);
+  const kimiModel = sanitizeLlmModel(payload.llm_model);
   const kimiDiagnostics = {};
   const clientRelease = safeLogToken(payload.client_release);
   let llm = await callKimi(text, kind, history, {
-    apiKey: kimiKey,
-    baseUrl: personalKey ? personalProvider.baseUrl : llmBaseUrl(),
+    apiKey: serverKey,
+    baseUrl: llmBaseUrl(),
     model: kimiModel,
-    provider: personalKey ? personalProvider.responseProvider : 'kimi',
+    provider: 'kimi',
     soulmate,
     diagnostics: kimiDiagnostics
   });
-  if (!llm && !personalKey && gateway.available) {
+  if (!llm && gateway.available) {
     llm = await callGateway(text, kind, history, gateway, soulmate);
   }
   if (llm) {
@@ -465,7 +416,7 @@ export default async function handler(request) {
       mode: 'cloud_llm',
       provider: llm.provider,
       model: llm.model,
-      selected_provider: personalKey ? personalProviderId : null,
+      managed: true,
       client_release: clientRelease || null,
       probe: payload.probe === true,
       context_turns: history.length
@@ -486,7 +437,8 @@ export default async function handler(request) {
       scene: sceneId,
       mode: 'cloud_llm',
       llm: {
-        bound: llmBound,
+        bound: false,
+        managed: true,
         provider: llm.provider,
         model: llm.model,
         gateway_available: gateway.available,
@@ -495,79 +447,37 @@ export default async function handler(request) {
     });
   }
 
-  const failure = personalKey
-    ? `personal_key_${kimiDiagnostics.category || 'failed'}`
-    : serverKey
-      ? `server_key_${kimiDiagnostics.category || 'failed'}`
-      : gateway.available
-        ? 'gateway_failed'
-        : 'not_configured';
+  const failure = serverKey
+    ? `server_key_${kimiDiagnostics.category || 'failed'}`
+    : gateway.available
+      ? 'gateway_failed'
+      : 'not_configured';
   console.warn(JSON.stringify({
     event: 'chat_provider_result',
-    mode: personalKey ? 'provider_error' : 'fallback',
+    mode: 'provider_error',
     failure,
-    personal_key_present: Boolean(personalKey),
     server_key_present: Boolean(serverKey),
     gateway_available: gateway.available,
     upstream_status: kimiDiagnostics.status || null,
     upstream_code: kimiDiagnostics.code || null,
-    selected_provider: personalKey ? personalProviderId : null,
+    managed: true,
     client_release: clientRelease || null,
     probe: payload.probe === true,
     context_turns: history.length
   }));
-  if (personalKey) {
-    return json({
-      error: 'llm_unavailable',
-      mode: 'provider_error',
-      llm: {
-        bound: true,
-        provider: personalProviderId,
-        model: kimiModel,
-        failure,
-        gateway_available: gateway.available,
-        context_turns: history.length
-      }
-    }, 502);
-  }
-  const reply = contextualFallbackReply({
-    text,
-    kind,
-    scene: sceneId,
-    history,
-    companionName: soulmate?.name,
-    memories: soulmate?.memories
-  });
-  const creatureProfile = creatureId ? creatureProfiles[creatureId] : null;
-  const thinkingPool = creatureProfile
-    ? [`${creatureProfile.thinkingStyle} 用户刚才说：“${text}”。`]
-    : ((thinkingLibrary[sceneId] || thinkingLibrary.daily)[kind] || thinkingLibrary[sceneId].female);
-  const thinking = pickReply(thinkingPool, `${text}#think`);
-
   return json({
-    text: reply,
-    thinking,
-    emotion: {
-      mood: scene.mood,
-      affection: Math.max(0, Math.min(100, Math.round(soulmate?.traits?.warmth || 72))),
-      user_mood: scene.mood === 'sleepy' ? '困倦' : '平静'
-    },
-    actions: [
-      { target: 'companion', action: scene.action, scene: sceneId }
-    ],
-    persona_id: personaIdForKind(kind),
-    creature: creatureId || null,
-    scene: sceneId,
-    mode: 'cloud_scene_reply',
+    error: 'llm_unavailable',
+    mode: 'provider_error',
     llm: {
-      bound: llmBound,
-      provider: 'fallback',
-      model: llmBound ? kimiModel : gateway.model,
+      bound: false,
+      managed: true,
+      provider: serverKey ? 'kimi' : gateway.available ? 'netlify_ai_gateway' : 'none',
+      model: serverKey ? kimiModel : gateway.model,
       gateway_available: gateway.available,
       context_turns: history.length,
       failure
     }
-  });
+  }, serverKey || gateway.available ? 502 : 503);
 }
 
 export const config = {

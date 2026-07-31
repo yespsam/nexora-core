@@ -1,4 +1,4 @@
-# Qiban data architecture
+# NEXORA CORE data architecture
 
 The production web app is stateless on Netlify. It does not currently use a
 server database. Data is divided into the following explicit layers.
@@ -25,8 +25,9 @@ Do not copy these records into either runtime.
 - stored only in the user's browser
 - versioned so incompatible records can be discarded safely
 
-Kimi API keys also stay in browser storage and are sent only with chat
-requests. They are not written to Git or the conversation store.
+Model credentials never enter browser storage. Phone, desktop, and pendant
+clients send only bounded conversation context to the authenticated chat
+function. The managed Kimi key stays in Netlify environment variables.
 
 The NEXORA CORE experience under `soulmate/` stores its versioned identity in
 `soulmate-profile-v1` and its last 12 sanitized turns in
@@ -34,17 +35,19 @@ The NEXORA CORE experience under `soulmate/` stores its versioned identity in
 growth, evolution, and the versioned export/import bundle. Exported bundles do
 not include model credentials.
 
-`shared/fallback-dialogue.mjs` owns the context-aware reply fallback used by
-both the browser and Netlify. Keep network-failure behavior there so the two
-runtimes do not drift back into different canned replies.
+`shared/fallback-dialogue.mjs` remains the deterministic local test and
+simulation engine. Production chat does not disguise these replies as a live
+model response: a provider outage returns an explicit error without assistant
+text.
 
 ## Netlify runtime
 
 `netlify/functions/chat.mjs` is the single production conversation endpoint.
-It tries a personal Kimi key first when one is available, then uses Netlify AI
-Gateway as the default cloud model. A shared catalog fallback keeps the input
-available when both providers are unavailable. The public chat route is rate
-limited per visitor to protect the site's AI credits.
+It reads `LLM_API_KEY` only from the Netlify runtime, optionally falls back to
+the configured Netlify AI Gateway, and ignores client-supplied key fields.
+Provider failures return `502`, while a missing provider returns `503`. The
+private chat route is rate limited per visitor to protect the site's AI
+credits.
 
 `netlify/functions/voice-*.mjs` use the same shared voice catalog.
 

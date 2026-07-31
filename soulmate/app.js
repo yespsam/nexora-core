@@ -103,11 +103,7 @@ const bridgeButton = $('#bridge-button');
 const bridgeStatus = $('#bridge-status');
 const voiceSettingStatus = $('#voice-setting-status');
 const llmProviderLabel = $('#llm-provider-label');
-const llmApiInput = $('#llm-api-key');
-const llmApiSave = $('#llm-api-save');
-const llmApiClear = $('#llm-api-clear');
 const llmApiStatus = $('#llm-api-status');
-const llmProviderButtons = $$('[data-llm-provider]');
 const importButton = $('#import-button');
 const importInput = $('#import-input');
 const importStatus = $('#import-status');
@@ -126,27 +122,22 @@ const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
 const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
-const LLM_SESSION_KEY = 'nexora-llm-session-key';
-const LLM_PROVIDER_SESSION_KEY = 'nexora-llm-session-provider';
-const APP_RELEASE = 'personality-continuity-v76';
-const llmProviderNames = Object.freeze({
-  'kimi-cn': 'Kimi 中国',
-  'kimi-global': 'Kimi 全球'
-});
+const APP_RELEASE = 'managed-llm-v77';
 const llmFailureMessages = Object.freeze({
-  personal_key_auth: 'API 密钥无效，或密钥与所选 Kimi 区域不匹配。',
-  personal_key_quota: 'Kimi API 额度不足，请检查余额。',
-  personal_key_rate_limit: 'Kimi 请求过快，请稍后再试。',
-  personal_key_model: '当前密钥没有所选模型权限。',
-  personal_key_request: 'Kimi 暂时不接受当前请求参数。',
-  personal_key_provider: 'Kimi 服务暂时不可用，请稍后重试。',
-  personal_key_timeout: 'Kimi 响应超时，请重试。',
-  personal_key_network: '服务器暂时无法连接 Kimi。',
-  personal_key_invalid_response: 'Kimi 返回了无法解析的回答。',
-  personal_key_failed: 'Kimi 没有完成这次请求。',
+  server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
+  server_key_quota: '云端 Kimi 额度不足，请联系管理员处理。',
+  server_key_rate_limit: '云端请求较多，请稍后再试。',
+  server_key_model: '云端模型暂不可用，请联系管理员处理。',
+  server_key_request: 'Kimi 暂时不接受当前请求。',
+  server_key_provider: 'Kimi 服务暂时不可用，请稍后重试。',
+  server_key_timeout: 'Kimi 响应超时，请重试。',
+  server_key_network: '私有云暂时无法连接 Kimi。',
+  server_key_invalid_response: 'Kimi 返回了无法解析的回答。',
+  server_key_failed: 'Kimi 没有完成这次请求。',
+  gateway_failed: '云端模型网关暂时不可用，请稍后重试。',
+  not_configured: '私有云尚未配置对话模型。',
   request_failed: '消息没有送到云端，请刷新页面后重试。'
 });
-let selectedLlmProvider = readSessionLlmProvider();
 
 const phaseLabels = {
   idle: '待机',
@@ -252,89 +243,50 @@ function safeWrite(key, value) {
   }
 }
 
-function readSessionLlmKey() {
-  try {
-    return String(sessionStorage.getItem(LLM_SESSION_KEY) || '').trim();
-  } catch (error) {
-    return '';
-  }
-}
-
-function readSessionLlmProvider() {
-  try {
-    const provider = String(sessionStorage.getItem(LLM_PROVIDER_SESSION_KEY) || '').trim();
-    return llmProviderNames[provider] ? provider : 'kimi-cn';
-  } catch (error) {
-    return 'kimi-cn';
-  }
-}
-
-function writeSessionLlmKey(value, provider = selectedLlmProvider) {
-  try {
-    if (value) sessionStorage.setItem(LLM_SESSION_KEY, value);
-    else sessionStorage.removeItem(LLM_SESSION_KEY);
-    sessionStorage.setItem(
-      LLM_PROVIDER_SESSION_KEY,
-      llmProviderNames[provider] ? provider : 'kimi-cn'
-    );
-    return true;
-  } catch (error) {
-    return false;
-  }
-}
-
-function renderLlmProviderChoice() {
-  llmProviderButtons.forEach((button) => {
-    const active = button.dataset.llmProvider === selectedLlmProvider;
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-pressed', active ? 'true' : 'false');
-  });
-}
-
-function renderLlmConnection({ mode = '', provider = '', failure = '' } = {}) {
-  const hasPersonalKey = Boolean(readSessionLlmKey());
-  llmApiClear.hidden = !hasPersonalKey;
-  if (mode === 'cloud_llm') {
+function renderLlmConnection({ mode = '', provider = '', failure = '', available = false } = {}) {
+  if (mode === 'cloud_llm' || available) {
     const labels = {
-      kimi: 'Kimi 已连接',
-      kimi_cn: 'Kimi 中国已连接',
-      kimi_global: 'Kimi 全球已连接',
+      kimi: 'Kimi 私有云',
       netlify_ai_gateway: 'Netlify AI 已连接'
     };
-    const label = labels[provider] || '对话模型已连接';
+    const label = labels[provider] || '云端模型已配置';
     llmProviderLabel.textContent = label;
-    llmApiStatus.textContent = '真实模型正在结合前文回答。';
+    llmApiStatus.textContent = mode === 'cloud_llm'
+      ? '真实模型正在结合前文与长期记忆回答。'
+      : '服务器凭据已就绪，设备端无需填写 API Key。';
     return;
   }
-  if (hasPersonalKey && failure) {
-    llmProviderLabel.textContent = 'API 连接失败';
-    llmApiStatus.textContent = llmFailureMessages[failure] || '请检查密钥、区域和额度。';
+  if (failure && failure !== 'not_configured') {
+    llmProviderLabel.textContent = '云端模型异常';
+    llmApiStatus.textContent = llmFailureMessages[failure] || '请稍后重试或联系管理员。';
     return;
   }
-  llmProviderLabel.textContent = hasPersonalKey
-    ? `等待验证 · ${llmProviderNames[selectedLlmProvider]}`
-    : '未连接';
-  llmApiStatus.textContent = hasPersonalKey
-    ? '点击“验证并连接”后才会启用真实对话。'
-    : '当前只能使用离线固定回复。';
+  llmProviderLabel.textContent = mode === 'checking' ? '正在检查' : '尚未配置';
+  llmApiStatus.textContent = mode === 'checking'
+    ? '正在读取私有云模型状态。'
+    : llmFailureMessages.not_configured;
 }
 
 async function refreshLlmConnection() {
-  renderLlmProviderChoice();
-  renderLlmConnection();
+  renderLlmConnection({ mode: 'checking' });
   try {
     const response = await fetch('/api/chat', {
       headers: { Accept: 'application/json' },
       credentials: 'same-origin',
       cache: 'no-store'
     });
-    if (!response.ok) return;
-    const status = await response.json();
-    if (!readSessionLlmKey() && status.gateway?.available) {
-      renderLlmConnection({ mode: 'cloud_llm', provider: 'netlify_ai_gateway' });
+    if (!response.ok) {
+      renderLlmConnection({ failure: 'request_failed' });
+      return;
     }
+    const status = await response.json();
+    renderLlmConnection({
+      available: status.enabled === true,
+      provider: String(status.default_provider || ''),
+      failure: status.enabled ? '' : 'not_configured'
+    });
   } catch (error) {
-    // The next message will retry the provider check.
+    renderLlmConnection({ failure: 'request_failed' });
   }
 }
 
@@ -957,34 +909,18 @@ function looksLikeEcho(text) {
   });
 }
 
-function fallbackReply(text) {
-  const name = state.profile.name;
-  const preference = text.match(/我(?:最|很|比较)?喜欢(.+?)(?:[，。！？]|$)/);
-  if (preference?.[1]) return `记住了，你喜欢${preference[1]}。以后聊到它时，我会知道这对你很特别。`;
-  if (/累|难过|压力|心烦|害怕|焦虑|委屈/.test(text)) return '我听见了。你不用立刻变好，先让我安静地陪你一会儿。';
-  if (/晚安|睡觉|困了|想睡/.test(text)) return `晚安。${name}会把今天记住，明天醒来再继续陪你。`;
-  if (/你是谁|你叫(?:什么|啥)|叫什么名字|介绍一下你自己/.test(text)) {
-    return `我是${name}，是你在 ${state.profile.birthday} 唤醒的 NEXORA 伙伴。`;
-  }
-  if (/记住|别忘了/.test(text)) return '我记住了。它已经成为我们共同记忆里的一部分。';
-  return '我正在认真记住你刚才说的话。再多告诉我一点，我会越来越懂你。';
-}
-
 function showConversationError(failure = 'request_failed') {
   renderMessages();
   const message = document.createElement('p');
   message.className = 'message assistant error';
-  message.textContent = `真实对话未连接：${llmFailureMessages[failure] || '请到设置中重新验证 API。'}`;
+  message.textContent = `真实对话暂不可用：${llmFailureMessages[failure] || '请稍后重试或联系管理员。'}`;
   messageList.appendChild(message);
 }
 
 async function requestReply(text, {
   history = state.history.slice(0, -1),
-  key = readSessionLlmKey(),
-  provider = selectedLlmProvider,
   probe = false
 } = {}) {
-  const llmKey = String(key || '').trim();
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -998,8 +934,6 @@ async function requestReply(text, {
       scene: 'daily',
       history,
       soulmate: soulmatePromptProfile(state.profile, text),
-      llm_key: llmKey || undefined,
-      llm_provider: provider,
       client_release: APP_RELEASE,
       probe
     })
@@ -1010,17 +944,17 @@ async function requestReply(text, {
       reply: '',
       mood: 'calm',
       mode: String(body?.mode || 'provider_error'),
-      provider: String(body?.llm?.provider || provider),
+      provider: String(body?.llm?.provider || ''),
       failure: String(body?.llm?.failure || 'request_failed')
     };
   }
-  if (llmKey && body.mode !== 'cloud_llm') {
+  if (body.mode !== 'cloud_llm') {
     return {
       reply: '',
       mood: 'calm',
       mode: String(body.mode || ''),
-      provider: String(body.llm?.provider || provider),
-      failure: String(body.llm?.failure || 'personal_key_failed')
+      provider: String(body.llm?.provider || ''),
+      failure: String(body.llm?.failure || 'request_failed')
     };
   }
   const reply = String(body.text || body.reply || '').replace(/\s+/g, ' ').trim().slice(0, 300);
@@ -1058,9 +992,7 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   try {
     result = await requestReply(text);
   } catch (error) {
-    result = readSessionLlmKey()
-      ? { reply: '', mood: 'calm', failure: 'request_failed' }
-      : { reply: fallbackReply(text), mood: 'calm', failure: 'request_failed' };
+    result = { reply: '', mood: 'calm', failure: 'request_failed' };
   }
   renderLlmConnection(result);
   if (!result.reply) {
@@ -1491,53 +1423,6 @@ $$('[data-setting-voice]').forEach((button) => {
     const played = await speakText(`你好，我是${state.profile.name}。这是我现在的声音。`, { allowQueue: true });
     voiceSettingStatus.textContent = played ? '声线已保存' : '声线已保存，云端语音暂不可用';
   });
-});
-
-llmProviderButtons.forEach((button) => {
-  button.addEventListener('click', () => {
-    selectedLlmProvider = llmProviderNames[button.dataset.llmProvider]
-      ? button.dataset.llmProvider
-      : 'kimi-cn';
-    writeSessionLlmKey(readSessionLlmKey(), selectedLlmProvider);
-    renderLlmProviderChoice();
-    renderLlmConnection();
-  });
-});
-
-llmApiSave.addEventListener('click', async () => {
-  const key = String(llmApiInput.value || readSessionLlmKey()).trim();
-  if (!/^sk-[A-Za-z0-9_-]{8,196}$/.test(key)) {
-    llmApiStatus.textContent = 'API Key 格式不正确，请重新输入。';
-    return;
-  }
-  if (!writeSessionLlmKey(key, selectedLlmProvider)) {
-    llmApiStatus.textContent = '浏览器无法保存本次会话密钥。';
-    return;
-  }
-  llmApiInput.value = '';
-  llmApiSave.disabled = true;
-  llmProviderLabel.textContent = '正在验证';
-  llmApiStatus.textContent = `正在连接${llmProviderNames[selectedLlmProvider]}…`;
-  let result;
-  try {
-    result = await requestReply('你好，请用一句话回应我。', {
-      history: [],
-      key,
-      provider: selectedLlmProvider,
-      probe: true
-    });
-  } catch (error) {
-    result = { reply: '', failure: 'request_failed' };
-  } finally {
-    llmApiSave.disabled = false;
-  }
-  renderLlmConnection(result);
-});
-
-llmApiClear.addEventListener('click', () => {
-  writeSessionLlmKey('', selectedLlmProvider);
-  llmApiInput.value = '';
-  renderLlmConnection();
 });
 
 companionTouch.addEventListener('click', () => reactToTouch('touch'));

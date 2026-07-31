@@ -91,13 +91,23 @@ test('creature prompt uses the selected route instead of the legacy gender perso
 
 test('handler forwards sanitized history to the cloud model request', async (t) => {
   const originalFetch = globalThis.fetch;
+  const originalServerKey = process.env.LLM_API_KEY;
+  const originalBaseUrl = process.env.LLM_BASE_URL;
   let forwardedMessages = [];
   let requestUrl = '';
+  let authorization = '';
   t.after(() => {
     globalThis.fetch = originalFetch;
+    if (originalServerKey === undefined) delete process.env.LLM_API_KEY;
+    else process.env.LLM_API_KEY = originalServerKey;
+    if (originalBaseUrl === undefined) delete process.env.LLM_BASE_URL;
+    else process.env.LLM_BASE_URL = originalBaseUrl;
   });
+  process.env.LLM_API_KEY = 'sk-server-test-key';
+  process.env.LLM_BASE_URL = 'https://api.moonshot.ai/v1/';
   globalThis.fetch = async (url, options) => {
     requestUrl = String(url);
+    authorization = new Headers(options.headers).get('Authorization');
     forwardedMessages = JSON.parse(options.body).messages;
     return {
       ok: true,
@@ -119,8 +129,6 @@ test('handler forwards sanitized history to the cloud model request', async (t) 
   const response = await handler(chatRequest('POST', {
       text: '那就去那家吧',
       persona_short: 'male',
-      llm_key: 'sk-test-key',
-      llm_provider: 'kimi-global',
       history: [
         { role: 'user', content: '明天去火锅还是日料？' },
         { role: 'assistant', content: '我想去你昨天提到的日料店。' }
@@ -129,9 +137,12 @@ test('handler forwards sanitized history to the cloud model request', async (t) 
   const body = await response.json();
 
   assert.equal(body.mode, 'cloud_llm');
-  assert.equal(body.llm.provider, 'kimi_global');
+  assert.equal(body.llm.provider, 'kimi');
+  assert.equal(body.llm.managed, true);
+  assert.equal(body.llm.bound, false);
   assert.equal(body.llm.context_turns, 2);
   assert.equal(requestUrl, 'https://api.moonshot.ai/v1/chat/completions');
+  assert.equal(authorization, 'Bearer sk-server-test-key');
   assert.deepEqual(forwardedMessages.slice(1), [
     { role: 'user', content: '明天去火锅还是日料？' },
     { role: 'assistant', content: '我想去你昨天提到的日料店。' },
@@ -143,6 +154,7 @@ test('handler uses Netlify AI Gateway when no personal key is present', async (t
   const originalFetch = globalThis.fetch;
   const originalGatewayKey = process.env.OPENAI_API_KEY;
   const originalGatewayBase = process.env.OPENAI_BASE_URL;
+  const originalServerKey = process.env.LLM_API_KEY;
   let requestUrl = '';
   let authorization = '';
   t.after(() => {
@@ -151,7 +163,10 @@ test('handler uses Netlify AI Gateway when no personal key is present', async (t
     else process.env.OPENAI_API_KEY = originalGatewayKey;
     if (originalGatewayBase === undefined) delete process.env.OPENAI_BASE_URL;
     else process.env.OPENAI_BASE_URL = originalGatewayBase;
+    if (originalServerKey === undefined) delete process.env.LLM_API_KEY;
+    else process.env.LLM_API_KEY = originalServerKey;
   });
+  delete process.env.LLM_API_KEY;
   process.env.OPENAI_API_KEY = 'netlify-gateway-test-key';
   process.env.OPENAI_BASE_URL = 'https://gateway.example.test/v1/';
   globalThis.fetch = async (url, options) => {
@@ -190,6 +205,7 @@ test('handler uses Netlify AI Gateway when no personal key is present', async (t
   assert.equal(body.mode, 'cloud_llm');
   assert.equal(body.llm.provider, 'netlify_ai_gateway');
   assert.equal(body.llm.bound, false);
+  assert.equal(body.llm.managed, true);
   assert.equal(body.llm.context_turns, 2);
 });
 
@@ -225,14 +241,56 @@ test('chat status reports default gateway availability without exposing credenti
   assert.equal(body.default_provider, 'netlify_ai_gateway');
   assert.equal(body.gateway.available, true);
   assert.equal(body.gateway.source, 'universal');
+  assert.equal(body.kimi.managed, true);
   assert.equal(JSON.stringify(body).includes('hidden-test-key'), false);
 });
 
-test('handler never disguises a personal LLM failure as a fixed reply', async (t) => {
+test('chat status reports managed Kimi availability without exposing credentials', async (t) => {
+  const originalNetlify = globalThis.Netlify;
+  t.after(() => {
+    if (originalNetlify === undefined) delete globalThis.Netlify;
+    else globalThis.Netlify = originalNetlify;
+  });
+  globalThis.Netlify = {
+    env: {
+      get(name) {
+        return {
+          LLM_API_KEY: 'sk-hidden-managed-key',
+          LLM_BASE_URL: 'https://api.moonshot.cn/v1',
+          LLM_MODEL: 'kimi-k2.6'
+        }[name];
+      }
+    }
+  };
+
+  const response = await handler(chatRequest('GET'));
+  const body = await response.json();
+
+  assert.equal(body.enabled, true);
+  assert.equal(body.default_provider, 'kimi');
+  assert.equal(body.kimi.server_key_available, true);
+  assert.equal(body.kimi.managed, true);
+  assert.equal(body.kimi.base_url, 'https://api.moonshot.cn/v1');
+  assert.equal(JSON.stringify(body).includes('sk-hidden-managed-key'), false);
+});
+
+test('handler never disguises a managed LLM failure as a fixed reply', async (t) => {
   const originalFetch = globalThis.fetch;
+  const originalServerKey = process.env.LLM_API_KEY;
+  const originalGatewayKey = process.env.OPENAI_API_KEY;
+  const originalGatewayBase = process.env.OPENAI_BASE_URL;
   t.after(() => {
     globalThis.fetch = originalFetch;
+    if (originalServerKey === undefined) delete process.env.LLM_API_KEY;
+    else process.env.LLM_API_KEY = originalServerKey;
+    if (originalGatewayKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = originalGatewayKey;
+    if (originalGatewayBase === undefined) delete process.env.OPENAI_BASE_URL;
+    else process.env.OPENAI_BASE_URL = originalGatewayBase;
   });
+  process.env.LLM_API_KEY = 'sk-managed-test-key';
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_BASE_URL;
   globalThis.fetch = async () => {
     throw new Error('provider unavailable');
   };
@@ -240,27 +298,39 @@ test('handler never disguises a personal LLM failure as a fixed reply', async (t
   const response = await handler(chatRequest('POST', {
       text: '今天有点累',
       persona_short: 'female',
-      llm_key: 'sk-test-key',
       scene: 'daily'
   }));
   const body = await response.json();
 
   assert.equal(response.status, 502);
   assert.equal(body.mode, 'provider_error');
-  assert.equal(body.llm.bound, true);
-  assert.equal(body.llm.failure, 'personal_key_network');
+  assert.equal(body.llm.bound, false);
+  assert.equal(body.llm.managed, true);
+  assert.equal(body.llm.failure, 'server_key_network');
   assert.equal(body.text, undefined);
   assert.equal(body.thinking, undefined);
 });
 
-test('personal Kimi authentication failures are classified without exposing the key', async (t) => {
+test('managed Kimi authentication failures are classified without exposing the key', async (t) => {
   const originalFetch = globalThis.fetch;
   const originalWarn = console.warn;
+  const originalServerKey = process.env.LLM_API_KEY;
+  const originalGatewayKey = process.env.OPENAI_API_KEY;
+  const originalGatewayBase = process.env.OPENAI_BASE_URL;
   const warnings = [];
   t.after(() => {
     globalThis.fetch = originalFetch;
     console.warn = originalWarn;
+    if (originalServerKey === undefined) delete process.env.LLM_API_KEY;
+    else process.env.LLM_API_KEY = originalServerKey;
+    if (originalGatewayKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = originalGatewayKey;
+    if (originalGatewayBase === undefined) delete process.env.OPENAI_BASE_URL;
+    else process.env.OPENAI_BASE_URL = originalGatewayBase;
   });
+  process.env.LLM_API_KEY = 'sk-never-log-this-key';
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_BASE_URL;
   globalThis.fetch = async () => new Response(JSON.stringify({
     error: { type: 'authentication_error', code: 'invalid_api_key', message: 'rejected' }
   }), {
@@ -272,21 +342,20 @@ test('personal Kimi authentication failures are classified without exposing the 
   const response = await handler(chatRequest('POST', {
     text: '你好',
     persona_short: 'creature:cute',
-    llm_key: 'sk-never-log-this-key',
     client_release: 'natural-dialogue-v67'
   }));
   const body = await response.json();
 
   assert.equal(response.status, 502);
   assert.equal(body.mode, 'provider_error');
-  assert.equal(body.llm.failure, 'personal_key_auth');
+  assert.equal(body.llm.failure, 'server_key_auth');
   assert.equal(warnings.some((line) => line.includes('"upstream_status":401')), true);
   assert.equal(warnings.some((line) => line.includes('invalid_api_key')), true);
   assert.equal(warnings.some((line) => line.includes('natural-dialogue-v67')), true);
   assert.equal(warnings.some((line) => line.includes('sk-never-log-this-key')), false);
 });
 
-test('fallback reports when no real dialogue provider is configured', async (t) => {
+test('handler returns a clear error when no real dialogue provider is configured', async (t) => {
   const originalGatewayKey = process.env.OPENAI_API_KEY;
   const originalGatewayBase = process.env.OPENAI_BASE_URL;
   const originalServerKey = process.env.LLM_API_KEY;
@@ -308,18 +377,55 @@ test('fallback reports when no real dialogue provider is configured', async (t) 
   }));
   const body = await response.json();
 
-  assert.equal(body.mode, 'cloud_scene_reply');
-  assert.equal(body.llm.provider, 'fallback');
+  assert.equal(response.status, 503);
+  assert.equal(body.mode, 'provider_error');
+  assert.equal(body.llm.provider, 'none');
+  assert.equal(body.llm.managed, true);
   assert.equal(body.llm.failure, 'not_configured');
+  assert.equal(body.text, undefined);
 });
 
-test('handler keeps the selected provider diagnostic when a personal request fails', async (t) => {
+test('client-supplied keys cannot override the managed provider', async (t) => {
   const originalFetch = globalThis.fetch;
+  const originalServerKey = process.env.LLM_API_KEY;
+  const originalBaseUrl = process.env.LLM_BASE_URL;
+  const originalGatewayKey = process.env.OPENAI_API_KEY;
+  const originalGatewayBase = process.env.OPENAI_BASE_URL;
+  let requestUrl = '';
+  let authorization = '';
   t.after(() => {
     globalThis.fetch = originalFetch;
+    if (originalServerKey === undefined) delete process.env.LLM_API_KEY;
+    else process.env.LLM_API_KEY = originalServerKey;
+    if (originalBaseUrl === undefined) delete process.env.LLM_BASE_URL;
+    else process.env.LLM_BASE_URL = originalBaseUrl;
+    if (originalGatewayKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = originalGatewayKey;
+    if (originalGatewayBase === undefined) delete process.env.OPENAI_BASE_URL;
+    else process.env.OPENAI_BASE_URL = originalGatewayBase;
   });
-  globalThis.fetch = async () => {
-    throw new Error('provider unavailable');
+  process.env.LLM_API_KEY = 'sk-managed-only-key';
+  process.env.LLM_BASE_URL = 'https://api.moonshot.cn/v1';
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_BASE_URL;
+  globalThis.fetch = async (url, options) => {
+    requestUrl = String(url);
+    authorization = new Headers(options.headers).get('Authorization');
+    return new Response(JSON.stringify({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            thinking: '使用托管模型回答。',
+            reply: '我会通过私有云陪你。',
+            mood: 'happy',
+            action: 'nod'
+          })
+        }
+      }]
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   };
 
   const response = await handler(chatRequest('POST', {
@@ -337,9 +443,10 @@ test('handler keeps the selected provider diagnostic when a personal request fai
   }));
   const body = await response.json();
 
-  assert.equal(response.status, 502);
-  assert.equal(body.mode, 'provider_error');
-  assert.equal(body.llm.provider, 'kimi-global');
-  assert.equal(body.llm.failure, 'personal_key_network');
-  assert.equal(body.text, undefined);
+  assert.equal(response.status, 200);
+  assert.equal(body.mode, 'cloud_llm');
+  assert.equal(body.llm.provider, 'kimi');
+  assert.equal(body.llm.managed, true);
+  assert.equal(requestUrl, 'https://api.moonshot.cn/v1/chat/completions');
+  assert.equal(authorization, 'Bearer sk-managed-only-key');
 });

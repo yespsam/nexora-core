@@ -42,6 +42,9 @@
 | `NEXORA_DEVICE_CLOUD_DUAL_WRITE_ENABLED` | 旧同步成功后的客户端加密镜像开关 | 初始为 `false`，仅隔离分支对账期启用 |
 | `NEXORA_DEVICE_CLOUD_MAINTENANCE_ENABLED` | 每小时删除工作器开关 | 初始为 `false`，只和总开关同时启用 |
 | `NEXORA_SUBJECT_PEPPER` | Identity 主体 HMAC | 至少 32 个随机字符，仅 Functions scope |
+| `LLM_API_KEY` | 私有云托管的 Kimi 密钥 | Secret，仅 Functions / Runtime scope，终端不保存 |
+| `LLM_BASE_URL` | Kimi API 区域 | 中国区为 `https://api.moonshot.cn/v1` |
+| `LLM_MODEL` | 对话模型 | 当前为 `kimi-k2.6` |
 
 数据库连接由 Netlify 根据 production、branch deploy 或 Deploy Preview 自动注入，不保存手工连接串。CLI alias 不属于真实 branch deploy；本次验收仅为绕过平台未注入连接的问题，短时设置了 `device-cloud-test` 分支专用连接串，并在验收后立即删除且重新部署。
 
