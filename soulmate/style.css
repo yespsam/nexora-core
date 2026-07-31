@@ -677,6 +677,18 @@ input:focus-visible {
   background: #f6c7d1;
 }
 
+.message.streaming::after {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 12px;
+  margin-left: 4px;
+  border-radius: 1px;
+  background: var(--coral);
+  vertical-align: -2px;
+  animation: state-blink 900ms ease-in-out infinite;
+}
+
 .message.error {
   border-left: 2px solid #d45d62;
   background: #fff3f2;

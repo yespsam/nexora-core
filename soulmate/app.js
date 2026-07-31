@@ -62,6 +62,10 @@ import {
   privateAccessLoginPath,
   soulmateCloudRetryDelay
 } from '../shared/soulmate-resilience.mjs?v=2';
+import {
+  appendChatStreamDelta,
+  parseChatStreamEvent
+} from '../shared/chat-stream.mjs?v=1';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -132,7 +136,7 @@ const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
 const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
-const APP_RELEASE = 'session-recovery-v85';
+const APP_RELEASE = 'streaming-dialogue-v90';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -199,6 +203,7 @@ const state = {
   },
   profile: null,
   history: [],
+  streamingReply: '',
   phase: 'idle',
   activeAction: '',
   actionLabel: '',
@@ -504,6 +509,12 @@ function renderMessages() {
     paragraph.textContent = message.content;
     messageList.appendChild(paragraph);
   });
+  if (state.streamingReply) {
+    const paragraph = document.createElement('p');
+    paragraph.className = 'message assistant streaming';
+    paragraph.textContent = state.streamingReply;
+    messageList.appendChild(paragraph);
+  }
 }
 
 function updateProfile(next) {
@@ -1013,28 +1024,7 @@ function showConversationError(failure = 'request_failed') {
   messageList.appendChild(message);
 }
 
-async function requestReply(text, {
-  history = state.history.slice(0, -1),
-  probe = false
-} = {}) {
-  const response = await fetch('/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    cache: 'no-store',
-    body: JSON.stringify({
-      text,
-      persona: personaFromStarter(),
-      persona_short: personaFromStarter(),
-      relationship: 'companion',
-      scene: 'daily',
-      history,
-      soulmate: soulmatePromptProfile(state.profile, text),
-      client_release: APP_RELEASE,
-      probe
-    })
-  });
-  const body = await response.json().catch(() => null);
+function replyResultFromBody(response, body) {
   if (isPrivateAccessExpired(response.status, body?.error)) {
     return {
       reply: '',
@@ -1069,7 +1059,7 @@ async function requestReply(text, {
       reply: '',
       mood: 'calm',
       mode: String(body.mode || ''),
-      provider: String(body.llm?.provider || provider),
+      provider: String(body.llm?.provider || ''),
       failure: String(body.llm?.failure || 'request_failed')
     };
   }
@@ -1079,8 +1069,74 @@ async function requestReply(text, {
     action: String(body.actions?.find((item) => item?.target === 'companion')?.action || 'voice'),
     mode: String(body.mode || ''),
     provider: String(body.llm?.provider || ''),
-    failure: String(body.llm?.failure || '')
+    failure: String(body.llm?.failure || ''),
+    latency: body.llm?.latency || null
   };
+}
+
+async function readChatStream(response, onDelta) {
+  if (!response.body) return { reply: '', mood: 'calm', failure: 'request_failed' };
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let partial = '';
+  let doneBody = null;
+  let streamFailure = '';
+  const consume = (block) => {
+    const message = parseChatStreamEvent(block);
+    if (!message) return;
+    if (message.event === 'delta') {
+      partial = appendChatStreamDelta(partial, message.data?.text);
+      onDelta?.(partial);
+    } else if (message.event === 'done') {
+      doneBody = message.data;
+    } else if (message.event === 'error') {
+      streamFailure = String(message.data?.failure || 'request_failed');
+    }
+  };
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    buffer += decoder.decode(chunk.value, { stream: true });
+    const blocks = buffer.split(/\r?\n\r?\n/);
+    buffer = blocks.pop() || '';
+    blocks.forEach(consume);
+  }
+  buffer += decoder.decode();
+  if (buffer.trim()) consume(buffer);
+  if (streamFailure) return { reply: '', mood: 'calm', failure: streamFailure };
+  return replyResultFromBody(response, doneBody);
+}
+
+async function requestReply(text, {
+  history = state.history.slice(0, -1),
+  probe = false,
+  onDelta = null
+} = {}) {
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    cache: 'no-store',
+    body: JSON.stringify({
+      text,
+      persona: personaFromStarter(),
+      persona_short: personaFromStarter(),
+      relationship: 'companion',
+      scene: 'daily',
+      history,
+      soulmate: soulmatePromptProfile(state.profile, text),
+      client_release: APP_RELEASE,
+      probe,
+      stream: true
+    })
+  });
+  const type = response.headers.get('content-type') || '';
+  if (response.ok && type.includes('text/event-stream')) {
+    return readChatStream(response, onDelta);
+  }
+  const body = await response.json().catch(() => null);
+  return replyResultFromBody(response, body);
 }
 
 async function sendMessage(rawText, { source = 'text' } = {}) {
@@ -1096,10 +1152,18 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   presenceLine.textContent = `${state.profile.name}正在理解你的话……`;
   let result;
   try {
-    result = await requestReply(text);
+    result = await requestReply(text, {
+      onDelta(partial) {
+        state.streamingReply = partial;
+        conversationStateLabel.textContent = phaseLabels.speaking;
+        presenceLine.textContent = partial;
+        renderMessages();
+      }
+    });
   } catch (error) {
     result = { reply: '', mood: 'calm', failure: 'request_failed' };
   }
+  state.streamingReply = '';
   renderLlmConnection(result);
   if (result.reauthenticate) {
     state.busy = false;

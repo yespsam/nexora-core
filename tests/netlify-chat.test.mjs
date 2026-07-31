@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import handler, { buildLLMMessages, cleanHistory, cleanSoulmateProfile } from '../netlify/functions/chat.mjs';
+import handler, {
+  buildLLMMessages,
+  cleanHistory,
+  cleanSoulmateProfile,
+  extractStreamedReply
+} from '../netlify/functions/chat.mjs';
 
 function chatRequest(method, body) {
   return new Request('http://localhost/api/chat', {
@@ -39,6 +44,78 @@ test('buildLLMMessages places prior conversation before the latest message', () 
     { role: 'user', content: '那就去昨天那家吧' }
   ]);
   assert.match(messages[0].content, /结合前文/);
+});
+
+test('streamed JSON exposes only the complete visible portion of reply', () => {
+  assert.equal(extractStreamedReply('{"reply":"你好，今'), '你好，今');
+  assert.equal(extractStreamedReply('{"reply":"你好\\n今天见"'), '你好\n今天见');
+  assert.equal(extractStreamedReply('{"mood":"happy"'), '');
+  assert.equal(extractStreamedReply('{"reply":"一个\\u4f60'), '一个你');
+  assert.equal(extractStreamedReply('{"reply":"一个\\u4f'), '一个');
+});
+
+test('managed Kimi streams reply deltas before the structured response completes', async (t) => {
+  const originalFetch = globalThis.fetch;
+  const originalServerKey = process.env.LLM_API_KEY;
+  const originalBaseUrl = process.env.LLM_BASE_URL;
+  let forwarded = null;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    if (originalServerKey === undefined) delete process.env.LLM_API_KEY;
+    else process.env.LLM_API_KEY = originalServerKey;
+    if (originalBaseUrl === undefined) delete process.env.LLM_BASE_URL;
+    else process.env.LLM_BASE_URL = originalBaseUrl;
+  });
+  process.env.LLM_API_KEY = 'sk-stream-test-key';
+  process.env.LLM_BASE_URL = 'https://api.moonshot.cn/v1';
+  const upstreamEvents = [
+    { model: 'kimi-k2.6', choices: [{ delta: { role: 'assistant', content: '' } }] },
+    { model: 'kimi-k2.6', choices: [{ delta: { content: '{"reply":"你' } }] },
+    { model: 'kimi-k2.6', choices: [{ delta: { content: '好，今天' } }] },
+    { model: 'kimi-k2.6', choices: [{ delta: { content: '一起走走。","mood":"happy","action":"walk"}' } }] }
+  ];
+  globalThis.fetch = async (url, options) => {
+    forwarded = JSON.parse(options.body);
+    const body = `${upstreamEvents.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('')}data: [DONE]\n\n`;
+    return new Response(body, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' }
+    });
+  };
+
+  const response = await handler(chatRequest('POST', {
+    text: '今天出去走走吗？',
+    persona_short: 'creature:cute',
+    history: [{ role: 'assistant', content: '天气不错。' }],
+    soulmate: {
+      name: '露莫',
+      starterId: 'cute',
+      species: '绒云兽',
+      traits: { warmth: 72, curiosity: 66 }
+    },
+    client_release: 'streaming-dialogue-test',
+    stream: true
+  }));
+  const streamed = await response.text();
+
+  assert.match(response.headers.get('content-type'), /text\/event-stream/);
+  assert.equal(forwarded.stream, true);
+  assert.equal(forwarded.max_completion_tokens, 140);
+  assert.deepEqual(forwarded.thinking, { type: 'disabled' });
+  assert.match(forwarded.messages[0].content, /\{"reply":"\.\.\."/);
+  assert.doesNotMatch(forwarded.messages[0].content, /\{"thinking":"\.\.\."/);
+  assert.ok(streamed.indexOf('event: delta') < streamed.indexOf('event: done'));
+  assert.match(streamed, /data: \{"text":"你"\}/);
+  assert.match(streamed, /data: \{"text":"好，今天"\}/);
+  const doneBlock = streamed.split('\n\n').find((block) => block.startsWith('event: done'));
+  const done = JSON.parse(doneBlock.split('\ndata: ')[1]);
+  assert.equal(done.text, '你好，今天一起走走。');
+  assert.equal(done.emotion.mood, 'happy');
+  assert.equal(done.actions[0].action, 'walk');
+  assert.equal(done.mode, 'cloud_llm');
+  assert.equal(done.llm.provider, 'kimi');
+  assert.ok(done.llm.latency.first_token_ms >= 0);
+  assert.ok(done.llm.latency.total_ms >= done.llm.latency.first_token_ms);
 });
 
 test('Soulmate profile customizes identity and keeps memory context compact', () => {

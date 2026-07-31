@@ -25,7 +25,7 @@ function cleanText(value) {
 }
 
 const LLM_TIMEOUT_MS = 12000;
-const LLM_COMPLETION_TOKEN_LIMIT = 220;
+const LLM_COMPLETION_TOKEN_LIMIT = 140;
 const RECENT_HISTORY_LIMIT = 10;
 const LLM_MODEL_WHITELIST = new Set([
   'kimi-k3', 'kimi-k2.5', 'kimi-k2.6', 'kimi-k2.7-code',
@@ -211,13 +211,11 @@ export function buildLLMMessages(text, kind, history = [], soulmateValue = null)
     soulmate?.memories.length ? `共同记忆：${soulmate.memories.join('；')}` : '',
     '规则：',
     '1. 必须严格输出 JSON（不要输出任何其他文字、不要用代码块）：',
-    '{"thinking":"...","reply":"...","mood":"happy|calm|sad|sleepy 之一","action":"idle|nod|heart|wave|voice|walk|run 之一"}',
+    '{"reply":"...","mood":"happy|calm|sad|sleepy 之一","action":"idle|nod|heart|wave|voice|walk|run 之一"}',
     creatureId
       ? '2. reply 是说给用户听的话：像熟悉的真实伙伴，短、口语、1~3 句；直接回应具体内容，禁止背模板、客服腔和空泛安慰。'
       : '2. reply 是给主人听的话：像熟悉的真人，短、口语、1~3 句；直接回应具体内容，禁止背模板、客服腔和空泛安慰。',
-    creatureId
-      ? '3. thinking 只写一小句内心反应，不复述规则，不展开分析。'
-      : '3. thinking 只写一小句内心反应，不复述规则，不展开分析。',
+    '3. reply 必须是 JSON 的第一个字段，以便立即开始语音对话；不要输出 thinking 或分析过程。',
     '4. 必须结合前文理解省略、代词和追问，不要重复问已经回答过的问题；最新一句是前文的自然延续。',
     '4.1 先判断这是提问、闲聊、玩笑、分享还是明显的情绪表达。只有用户真的在表达情绪时才安慰，普通聊天不要每句都“接住情绪”。',
     '4.2 回应中至少承接用户刚说的一个具体细节；需要追问时最多问一个自然的问题，不要连续盘问，也不要反复强调自己会陪伴。',
@@ -262,6 +260,54 @@ function parseLLMReply(raw) {
   };
 }
 
+export function extractStreamedReply(raw) {
+  const text = String(raw || '');
+  const match = /"reply"\s*:\s*"/.exec(text);
+  if (!match) return '';
+  let output = '';
+  for (let index = match.index + match[0].length; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === '"') break;
+    if (character !== '\\') {
+      output += character;
+      continue;
+    }
+    if (index + 1 >= text.length) break;
+    const escaped = text[index + 1];
+    if (escaped === 'u') {
+      const code = text.slice(index + 2, index + 6);
+      if (!/^[0-9a-f]{4}$/i.test(code)) break;
+      output += String.fromCharCode(Number.parseInt(code, 16));
+      index += 5;
+      continue;
+    }
+    const escapes = {
+      '"': '"',
+      '\\': '\\',
+      '/': '/',
+      b: '\b',
+      f: '\f',
+      n: '\n',
+      r: '\r',
+      t: '\t'
+    };
+    output += escapes[escaped] ?? escaped;
+    index += 1;
+  }
+  return output.slice(0, 300);
+}
+
+function kimiRequestPayload(text, kind, history, soulmate, model, overrides = {}) {
+  return {
+    model,
+    messages: buildLLMMessages(text, kind, history, soulmate),
+    max_completion_tokens: LLM_COMPLETION_TOKEN_LIMIT,
+    ...(model === 'kimi-k2.6' ? { thinking: { type: 'disabled' } } : {}),
+    response_format: { type: 'json_object' },
+    ...overrides
+  };
+}
+
 async function callKimi(text, kind, history, {
   apiKey,
   baseUrl,
@@ -280,13 +326,7 @@ async function callKimi(text, kind, history, {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`
       },
-      body: JSON.stringify({
-        model,
-        messages: buildLLMMessages(text, kind, history, soulmate),
-        max_completion_tokens: LLM_COMPLETION_TOKEN_LIMIT,
-        ...(model === 'kimi-k2.6' ? { thinking: { type: 'disabled' } } : {}),
-        response_format: { type: 'json_object' }
-      }),
+      body: JSON.stringify(kimiRequestPayload(text, kind, history, soulmate, model)),
       signal: controller.signal
     });
     if (!resp.ok) {
@@ -304,6 +344,198 @@ async function callKimi(text, kind, history, {
   } finally {
     clearTimeout(timer);
   }
+}
+
+function cloudReplyBody(llm, {
+  kind,
+  creatureId,
+  sceneId,
+  soulmate,
+  gatewayAvailable,
+  contextTurns,
+  latency = null
+}) {
+  return {
+    text: llm.reply,
+    emotion: {
+      mood: llm.mood,
+      affection: Math.max(0, Math.min(100, Math.round(soulmate?.traits?.warmth || 72))),
+      user_mood: llm.mood === 'sleepy' ? '困倦' : '平静'
+    },
+    actions: [
+      { target: 'companion', action: llm.action, scene: sceneId }
+    ],
+    persona_id: personaIdForKind(kind),
+    creature: creatureId || null,
+    scene: sceneId,
+    mode: 'cloud_llm',
+    llm: {
+      bound: false,
+      managed: true,
+      provider: llm.provider,
+      model: llm.model,
+      gateway_available: gatewayAvailable,
+      context_turns: contextTurns,
+      ...(latency ? { latency } : {})
+    }
+  };
+}
+
+function sseEvent(event, data) {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+async function callKimiStream(text, kind, history, {
+  apiKey,
+  baseUrl,
+  model,
+  soulmate,
+  diagnostics,
+  responseMeta,
+  clientRelease,
+  probe
+}) {
+  if (!apiKey || !baseUrl) return null;
+  const abortController = new AbortController();
+  const startedAt = Date.now();
+  const timer = setTimeout(() => abortController.abort(), LLM_TIMEOUT_MS);
+  let upstream;
+  try {
+    upstream = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(kimiRequestPayload(
+        text,
+        kind,
+        history,
+        soulmate,
+        model,
+        { stream: true, stream_options: { include_usage: true } }
+      )),
+      signal: abortController.signal
+    });
+  } catch (error) {
+    clearTimeout(timer);
+    diagnostics.category = error?.name === 'AbortError' ? 'timeout' : 'network';
+    return null;
+  }
+  if (!upstream.ok) {
+    clearTimeout(timer);
+    await recordProviderFailure(upstream, diagnostics);
+    return null;
+  }
+  if (!upstream.body) {
+    clearTimeout(timer);
+    diagnostics.category = 'invalid_response';
+    return null;
+  }
+
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const reader = upstream.body.getReader();
+  let canceled = false;
+  const stream = new ReadableStream({
+    async start(controller) {
+      let upstreamBuffer = '';
+      let rawReply = '';
+      let emittedReply = '';
+      let firstTokenAt = 0;
+      let upstreamModel = model;
+      controller.enqueue(encoder.encode(sseEvent('start', {
+        mode: 'cloud_llm',
+        provider: 'kimi',
+        model
+      })));
+      try {
+        while (!canceled) {
+          const chunk = await reader.read();
+          if (chunk.done) break;
+          upstreamBuffer += decoder.decode(chunk.value, { stream: true });
+          const lines = upstreamBuffer.split(/\r?\n/);
+          upstreamBuffer = lines.pop() || '';
+          for (const line of lines) {
+            if (!line.startsWith('data:')) continue;
+            const payload = line.slice(5).trim();
+            if (!payload || payload === '[DONE]') continue;
+            let data;
+            try {
+              data = JSON.parse(payload);
+            } catch (error) {
+              continue;
+            }
+            upstreamModel = String(data.model || upstreamModel);
+            const content = data.choices?.[0]?.delta?.content;
+            if (!content) continue;
+            if (!firstTokenAt) firstTokenAt = Date.now();
+            rawReply += content;
+            const visibleReply = extractStreamedReply(rawReply);
+            if (visibleReply.startsWith(emittedReply) && visibleReply.length > emittedReply.length) {
+              const delta = visibleReply.slice(emittedReply.length);
+              emittedReply = visibleReply;
+              controller.enqueue(encoder.encode(sseEvent('delta', { text: delta })));
+            }
+          }
+        }
+        if (canceled) return;
+        upstreamBuffer += decoder.decode();
+        const parsed = parseLLMReply(rawReply);
+        if (!parsed) throw new Error('invalid_response');
+        const finishedAt = Date.now();
+        const latency = {
+          first_token_ms: firstTokenAt ? firstTokenAt - startedAt : finishedAt - startedAt,
+          total_ms: finishedAt - startedAt
+        };
+        const llm = { ...parsed, provider: 'kimi', model: upstreamModel };
+        controller.enqueue(encoder.encode(sseEvent('done', cloudReplyBody(llm, {
+          ...responseMeta,
+          latency
+        }))));
+        console.info(JSON.stringify({
+          event: 'chat_provider_result',
+          mode: 'cloud_llm',
+          provider: 'kimi',
+          model: upstreamModel,
+          managed: true,
+          streamed: true,
+          first_token_ms: latency.first_token_ms,
+          total_ms: latency.total_ms,
+          client_release: clientRelease || null,
+          probe,
+          context_turns: responseMeta.contextTurns
+        }));
+        controller.close();
+      } catch (error) {
+        if (canceled) return;
+        const failure = error?.name === 'AbortError'
+          ? 'server_key_timeout'
+          : error?.message === 'invalid_response'
+            ? 'server_key_invalid_response'
+            : 'server_key_network';
+        controller.enqueue(encoder.encode(sseEvent('error', { failure })));
+        controller.close();
+      } finally {
+        clearTimeout(timer);
+        reader.releaseLock();
+      }
+    },
+    cancel() {
+      canceled = true;
+      clearTimeout(timer);
+      abortController.abort();
+      return reader.cancel();
+    }
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-store, no-transform',
+      'X-Content-Type-Options': 'nosniff'
+    }
+  });
 }
 
 async function callGateway(text, kind, history, gateway, soulmate = null) {
@@ -399,14 +631,38 @@ export default async function handler(request) {
   const kimiModel = sanitizeLlmModel(payload.llm_model);
   const kimiDiagnostics = {};
   const clientRelease = safeLogToken(payload.client_release);
-  let llm = await callKimi(text, kind, history, {
-    apiKey: serverKey,
-    baseUrl: llmBaseUrl(),
-    model: kimiModel,
-    provider: 'kimi',
+  const responseMeta = {
+    kind,
+    creatureId,
+    sceneId,
     soulmate,
-    diagnostics: kimiDiagnostics
-  });
+    gatewayAvailable: gateway.available,
+    contextTurns: history.length
+  };
+  const wantsStream = payload.stream === true;
+  if (wantsStream && serverKey) {
+    const streamResponse = await callKimiStream(text, kind, history, {
+      apiKey: serverKey,
+      baseUrl: llmBaseUrl(),
+      model: kimiModel,
+      soulmate,
+      diagnostics: kimiDiagnostics,
+      responseMeta,
+      clientRelease,
+      probe: payload.probe === true
+    });
+    if (streamResponse) return streamResponse;
+  }
+  let llm = wantsStream && serverKey
+    ? null
+    : await callKimi(text, kind, history, {
+      apiKey: serverKey,
+      baseUrl: llmBaseUrl(),
+      model: kimiModel,
+      provider: 'kimi',
+      soulmate,
+      diagnostics: kimiDiagnostics
+    });
   if (!llm && gateway.available) {
     llm = await callGateway(text, kind, history, gateway, soulmate);
   }
@@ -421,30 +677,7 @@ export default async function handler(request) {
       probe: payload.probe === true,
       context_turns: history.length
     }));
-    return json({
-      text: llm.reply,
-      thinking: llm.thinking,
-      emotion: {
-        mood: llm.mood,
-        affection: Math.max(0, Math.min(100, Math.round(soulmate?.traits?.warmth || 72))),
-        user_mood: llm.mood === 'sleepy' ? '困倦' : '平静'
-      },
-      actions: [
-        { target: 'companion', action: llm.action, scene: sceneId }
-      ],
-      persona_id: personaIdForKind(kind),
-      creature: creatureId || null,
-      scene: sceneId,
-      mode: 'cloud_llm',
-      llm: {
-        bound: false,
-        managed: true,
-        provider: llm.provider,
-        model: llm.model,
-        gateway_available: gateway.available,
-        context_turns: history.length
-      }
-    });
+    return json(cloudReplyBody(llm, responseMeta));
   }
 
   const failure = serverKey
