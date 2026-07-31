@@ -5,7 +5,7 @@ import {
   creature3DEntry,
   creatureActionForPhase,
   creatureActionProfiles
-} from './creature-3d-data.mjs?v=15';
+} from './creature-3d-data.mjs?v=16';
 
 const PROCEDURAL_BONES = Object.freeze([
   'Hips',

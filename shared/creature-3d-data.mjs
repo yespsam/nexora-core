@@ -73,10 +73,13 @@ export const creatureActionForPhase = Object.freeze({
 
 export const creatureActionProfiles = Object.freeze({
   idle: Object.freeze({
+    freezePose: true,
+    procedural: 'idle',
     timeScale: 1,
     stabilizeYaw: true,
     stabilizeXZ: true,
-    bob: 0
+    bob: 0.004,
+    sway: 0.002
   }),
   listening: Object.freeze({
     timeScale: 0.58,

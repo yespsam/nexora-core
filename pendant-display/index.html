@@ -107,7 +107,7 @@
     </aside>
   </main>
   <script type="module">
-    import('./app.js?v=0.7.20').catch((error) => {
+    import('./app.js?v=0.7.21').catch((error) => {
       const detail = String(error?.message || error || 'module load failed').slice(0, 160);
       document.documentElement.dataset.moduleError = detail;
       document.querySelector('#screen-state').textContent = '角色暂时离线';
