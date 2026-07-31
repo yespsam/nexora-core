@@ -136,7 +136,7 @@ const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
 const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
-const APP_RELEASE = 'streaming-dialogue-v90';
+const APP_RELEASE = 'streaming-dialogue-v91';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -224,6 +224,8 @@ const state = {
   voiceRequestController: null,
   voiceRequestId: 0,
   playbackId: 0,
+  audioContext: null,
+  currentAudioSource: null,
   currentAudio: null,
   currentAudioUrl: '',
   queuedAudio: null,
@@ -284,7 +286,13 @@ function redirectToPrivateAccess() {
   location.replace(privateAccessLoginPath(location));
 }
 
-function renderLlmConnection({ mode = '', provider = '', failure = '', available = false } = {}) {
+function renderLlmConnection({
+  mode = '',
+  provider = '',
+  failure = '',
+  available = false,
+  latency = null
+} = {}) {
   if (mode === 'cloud_llm' || available) {
     const labels = {
       kimi: 'Kimi 私有云',
@@ -292,9 +300,16 @@ function renderLlmConnection({ mode = '', provider = '', failure = '', available
     };
     const label = labels[provider] || '云端模型已配置';
     llmProviderLabel.textContent = label;
+    const firstTokenMs = Math.max(0, Number(latency?.first_token_ms) || 0);
+    const totalMs = Math.max(firstTokenMs, Number(latency?.total_ms) || 0);
+    const timing = firstTokenMs
+      ? ` 本次首字 ${(firstTokenMs / 1000).toFixed(1)} 秒，完整 ${(totalMs / 1000).toFixed(1)} 秒。`
+      : '';
     llmApiStatus.textContent = mode === 'cloud_llm'
-      ? '真实模型正在结合前文与长期记忆回答。'
+      ? `真实模型正在结合前文与长期记忆回答。${timing}`
       : '服务器凭据已就绪，设备端无需填写 API Key。';
+    llmApiStatus.dataset.firstTokenMs = firstTokenMs ? String(Math.round(firstTokenMs)) : '';
+    llmApiStatus.dataset.totalMs = totalMs ? String(Math.round(totalMs)) : '';
     return;
   }
   if (failure && failure !== 'not_configured') {
@@ -414,6 +429,7 @@ function setPhase(phase, responseAction = '') {
     busy: state.busy,
     hasVoiceOutput: Boolean(
       state.voiceRequestController
+      || state.currentAudioSource
       || state.currentAudio
       || state.queuedAudio
     )
@@ -1231,13 +1247,42 @@ function clearQueuedAudio() {
   queuedAudioButton.hidden = true;
 }
 
+function unlockAudioPlayback() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return false;
+  try {
+    if (!state.audioContext) state.audioContext = new AudioContextClass();
+    const context = state.audioContext;
+    if (context.state === 'suspended') context.resume().catch(() => {});
+    const source = context.createBufferSource();
+    source.buffer = context.createBuffer(1, 1, context.sampleRate);
+    source.connect(context.destination);
+    source.start(0);
+    source.onended = () => source.disconnect();
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 function stopAudio({ clearQueue = false, guardMs = 1000 } = {}) {
   if (state.voiceRequestController) state.voiceRequestController.abort();
   state.voiceRequestController = null;
   state.voiceRequestId += 1;
   state.playbackId += 1;
   const hadOutput = Boolean(state.currentAudio)
+    || Boolean(state.currentAudioSource)
     || state.echoGuardUntil === Number.MAX_SAFE_INTEGER;
+  if (state.currentAudioSource) {
+    state.currentAudioSource.onended = null;
+    try {
+      state.currentAudioSource.stop(0);
+    } catch (error) {
+      // The source may already have completed naturally.
+    }
+    state.currentAudioSource.disconnect();
+  }
+  state.currentAudioSource = null;
   if (state.currentAudio) {
     state.currentAudio.pause();
     state.currentAudio.onended = null;
@@ -1260,11 +1305,40 @@ function stopAudio({ clearQueue = false, guardMs = 1000 } = {}) {
   setPhase(state.phase);
 }
 
+async function playUnlockedAudioBlob(blob, playbackId) {
+  const context = state.audioContext;
+  if (!context) return false;
+  try {
+    if (context.state === 'suspended') await context.resume();
+    if (context.state !== 'running') return false;
+    const buffer = await context.decodeAudioData(await blob.arrayBuffer());
+    if (playbackId !== state.playbackId) return false;
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(context.destination);
+    state.currentAudioSource = source;
+    state.echoGuardUntil = Number.MAX_SAFE_INTEGER;
+    source.onended = () => {
+      if (playbackId !== state.playbackId || state.currentAudioSource !== source) return;
+      state.currentAudioSource = null;
+      source.disconnect();
+      stopAudio({ guardMs: 1800 });
+      setPhase('idle');
+    };
+    setPhase('speaking');
+    source.start(0);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 async function playAudioBlob(blob, allowQueue = true) {
   stopListening();
   stopAudio({ clearQueue: true, guardMs: 0 });
   const playbackId = state.playbackId + 1;
   state.playbackId = playbackId;
+  if (await playUnlockedAudioBlob(blob, playbackId)) return true;
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
   audio.playsInline = true;
@@ -1341,6 +1415,7 @@ function scheduleWakeRecognition(delay = WAKE_RESTART_DELAY_MS) {
     if (
       state.busy
       || state.voiceRequestController
+      || state.currentAudioSource
       || state.currentAudio
       || state.queuedAudio
       || ['acting', 'listening', 'thinking', 'speaking', 'ready'].includes(state.phase)
@@ -1484,6 +1559,7 @@ function startListening() {
   if (state.recognitionMode === 'wake') stopListening({ resumeWake: false });
   const interrupting = Boolean(
     state.voiceRequestController
+    || state.currentAudioSource
     || state.currentAudio
     || state.queuedAudio
     || ['speaking', 'ready'].includes(state.phase)
@@ -1493,7 +1569,7 @@ function startListening() {
   const delay = Math.max(0, state.echoGuardUntil - Date.now(), interrupting ? 220 : 0);
   const start = () => {
     state.listeningTimer = 0;
-    if (state.busy || state.voiceRequestController || state.currentAudio) {
+    if (state.busy || state.voiceRequestController || state.currentAudioSource || state.currentAudio) {
       setPhase('idle');
       return;
     }
@@ -1691,6 +1767,7 @@ async function importProfile(file) {
 }
 
 birthNext.addEventListener('click', () => {
+  unlockAudioPlayback();
   if (!validateBirthStep()) return;
   if (state.birthStep === 4) completeBirth();
   else showBirthStep(state.birthStep + 1);
@@ -1713,6 +1790,7 @@ $$('[data-choice]').forEach((button) => {
 });
 
 voicePreview.addEventListener('click', async () => {
+  unlockAudioPlayback();
   voicePreview.disabled = true;
   voicePreview.textContent = '正在准备声音';
   const played = await speakText('你好。我正在等你给我一个名字。', { allowQueue: true });
@@ -1723,6 +1801,7 @@ voicePreview.addEventListener('click', async () => {
 $$('[data-setting-voice]').forEach((button) => {
   button.addEventListener('click', async () => {
     if (!state.profile) return;
+    unlockAudioPlayback();
     stopAudio();
     state.profile = { ...state.profile, voice: button.dataset.settingVoice, voiceCustomized: true };
     saveProfile();
@@ -1747,12 +1826,20 @@ $$('[data-presence-action]').forEach((button) => {
 
 composer.addEventListener('submit', (event) => {
   event.preventDefault();
+  unlockAudioPlayback();
   sendMessage(chatInput.value);
 });
 
-micButton.addEventListener('click', startListening);
-wakeButton.addEventListener('click', toggleWakeRecognition);
+micButton.addEventListener('click', () => {
+  unlockAudioPlayback();
+  startListening();
+});
+wakeButton.addEventListener('click', () => {
+  unlockAudioPlayback();
+  toggleWakeRecognition();
+});
 queuedAudioButton.addEventListener('click', async () => {
+  unlockAudioPlayback();
   const blob = state.queuedAudio;
   if (blob) await playAudioBlob(blob, false);
 });
