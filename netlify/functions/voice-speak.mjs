@@ -4,15 +4,24 @@ import { jsonResponse, resolveVoice } from './voice-data.mjs';
 const outputFormat = Constants.OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3
   || 'audio-24khz-96kbitrate-mono-mp3';
 
-function cleanText(value) {
-  return String(value || '')
+export function prepareSpeechText(value) {
+  const text = String(value || '')
+    .replace(/https?:\/\/\S+/gi, '一个链接')
     .replace(/[<>&]/g, '')
     .replace(/[*_`#]/g, '')
-    .replace(/https?:\/\/\S+/gi, '一个链接')
-    .replace(/…{2,}/g, '。')
+    .replace(/(?:\r?\n)+/g, '。')
+    .replace(/[“”"「」『』]/g, '')
+    .replace(/[：:]/g, '，')
+    .replace(/[；;]/g, '。')
+    .replace(/[—–-]{2,}/g, '，')
+    .replace(/\.{3,}|…+/g, '。')
     .replace(/\s+/g, ' ')
+    .replace(/\s*([，。！？])\s*/g, '$1')
+    .replace(/([，。！？])(?:\s*\1)+/g, '$1')
     .trim()
     .slice(0, 300);
+  if (!text || /[。！？]$/.test(text)) return text;
+  return `${text}。`;
 }
 
 function offsetValue(value, delta, suffix) {
@@ -25,12 +34,11 @@ export function voiceProsody(cast, mood = '') {
   const normalizedMood = String(mood || '').toLowerCase();
   const calm = /calm|gentle|comfort|sad|concern|warm/.test(normalizedMood);
   const lively = /happy|excited|joy|playful/.test(normalizedMood);
-  const rateDelta = calm ? -2 : lively ? 2 : 0;
-  const pitchDelta = calm ? -1 : lively ? 1 : 0;
+  const rateDelta = calm ? -1 : lively ? 1 : 0;
   return {
     rate: offsetValue(cast.rate, rateDelta, '%'),
-    pitch: offsetValue(cast.pitch, pitchDelta, 'Hz'),
-    volume: '94%'
+    pitch: offsetValue(cast.pitch, 0, 'Hz'),
+    volume: '96%'
   };
 }
 
@@ -56,7 +64,7 @@ export const handler = async (event) => {
     return jsonResponse({ error: 'invalid json' }, 400);
   }
 
-  const text = cleanText(payload.text);
+  const text = prepareSpeechText(payload.text);
   if (!text) {
     return jsonResponse({ error: 'missing text' }, 400);
   }
@@ -96,7 +104,8 @@ export const handler = async (event) => {
         'Cache-Control': 'no-store',
         'X-Nexora-Voice': cast.voice,
         'X-Nexora-Archetype': cast.archetype || 'default',
-        'X-Nexora-Audio-Quality': '24khz-96kbps'
+        'X-Nexora-Audio-Quality': '24khz-96kbps',
+        'X-Nexora-Voice-Profile': 'natural-v2'
       },
       body: buffer.toString('base64'),
       isBase64Encoded: true

@@ -115,15 +115,15 @@ export const creatureProfiles = Object.freeze({
 export const voiceResources = Object.freeze({
   female: [
     { id: 'default', archetype: '', name: '随身份', voice: 'zh-CN-XiaoxiaoNeural', rate: '+0%', pitch: '+0Hz' },
-    { id: 'loli', archetype: 'loli', name: '萝莉音', voice: 'zh-CN-XiaoyiNeural', rate: '+12%', pitch: '+18Hz' },
-    { id: 'yujie', archetype: 'yujie', name: '御姐音', voice: 'zh-CN-XiaoxiaoNeural', rate: '-8%', pitch: '-8Hz' },
-    { id: 'funny', archetype: 'funny', name: '搞笑女', voice: 'zh-CN-XiaoyiNeural', rate: '+16%', pitch: '+10Hz' }
+    { id: 'loli', archetype: 'loli', name: '萝莉音', voice: 'zh-CN-XiaoyiNeural', rate: '+3%', pitch: '+0Hz' },
+    { id: 'yujie', archetype: 'yujie', name: '御姐音', voice: 'zh-CN-XiaoxiaoNeural', rate: '-4%', pitch: '+0Hz' },
+    { id: 'funny', archetype: 'funny', name: '搞笑女', voice: 'zh-CN-XiaoyiNeural', rate: '+5%', pitch: '+0Hz' }
   ],
   male: [
     { id: 'default', archetype: '', name: '随身份', voice: 'zh-CN-YunxiNeural', rate: '+0%', pitch: '+0Hz' },
-    { id: 'shonen', archetype: 'shonen', name: '少年音', voice: 'zh-CN-YunxiaNeural', rate: '+8%', pitch: '+12Hz' },
-    { id: 'uncle', archetype: 'uncle', name: '大叔音', voice: 'zh-CN-YunjianNeural', rate: '-10%', pitch: '-8Hz' },
-    { id: 'funny', archetype: 'funny', name: '搞笑男', voice: 'zh-CN-YunyangNeural', rate: '+16%', pitch: '+8Hz' }
+    { id: 'shonen', archetype: 'shonen', name: '少年音', voice: 'zh-CN-YunxiaNeural', rate: '-1%', pitch: '+0Hz' },
+    { id: 'uncle', archetype: 'uncle', name: '大叔音', voice: 'zh-CN-YunjianNeural', rate: '-6%', pitch: '+0Hz' },
+    { id: 'funny', archetype: 'funny', name: '搞笑男', voice: 'zh-CN-YunyangNeural', rate: '+3%', pitch: '+0Hz' }
   ]
 });
 
@@ -133,30 +133,30 @@ export const creatureVoiceResources = Object.freeze([
     archetype: 'sprout',
     starter: 'cute',
     name: '幼灵',
-    description: '轻快、稚气的精灵声线',
+    description: '轻快、自然的幼年精灵声线',
     voice: 'zh-CN-YunxiaNeural',
-    rate: '+5%',
-    pitch: '+7Hz'
+    rate: '-2%',
+    pitch: '+0Hz'
   },
   {
     id: 'edge',
     archetype: 'edge',
     starter: 'cool',
     name: '锋鸣',
-    description: '克制、锐利的守护者声线',
+    description: '克制、沉稳的守护者声线',
     voice: 'zh-CN-YunjianNeural',
-    rate: '-2%',
-    pitch: '-3Hz'
+    rate: '-5%',
+    pitch: '+0Hz'
   },
   {
     id: 'aether',
     archetype: 'aether',
     starter: 'beautiful',
     name: '星语',
-    description: '安静、空灵的中性精灵声线',
+    description: '安静、清晰的中性精灵声线',
     voice: 'zh-CN-YunxiNeural',
-    rate: '-4%',
-    pitch: '+1Hz'
+    rate: '-3%',
+    pitch: '+0Hz'
   }
 ]);
 
