@@ -365,6 +365,18 @@ export class Creature3DViewer {
     this.captureMotionAnchor();
   }
 
+  restoreBindPose() {
+    if (!this.animatedRoot) return;
+    this.animatedRoot.traverse((object) => {
+      if (!object.name) return;
+      const bind = this.bindPose.get(object.name);
+      if (!bind) return;
+      object.position.copy(bind.position);
+      object.quaternion.copy(bind.quaternion);
+    });
+    this.animatedRoot.updateMatrixWorld(true);
+  }
+
   playClip(action, clip, fadeDuration = 0.24) {
     if (!this.mixer || !clip) return;
     window.clearTimeout(this.actionStopTimer);
@@ -375,16 +387,19 @@ export class Creature3DViewer {
     this.actionMotion = creatureActionProfiles[action] || creatureActionProfiles.idle;
     this.motionRoot?.position.set(0, 0, 0);
     this.motionRoot?.rotation.set(0, 0, 0);
-    if (this.actionMotion.freezePose) {
-      for (const [name, bone] of this.proceduralBones) {
-        const bind = this.bindPose.get(name);
-        if (bind) bone.quaternion.copy(bind.quaternion);
-      }
-    }
-    const nextAction = this.mixer.clipAction(clip);
     const previousAction = this.activeMixerAction;
     const freezePose = Boolean(this.actionMotion.freezePose);
     const loopOnce = Boolean(this.actionMotion.loopOnce);
+    if (freezePose) {
+      this.mixer.stopAllAction();
+      this.activeMixerAction = null;
+      this.restoreBindPose();
+      this.actionStartedAt = performance.now();
+      this.captureProceduralPose();
+      this.proceduralTransitionPose = outgoingPose;
+      return;
+    }
+    const nextAction = this.mixer.clipAction(clip);
     nextAction.enabled = true;
     nextAction.reset();
     nextAction.setEffectiveTimeScale(this.actionMotion.timeScale || 1);
@@ -392,9 +407,7 @@ export class Creature3DViewer {
     nextAction.setLoop(loopOnce ? THREE.LoopOnce : THREE.LoopRepeat, loopOnce ? 1 : Infinity);
     nextAction.clampWhenFinished = loopOnce;
     nextAction.play();
-    if (freezePose && previousAction && previousAction !== nextAction) {
-      previousAction.stop();
-    } else if (previousAction && previousAction !== nextAction && fadeDuration > 0) {
+    if (previousAction && previousAction !== nextAction && fadeDuration > 0) {
       previousAction.crossFadeTo(nextAction, fadeDuration, true);
       this.actionStopTimer = window.setTimeout(() => {
         if (this.activeMixerAction !== previousAction) previousAction.stop();
@@ -404,7 +417,6 @@ export class Creature3DViewer {
     }
     this.activeMixerAction = nextAction;
     this.mixer.update(0.0001);
-    nextAction.paused = freezePose;
     this.actionStartedAt = performance.now();
     this.captureProceduralPose();
     this.proceduralTransitionPose = outgoingPose;

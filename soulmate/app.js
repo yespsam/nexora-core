@@ -41,7 +41,7 @@ import {
   mirrorSoulmateCloudState,
   requestSoulmateDeviceCloudDeletion
 } from '../shared/soulmate-device-cloud.mjs?v=2';
-import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=26';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=27';
 import {
   creatureActionForPhase,
   creatureActionForResponse
