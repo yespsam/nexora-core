@@ -11,8 +11,8 @@ import {
   pendantDisplayStates
 } from '../shared/pendant-display.mjs';
 import { observePendantSimulator } from '../shared/pendant-simulator.mjs';
-import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=13';
-import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=5';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=20';
+import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=12';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -57,6 +57,9 @@ function ensureCreatureViewer() {
       compact: true,
       frustumHeight: 2,
       cameraDistance: 4.55,
+      baseYaw: simulatorMode
+        ? Number(params.get('debugYaw') || 0) * Math.PI / 180
+        : 0,
       onError(error) {
         lastModelError = String(error?.message || error || '3D 动作加载失败').slice(0, 120);
       }

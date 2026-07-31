@@ -1,6 +1,7 @@
 const assetUrl = (path) => new URL(`../NEXORA_3D_CREATURES/${path}`, import.meta.url).href;
 
 const creature = (id, name, species, directory, voice, formYaw = {}) => {
+  const idleAction = assetUrl(`${directory}/animations/idle.glb`);
   const forms = Object.freeze({
     seed: Object.freeze({
       id: 'seed',
@@ -30,13 +31,17 @@ const creature = (id, name, species, directory, voice, formYaw = {}) => {
     model: forms.seed.model,
     thumbnail: forms.seed.thumbnail,
     actions: Object.freeze({
-    idle: assetUrl(`${directory}/animations/idle.glb`),
-    nod: assetUrl(`${directory}/animations/nod.glb`),
-    affection: assetUrl(`${directory}/animations/affection.glb`),
-    wave: assetUrl(`${directory}/animations/wave.glb`),
-    speaking: assetUrl(`${directory}/animations/speaking.glb`),
-    walk: assetUrl(`${directory}/animations/walk.glb`),
-    run: assetUrl(`${directory}/animations/run.glb`)
+      idle: idleAction,
+      listening: idleAction,
+      nod: idleAction,
+      affection: idleAction,
+      wave: idleAction,
+      speaking: idleAction,
+      walk: assetUrl(`${directory}/animations/walk.glb`),
+      run: assetUrl(`${directory}/animations/run.glb`),
+      charging: idleAction,
+      'low-power': idleAction,
+      sleep: idleAction
     })
   });
 };
@@ -44,13 +49,16 @@ const creature = (id, name, species, directory, voice, formYaw = {}) => {
 export const creature3DCatalog = Object.freeze({
   cute: creature('cute', 'LUMO / 露莫', '绒云兽', 'CUTE_LUMO', 'sprout'),
   cool: creature('cool', 'VEYR / 维尔', '曜影兽', 'COOL_VEYR', 'edge'),
-  beautiful: creature('beautiful', 'AERA / 艾拉', '月羽灵', 'BEAUTIFUL_AERA', 'aether')
+  beautiful: creature('beautiful', 'AERA / 艾拉', '月羽灵', 'BEAUTIFUL_AERA', 'aether', {
+    young: -Math.PI / 2,
+    resonance: -Math.PI / 2
+  })
 });
 
 export const creatureActionForPhase = Object.freeze({
   idle: 'idle',
   affection: 'affection',
-  listening: 'idle',
+  listening: 'listening',
   thinking: 'nod',
   speaking: 'speaking',
   happy: 'wave',
@@ -58,9 +66,104 @@ export const creatureActionForPhase = Object.freeze({
   error: 'idle',
   offline: 'idle',
   notice: 'wave',
-  charging: 'idle',
-  'low-power': 'idle',
-  sleep: 'idle'
+  charging: 'charging',
+  'low-power': 'low-power',
+  sleep: 'sleep'
+});
+
+export const creatureActionProfiles = Object.freeze({
+  idle: Object.freeze({
+    timeScale: 1,
+    freezePose: true,
+    procedural: 'idle',
+    stabilizeYaw: true,
+    stabilizeXZ: true,
+    bob: 0.012,
+    sway: 0.004
+  }),
+  listening: Object.freeze({
+    timeScale: 0.58,
+    freezePose: true,
+    procedural: 'listening',
+    stabilizeYaw: true,
+    stabilizeXZ: true,
+    bob: 0.008,
+    sway: 0.008,
+    lean: -0.035
+  }),
+  nod: Object.freeze({
+    timeScale: 1.35,
+    freezePose: true,
+    procedural: 'nod',
+    stabilizeYaw: true,
+    stabilizeXZ: true,
+    bob: 0.006
+  }),
+  affection: Object.freeze({
+    timeScale: 1.05,
+    freezePose: true,
+    procedural: 'affection',
+    stabilizeYaw: true,
+    stabilizeXZ: true,
+    bob: 0.008
+  }),
+  wave: Object.freeze({
+    timeScale: 1.05,
+    freezePose: true,
+    procedural: 'wave',
+    stabilizeYaw: true,
+    stabilizeXZ: true,
+    bob: 0.008
+  }),
+  speaking: Object.freeze({
+    timeScale: 1,
+    freezePose: true,
+    procedural: 'speaking',
+    stabilizeYaw: true,
+    stabilizeXZ: true,
+    bob: 0.01,
+    sway: 0.004
+  }),
+  walk: Object.freeze({
+    timeScale: 0.92,
+    stabilizeYaw: true,
+    stabilizeXZ: true,
+    bob: 0
+  }),
+  run: Object.freeze({
+    timeScale: 0.9,
+    stabilizeYaw: true,
+    stabilizeXZ: true,
+    bob: 0
+  }),
+  charging: Object.freeze({
+    timeScale: 0.46,
+    freezePose: true,
+    procedural: 'charging',
+    stabilizeYaw: true,
+    stabilizeXZ: true,
+    bob: 0.018,
+    sway: 0.003
+  }),
+  'low-power': Object.freeze({
+    timeScale: 0.36,
+    freezePose: true,
+    procedural: 'low-power',
+    stabilizeYaw: true,
+    stabilizeXZ: true,
+    bob: 0.003,
+    lean: 0.055
+  }),
+  sleep: Object.freeze({
+    timeScale: 0.24,
+    freezePose: true,
+    procedural: 'sleep',
+    stabilizeYaw: true,
+    stabilizeXZ: true,
+    bob: 0.002,
+    lean: 0.08,
+    sway: 0.002
+  })
 });
 
 export const creatureActionForResponse = Object.freeze({

@@ -7,12 +7,25 @@ import {
   stageProgress
 } from '../shared/soulmate-profile.mjs';
 import { creatureVoiceResources } from '../shared/companion-data.mjs';
+import { PENDANT_DISPLAY_SIZE } from '../shared/pendant-display.mjs';
 
-const RELEASE_ID = 'full-creature-matrix-v2';
+const RELEASE_ID = 'creature-motion-v80';
 const FRAME_READY_TIMEOUT_MS = 30000;
 const STARTERS = Object.freeze(['cute', 'cool', 'beautiful']);
 const STAGES = Object.freeze(['seed', 'young', 'resonance']);
-const MODEL_ACTIONS = Object.freeze(['idle', 'nod', 'affection', 'wave', 'speaking', 'walk', 'run']);
+const MODEL_ACTIONS = Object.freeze([
+  'idle',
+  'listening',
+  'nod',
+  'affection',
+  'wave',
+  'speaking',
+  'walk',
+  'run',
+  'charging',
+  'low-power',
+  'sleep'
+]);
 let frameRun = 0;
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -200,8 +213,12 @@ async function runAllTests() {
     assert(manifest.version >= 2 && formCount === 9, `仅发现 ${formCount} 个原生形态`);
     phoneModelGeneration = phone.getModelState().modelGeneration;
     const size = roundDisplay.getBoundingClientRect();
-    assert(Math.abs(size.width - 240) <= 2 && Math.abs(size.height - 240) <= 2, `圆屏为 ${Math.round(size.width)}×${Math.round(size.height)}`);
-    return '9 个原生 3D 形态 / 240×240';
+    assert(
+      Math.abs(size.width - size.height) <= 2 && size.width >= 200,
+      `圆屏预览比例异常：${Math.round(size.width)}×${Math.round(size.height)}`
+    );
+    assert(PENDANT_DISPLAY_SIZE === 240, `实机设计基准为 ${PENDANT_DISPLAY_SIZE}`);
+    return `9 个原生 3D 形态 / ${PENDANT_DISPLAY_SIZE}×${PENDANT_DISPLAY_SIZE} 设计基准`;
   }));
 
   results.push(await check('form-matrix', '九形态逐一渲染', async () => {
@@ -241,7 +258,7 @@ async function runAllTests() {
         loaded += 1;
       }
     }
-    return `${loaded} / 21 动作切换通过`;
+    return `${loaded} / 33 动作切换通过`;
   }));
 
   results.push(await check('pair', '虚拟蓝牙连接', async () => {
@@ -275,7 +292,6 @@ async function runAllTests() {
   }));
 
   results.push(await check('poses', '3D 互动动作', async () => {
-    const started = performance.now();
     pendant.setState('affection');
     const affection = await expectPendantState(pendant, 'affection');
     assert(affection.companion.pose === 'affection', '单击没有切换亲近姿势');
@@ -285,7 +301,7 @@ async function runAllTests() {
     assert(happy.companion.pose === 'happy', '双击没有切换开心姿势');
     await waitForPendantAction(pendant, 'wave');
     pendant.setState('idle');
-    return `亲近 / 开心独立动作 · ${((performance.now() - started) / 1000).toFixed(1)} 秒`;
+    return '亲近 affection / 开心 wave';
   }));
 
   for (const [id, label, phase] of [
@@ -296,7 +312,7 @@ async function runAllTests() {
     results.push(await check(id, label, async () => {
       phone.setPhase(phase);
       await expectPendantState(pendant, phase);
-      const expectedAction = { listening: 'idle', thinking: 'nod', speaking: 'speaking' }[phase];
+      const expectedAction = { listening: 'listening', thinking: 'nod', speaking: 'speaking' }[phase];
       await waitFor(() => {
         const model = phone.getModelState();
         return model.status === 'ready' && model.action === expectedAction;

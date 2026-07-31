@@ -106,6 +106,13 @@
       </dl>
     </aside>
   </main>
-  <script type="module" src="./app.js?v=0.7.7"></script>
+  <script type="module">
+    import('./app.js?v=0.7.14').catch((error) => {
+      const detail = String(error?.message || error || 'module load failed').slice(0, 160);
+      document.documentElement.dataset.moduleError = detail;
+      document.querySelector('#screen-state').textContent = '角色暂时离线';
+      console.error(error);
+    });
+  </script>
 </body>
 </html>

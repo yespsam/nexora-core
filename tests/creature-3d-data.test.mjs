@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   creature3DCatalog,
   creature3DEntry,
+  creatureActionForPhase,
+  creatureActionProfiles,
   creatureActionForResponse
 } from '../shared/creature-3d-data.mjs';
 
@@ -42,4 +44,23 @@ test('dialogue actions map to native creature animations', () => {
   assert.equal(creatureActionForResponse.voice, 'speaking');
   assert.equal(creatureActionForResponse.nod, 'nod');
   assert.equal(creatureActionForResponse.walk, 'walk');
+});
+
+test('device states use distinct coordinated motion profiles', () => {
+  assert.equal(creatureActionForPhase.listening, 'listening');
+  assert.equal(creatureActionForPhase.charging, 'charging');
+  assert.equal(creatureActionForPhase['low-power'], 'low-power');
+  assert.equal(creatureActionForPhase.sleep, 'sleep');
+  for (const action of ['idle', 'listening', 'nod', 'affection', 'wave', 'speaking', 'walk', 'run']) {
+    assert.equal(creatureActionProfiles[action].stabilizeYaw, true);
+    assert.equal(creatureActionProfiles[action].stabilizeXZ, true);
+  }
+  assert.ok(creatureActionProfiles.listening.lean < 0);
+  assert.ok(creatureActionProfiles.sleep.lean > creatureActionProfiles['low-power'].lean);
+  for (const action of ['idle', 'listening', 'nod', 'affection', 'wave', 'speaking', 'charging', 'low-power', 'sleep']) {
+    assert.equal(creatureActionProfiles[action].freezePose, true);
+    assert.equal(creatureActionProfiles[action].procedural, action);
+  }
+  assert.equal(creature3DEntry('cute', 'resonance').yaw, 0);
+  assert.equal(creature3DEntry('beautiful', 'young').yaw, -Math.PI / 2);
 });
