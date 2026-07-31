@@ -21,8 +21,8 @@ test('cleanHistory keeps only safe recent user and assistant turns', () => {
   ];
 
   const history = cleanHistory(input);
-  assert.equal(history.length, 6);
-  assert.equal(history[0].content, '第 6 条 内容');
+  assert.equal(history.length, 10);
+  assert.equal(history[0].content, '第 2 条 内容');
   assert.equal(history.at(-1).content, '第 11 条 内容');
   assert.ok(history.every((message) => ['user', 'assistant'].includes(message.role)));
 });
@@ -51,6 +51,8 @@ test('Soulmate profile customizes identity and keeps memory context compact', ()
     species: '曜影兽',
     stage: '曜影幼体',
     daysTogether: 3,
+    bond: 108,
+    interactions: 19,
     traits: { warmth: 61, curiosity: 77, steadiness: 50 },
     memories: Array.from({ length: 9 }, (_, index) => `记忆 ${index}`)
   });
@@ -60,9 +62,13 @@ test('Soulmate profile customizes identity and keeps memory context compact', ()
   const messages = buildLLMMessages('你还记得吗？', 'female', [], profile);
   assert.match(messages[0].content, /你是「星澜script」/);
   assert.match(messages[0].content, /已陪伴 3 天/);
+  assert.match(messages[0].content, /逐渐熟悉/);
+  assert.match(messages[0].content, /累计互动 19 次/);
   assert.match(messages[0].content, /曜影兽/);
   assert.match(messages[0].content, /不得声称看到/);
   assert.match(messages[0].content, /默认用自然的简体中文/);
+  assert.match(messages[0].content, /以最新说法为准/);
+  assert.match(messages[0].content, /避免重复最近回答/);
 });
 
 test('creature prompt uses the selected route instead of the legacy gender persona', () => {

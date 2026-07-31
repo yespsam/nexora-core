@@ -57,3 +57,22 @@ test('creature fallback keeps its route identity and custom name', () => {
     companionName: '星澜'
   }), '我是星澜。你打开这里的时候，我会陪你说话。');
 });
+
+test('fallback carries concrete details from ordinary daily life', () => {
+  assert.match(contextualFallbackReply({
+    text: '今天中午吃了很辣的火锅',
+    kind: 'creature:cute'
+  }), /辣.*火锅|火锅.*辣/);
+  assert.match(contextualFallbackReply({
+    text: '我终于下班了',
+    kind: 'creature:cool'
+  }), /下班/);
+  assert.match(contextualFallbackReply({
+    text: '我明天下午三点要去看牙医',
+    kind: 'creature:beautiful'
+  }), /牙医/);
+  assert.match(contextualFallbackReply({
+    text: '今天被老板批评了',
+    kind: 'creature:beautiful'
+  }), /被这样说|老板/);
+});

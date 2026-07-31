@@ -241,6 +241,8 @@ export function soulmatePromptProfile(profile, query = '') {
     species: starter.species,
     stage: stage.name,
     daysTogether: current.daysTogether,
+    bond: current.bond,
+    interactions: current.interactions,
     traits: current.traits,
     memories: recallSoulmateMemories(current.memories, query, 6).map((memory) => memory.summary)
   };

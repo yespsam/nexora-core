@@ -34,7 +34,7 @@ import {
   parseSoulmateRecoveryCode,
   saveSoulmateCloudDeviceState,
   uploadSoulmateCloudState
-} from '../shared/soulmate-cloud-sync.mjs?v=2';
+} from '../shared/soulmate-cloud-sync.mjs?v=3';
 import {
   clearSoulmateDeviceCloudState,
   getSoulmateDeviceCloudDiagnostic,
@@ -128,7 +128,7 @@ const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
 const LLM_SESSION_KEY = 'nexora-llm-session-key';
 const LLM_PROVIDER_SESSION_KEY = 'nexora-llm-session-provider';
-const APP_RELEASE = 'longevity-resilience-v75';
+const APP_RELEASE = 'personality-continuity-v76';
 const llmProviderNames = Object.freeze({
   'kimi-cn': 'Kimi 中国',
   'kimi-global': 'Kimi 全球'

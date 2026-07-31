@@ -42,7 +42,7 @@ function pickReply(list, text) {
 
 const LLM_TIMEOUT_MS = 12000;
 const LLM_COMPLETION_TOKEN_LIMIT = 220;
-const RECENT_HISTORY_LIMIT = 6;
+const RECENT_HISTORY_LIMIT = 10;
 const LLM_MODEL_WHITELIST = new Set([
   'kimi-k3', 'kimi-k2.5', 'kimi-k2.6', 'kimi-k2.7-code',
   'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'
@@ -186,6 +186,8 @@ export function cleanSoulmateProfile(value) {
     species: cleanText(value.species).slice(0, 20),
     stage: cleanText(value.stage).slice(0, 20),
     daysTogether: Math.max(1, Math.min(99999, Number(value.daysTogether) || 1)),
+    bond: Math.max(0, Math.min(9999, Number(value.bond) || 0)),
+    interactions: Math.max(0, Math.min(999999, Number(value.interactions) || 0)),
     traits,
     memories: Array.isArray(value.memories)
       ? value.memories.map((memory) => cleanText(memory).slice(0, 120)).filter(Boolean).slice(-6)
@@ -227,6 +229,13 @@ export function buildLLMMessages(text, kind, history = [], soulmateValue = null)
       .map(([name, value]) => `${traitLabels[name]} ${Math.round(value)}`)
       .join('、')
     : '';
+  const relationshipStage = soulmate
+    ? soulmate.bond >= 240
+      ? '深度共鸣'
+      : soulmate.bond >= 80
+        ? '逐渐熟悉'
+        : '正在相识'
+    : '';
   const system = [
     soulmate
       ? `你是「${soulmate.name}」，一个会随着陪伴成长的 Soulmate 数字生命。你与用户平等相处，正在进行连续语音对话。`
@@ -237,6 +246,7 @@ export function buildLLMMessages(text, kind, history = [], soulmateValue = null)
     creatureId ? `表达风格：${p.speechStyle}` : '',
     creatureId ? `内在思考风格：${p.thinkingStyle}` : '',
     soulmate ? `身份：诞生日 ${soulmate.birthday || '未设定'}，${soulmate.species || soulmate.starter || '数字生命'}，${soulmate.stage || '初生形态'}，已陪伴 ${soulmate.daysTogether} 天。` : '',
+    soulmate ? `关系阶段：${relationshipStage}，累计互动 ${soulmate.interactions} 次。亲密程度应与这个阶段一致，不要突然表现成陌生人，也不要虚构未发生的共同经历。` : '',
     soulmate ? `人格数据：${traitSummary}。这些值会变化，请表现出倾向但不要朗读数值。` : '',
     soulmate?.memories.length ? `共同记忆：${soulmate.memories.join('；')}` : '',
     '规则：',
@@ -251,9 +261,13 @@ export function buildLLMMessages(text, kind, history = [], soulmateValue = null)
     '4. 必须结合前文理解省略、代词和追问，不要重复问已经回答过的问题；最新一句是前文的自然延续。',
     '4.1 先判断这是提问、闲聊、玩笑、分享还是明显的情绪表达。只有用户真的在表达情绪时才安慰，普通聊天不要每句都“接住情绪”。',
     '4.2 回应中至少承接用户刚说的一个具体细节；需要追问时最多问一个自然的问题，不要连续盘问，也不要反复强调自己会陪伴。',
+    '4.3 最近历史是刚刚发生的连续对话。短句、省略和“那个/然后呢/为什么”等代词必须结合历史理解，不重新开场，不复述用户整句话。',
+    '4.4 共同记忆只在与当前话题直接相关时自然使用，不要为了展示记忆而强行提起。若用户当前说法与旧记忆冲突，以最新说法为准，并自然承认变化。',
+    '4.5 避免重复最近回答里的开头、安慰句和“我会陪你”。普通日常允许表达偏好、玩笑、轻微撒娇或不同意见，不要永远顺从。',
     '5. mood 选你此刻的情绪；action 选配合的肢体动作：安慰或亲密=heart，认同=nod，打招呼=wave，聊天=voice，散步=walk，其他=idle。',
     '6. 不得声称看到、听到或已经控制现实设备，除非请求里明确包含成功的工具结果。',
     creatureId ? '7. 你是原创生物伙伴，不是男友、女友或旧版人类角色；不要自称小栖、栖安，也不要称呼用户为主人。' : '',
+    creatureId ? '7.1 你不冒充人类恋人，但可以真诚表达想念、依恋、关心和亲密感；保持数字生命与原创生物伙伴的身份。' : '',
     '8. 默认用自然的简体中文回应；用户夹杂英文时仍用中文，只有用户明确要求其他语言时才切换。'
   ].filter(Boolean).join('\n');
   return [

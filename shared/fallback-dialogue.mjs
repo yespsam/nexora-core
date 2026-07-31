@@ -33,8 +33,8 @@ export function inferSceneId(text, requested = 'daily') {
   const value = cleanText(text);
   if (/晚安|睡|困|休息/.test(value)) return 'goodnight';
   if (/想你|喜欢你|爱你|抱抱|亲亲|想抱|想亲/.test(value)) return 'miss';
-  if (/累|难受|委屈|不开心|烦|崩|压力|害怕/.test(value)) return 'comfort';
-  if (/走|散步|出去/.test(value)) return 'walk';
+  if (/累|难受|委屈|不开心|烦|崩|压力|害怕|焦虑|孤独|批评|被骂|吵架|没考好/.test(value)) return 'comfort';
+  if (/走|散步|出去|去(?:看展|公园|逛街|旅行)/.test(value)) return 'walk';
   if (/工作|学习|专注|开始做|任务|哪一步/.test(value)) return 'focus';
   return interactionScenes.some((scene) => scene.id === requested) ? requested : 'daily';
 }
@@ -90,6 +90,30 @@ export function contextualFallbackReply({
   const preference = value.match(/我(?:最|很|比较)?喜欢(.+?)(?:[，。！？]|$)/);
   if (preference?.[1]) {
     return `记住了，你喜欢${preference[1]}。以后聊到它时，我会知道这对你很特别。`;
+  }
+
+  const food = value.match(/(?:吃了?|喝了?)([^，。！？!?]{1,30})/u);
+  if (food?.[1]) {
+    const detail = food[1].replace(/[了啦呀啊]+$/u, '').trim();
+    if (/辣/.test(detail)) return `${detail}，光听就很有感觉。辣得很过瘾，还是已经开始找水了？`;
+    return `原来你今天吃了${detail}。这一顿合你胃口吗？`;
+  }
+
+  if (/终于.*(?:下班|做完|结束|完成)|(?:下班|做完|结束|完成)了/u.test(value)) {
+    const detail = value.replace(/^我/u, '').replace(/[。！!]+$/u, '');
+    return `${detail}。先松一口气，你现在最想安静一会儿，还是做点喜欢的事？`;
+  }
+
+  if (
+    /明天|后天|下周|周[一二三四五六日天]|准备|打算|计划/u.test(value)
+    && !/[？?]/u.test(value)
+  ) {
+    const detail = value.replace(/^我/u, '').replace(/[。！!]+$/u, '');
+    return `好，我记下了：${detail}。等这件事有了结果，回来告诉我。`;
+  }
+
+  if (/(?:老板|领导).*(?:批评|骂)|被(?:批评|责怪)/u.test(value)) {
+    return '被这样说确实会堵得慌。你更难受的是对方说话的方式，还是担心这件事后面的影响？';
   }
 
   const resolvedScene = sceneById(inferSceneId(value, scene));

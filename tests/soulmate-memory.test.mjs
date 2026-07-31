@@ -52,6 +52,21 @@ test('memory engine merges repeated memories instead of filling the store', () =
   assert.equal(memories[0].updatedAt, 2000);
 });
 
+test('latest preference replaces an older preference about the same topic', () => {
+  let memories = rememberSoulmateInteraction([], '我喜欢喝咖啡', 1000);
+  memories = rememberSoulmateInteraction(memories, '我现在不喜欢喝咖啡了', 2000);
+  assert.equal(memories.length, 1);
+  assert.equal(memories[0].summary, '我现在不喜欢喝咖啡了');
+  assert.equal(memories[0].updatedAt, 2000);
+
+  const migrated = normalizeSoulmateMemories([
+    { text: '我喜欢喝咖啡', createdAt: 1000, updatedAt: 1000 },
+    { text: '我现在不喜欢喝咖啡了', createdAt: 2000, updatedAt: 2000 }
+  ], 3000);
+  assert.equal(migrated.length, 1);
+  assert.equal(migrated[0].summary, '我现在不喜欢喝咖啡了');
+});
+
 test('memory engine keeps important facts when low-value events exceed the limit', () => {
   let memories = rememberSoulmateInteraction([], '请记住我的生日是七月二十八日', 1000);
   for (let index = 0; index < SOULMATE_MEMORY_LIMIT + 12; index += 1) {

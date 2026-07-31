@@ -4,7 +4,7 @@ import {
   normalizeSoulmateHistory,
   normalizeSoulmateProfile
 } from './soulmate-profile.mjs?v=2';
-import { soulmateMemoryFingerprint } from './soulmate-memory.mjs?v=2';
+import { soulmateMemoryMergeKey } from './soulmate-memory.mjs?v=3';
 
 export const SOULMATE_CLOUD_SYNC_VERSION = 1;
 export const SOULMATE_CLOUD_SYNC_DB_NAME = 'nexora-core-private';
@@ -218,7 +218,7 @@ export function mergeSoulmateSyncBundles(localValue, remoteValue, now = Date.now
   const primary = local.profile.lastActiveAt >= remote.profile.lastActiveAt ? local.profile : remote.profile;
   const memories = new Map();
   for (const memory of [...remote.profile.memories, ...local.profile.memories]) {
-    const key = `${memory.type}:${soulmateMemoryFingerprint(memory)}`;
+    const key = soulmateMemoryMergeKey(memory);
     const current = memories.get(key);
     if (!current) {
       memories.set(key, memory);

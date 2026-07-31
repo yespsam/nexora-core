@@ -76,6 +76,24 @@ export function soulmateMemoryFingerprint(value) {
   return fingerprint(summary);
 }
 
+function preferenceTopic(value) {
+  const firstClause = cleanText(value, 120).split(/[，,。！？!?；;]/u)[0];
+  const match = firstClause.match(/(?:不喜欢|最喜欢|喜欢|偏爱|讨厌)(.+)$/u);
+  if (!match?.[1]) return '';
+  return fingerprint(match[1]
+    .replace(/^(?:现在|以前|原来|最近|还是)/u, '')
+    .replace(/[了啦吧呀啊]+$/u, ''));
+}
+
+export function soulmateMemoryMergeKey(value) {
+  const summary = typeof value === 'object'
+    ? value?.summary || value?.text || value?.sourceText
+    : value;
+  const type = memoryTypes.has(value?.type) ? value.type : memoryType(cleanText(summary, 120));
+  const topic = type === 'preference' ? preferenceTopic(summary) : '';
+  return `${type}:${topic || fingerprint(summary)}`;
+}
+
 function memoryId(type, text, createdAt) {
   const seed = `${type}:${fingerprint(text)}:${createdAt}`;
   let hash = 2166136261;
@@ -113,7 +131,25 @@ export function normalizeSoulmateMemories(values, now = Date.now()) {
   const normalized = values
     .map((value, index) => normalizeSoulmateMemory(value, now, index))
     .filter(Boolean);
-  const retained = [...normalized]
+  const merged = new Map();
+  for (const memory of normalized) {
+    const key = soulmateMemoryMergeKey(memory);
+    const current = merged.get(key);
+    if (!current) {
+      merged.set(key, memory);
+      continue;
+    }
+    const latest = memory.updatedAt >= current.updatedAt ? memory : current;
+    merged.set(key, {
+      ...latest,
+      id: current.id,
+      importance: Math.max(current.importance, memory.importance),
+      createdAt: Math.min(current.createdAt, memory.createdAt),
+      updatedAt: Math.max(current.updatedAt, memory.updatedAt),
+      mentionCount: Math.max(current.mentionCount, memory.mentionCount)
+    });
+  }
+  const retained = [...merged.values()]
     .sort((left, right) => right.importance - left.importance
       || right.updatedAt - left.updatedAt
       || right.createdAt - left.createdAt)
@@ -143,8 +179,8 @@ export function rememberSoulmateInteraction(values, text, now = Date.now()) {
   const memories = normalizeSoulmateMemories(values, now);
   const candidate = extractSoulmateMemory(text, now);
   if (!candidate) return memories;
-  const key = fingerprint(candidate.summary);
-  const existingIndex = memories.findIndex((memory) => fingerprint(memory.summary) === key);
+  const key = soulmateMemoryMergeKey(candidate);
+  const existingIndex = memories.findIndex((memory) => soulmateMemoryMergeKey(memory) === key);
   if (existingIndex >= 0) {
     const existing = memories[existingIndex];
     memories[existingIndex] = {
