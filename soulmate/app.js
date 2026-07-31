@@ -41,11 +41,11 @@ import {
   mirrorSoulmateCloudState,
   requestSoulmateDeviceCloudDeletion
 } from '../shared/soulmate-device-cloud.mjs?v=2';
-import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=23';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=24';
 import {
   creatureActionForPhase,
   creatureActionForResponse
-} from '../shared/creature-3d-data.mjs?v=14';
+} from '../shared/creature-3d-data.mjs?v=15';
 import {
   recognitionFailureMessage,
   recognitionTranscript,
@@ -130,7 +130,7 @@ const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
 const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
-const APP_RELEASE = 'native-motion-v83';
+const APP_RELEASE = 'motion-orientation-v84';
 const llmFailureMessages = Object.freeze({
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
   server_key_quota: '云端 Kimi 额度不足，请联系管理员处理。',

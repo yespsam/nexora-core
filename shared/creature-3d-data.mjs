@@ -48,12 +48,11 @@ const creature = (id, name, species, directory, voice, formYaw = {}) => {
 };
 
 export const creature3DCatalog = Object.freeze({
-  cute: creature('cute', 'LUMO / 露莫', '绒云兽', 'CUTE_LUMO', 'sprout'),
+  cute: creature('cute', 'LUMO / 露莫', '绒云兽', 'CUTE_LUMO', 'sprout', {
+    resonance: -Math.PI / 4
+  }),
   cool: creature('cool', 'VEYR / 维尔', '曜影兽', 'COOL_VEYR', 'edge'),
-  beautiful: creature('beautiful', 'AERA / 艾拉', '月羽灵', 'BEAUTIFUL_AERA', 'aether', {
-    young: -Math.PI / 2,
-    resonance: -Math.PI / 2
-  })
+  beautiful: creature('beautiful', 'AERA / 艾拉', '月羽灵', 'BEAUTIFUL_AERA', 'aether')
 });
 
 export const creatureActionForPhase = Object.freeze({

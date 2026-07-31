@@ -69,6 +69,11 @@ test('device states use distinct coordinated motion profiles', () => {
   for (const action of ['nod', 'affection', 'wave']) {
     assert.equal(creature3DEntry('cute', 'seed').actions[action], creature3DEntry('cute', 'seed').actions.idle);
   }
-  assert.equal(creature3DEntry('cute', 'resonance').yaw, 0);
-  assert.equal(creature3DEntry('beautiful', 'young').yaw, -Math.PI / 2);
+  for (const starter of ['cute', 'cool', 'beautiful']) {
+    assert.equal(creature3DEntry(starter, 'seed').yaw, 0);
+    assert.equal(creature3DEntry(starter, 'young').yaw, 0);
+  }
+  assert.equal(creature3DEntry('cute', 'resonance').yaw, -Math.PI / 4);
+  assert.equal(creature3DEntry('cool', 'resonance').yaw, 0);
+  assert.equal(creature3DEntry('beautiful', 'resonance').yaw, 0);
 });

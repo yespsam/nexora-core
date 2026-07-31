@@ -9,7 +9,7 @@ import {
 import { creatureVoiceResources } from '../shared/companion-data.mjs';
 import { PENDANT_DISPLAY_SIZE } from '../shared/pendant-display.mjs';
 
-const RELEASE_ID = 'native-motion-v83';
+const RELEASE_ID = 'motion-orientation-v84';
 const FRAME_READY_TIMEOUT_MS = 30000;
 const MOTION_SOAK_MS = 30000;
 const STARTERS = Object.freeze(['cute', 'cool', 'beautiful']);

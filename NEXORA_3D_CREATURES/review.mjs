@@ -1,14 +1,19 @@
-import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=23';
-import { creature3DEntry } from '../shared/creature-3d-data.mjs?v=14';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=24';
+import { creature3DEntry } from '../shared/creature-3d-data.mjs?v=15';
 
 const stage = document.querySelector('#model-stage');
 const name = document.querySelector('#model-name');
 const status = document.querySelector('#load-state');
+const params = new URLSearchParams(location.search);
+const stageId = ['seed', 'young', 'resonance'].includes(params.get('stage'))
+  ? params.get('stage')
+  : 'seed';
 let starter = 'cute';
 let action = 'idle';
 
 const viewer = new Creature3DViewer(stage, {
   cameraDistance: 6,
+  baseYaw: Number(params.get('yaw') || 0) * Math.PI / 180,
   onLoad() {
     status.textContent = '';
   },
@@ -23,11 +28,11 @@ Object.defineProperty(window, '__NEXORA_CREATURE_REVIEW__', {
 });
 
 function load() {
-  const entry = creature3DEntry(starter);
+  const entry = creature3DEntry(starter, stageId);
   name.textContent = entry.name;
   status.textContent = '正在载入原生 3D 模型';
   viewer.resetView();
-  viewer.load(starter, action);
+  viewer.load(starter, action, stageId);
 }
 
 document.querySelectorAll('[data-starter]').forEach((button) => {

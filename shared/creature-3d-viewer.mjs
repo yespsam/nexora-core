@@ -5,7 +5,7 @@ import {
   creature3DEntry,
   creatureActionForPhase,
   creatureActionProfiles
-} from './creature-3d-data.mjs?v=14';
+} from './creature-3d-data.mjs?v=15';
 
 const PROCEDURAL_BONES = Object.freeze([
   'Hips',
@@ -473,9 +473,13 @@ export class Creature3DViewer {
       apply('RightHand', -0.08 * reach, 0, -0.12 * reach);
     } else if (motion === 'wave') {
       const lift = Math.sin(Math.min(1, localTime / 0.42) * Math.PI * 0.5);
+      const evolvedUpperBody = this.loadedStage !== 'seed' && this.loadedStarter !== 'cute';
+      const aeraUpperBody = evolvedUpperBody && this.loadedStarter === 'beautiful';
+      const shoulderLift = evolvedUpperBody && !aeraUpperBody ? 1.95 : 1.25;
       apply('Spine02', 0, 0, -0.045 * lift);
       apply('Head', 0, 0, 0.07 * lift);
-      apply('RightArm', -1.25 * lift, 0.5 * lift, (1.25 + wave * 0.08) * lift);
+      apply('RightArm', -1.25 * lift, (aeraUpperBody ? -0.8 : 0.5) * lift,
+        (shoulderLift + wave * 0.08) * lift);
       apply('RightForeArm', -0.28 * lift, 0.5 * lift, (-0.5 + wave * 0.34) * lift);
       apply('RightHand', -0.2 * lift, -0.35 * lift, (0.25 + wave * 0.48) * lift);
     } else if (motion === 'speaking') {
