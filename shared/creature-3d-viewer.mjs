@@ -5,7 +5,7 @@ import {
   creature3DEntry,
   creatureActionForPhase,
   creatureActionProfiles
-} from './creature-3d-data.mjs?v=12';
+} from './creature-3d-data.mjs?v=13';
 
 const PROCEDURAL_BONES = Object.freeze([
   'Hips',
@@ -18,7 +18,13 @@ const PROCEDURAL_BONES = Object.freeze([
   'LeftHand',
   'RightArm',
   'RightForeArm',
-  'RightHand'
+  'RightHand',
+  'LeftUpLeg',
+  'LeftLeg',
+  'LeftFoot',
+  'RightUpLeg',
+  'RightLeg',
+  'RightFoot'
 ]);
 
 const disposeMaterial = (material) => {
@@ -59,6 +65,7 @@ export class Creature3DViewer {
     this.bindPose = new Map();
     this.proceduralBones = new Map();
     this.proceduralPose = new Map();
+    this.proceduralTransitionPose = new Map();
     this.rawModelHeight = 1;
     this.motionRoot = null;
     this.animatedRoot = null;
@@ -355,6 +362,10 @@ export class Creature3DViewer {
   playClip(action, clip, fadeDuration = 0.24) {
     if (!this.mixer || !clip) return;
     window.clearTimeout(this.actionStopTimer);
+    const outgoingPose = new Map();
+    for (const [name, bone] of this.proceduralBones) {
+      outgoingPose.set(name, bone.quaternion.clone());
+    }
     this.actionMotion = creatureActionProfiles[action] || creatureActionProfiles.idle;
     this.motionRoot?.position.set(0, 0, 0);
     this.motionRoot?.rotation.set(0, 0, 0);
@@ -382,6 +393,7 @@ export class Creature3DViewer {
     nextAction.paused = freezePose;
     this.actionStartedAt = performance.now();
     this.captureProceduralPose();
+    this.proceduralTransitionPose = outgoingPose;
     this.captureMotionAnchor();
   }
 
@@ -392,32 +404,38 @@ export class Creature3DViewer {
     }
   }
 
-  applyBoneDelta(name, x = 0, y = 0, z = 0) {
+  applyBoneDelta(name, x = 0, y = 0, z = 0, transitionWeight = 1) {
     const bone = this.proceduralBones.get(name);
     const base = this.proceduralPose.get(name);
     if (!bone || !base) return;
+    const outgoing = this.proceduralTransitionPose.get(name);
+    if (outgoing && transitionWeight < 1) bone.quaternion.copy(outgoing).slerp(base, transitionWeight);
+    else bone.quaternion.copy(base);
     this.proceduralEuler.set(x, y, z);
     this.proceduralQuaternion.setFromEuler(this.proceduralEuler);
-    bone.quaternion.copy(base).multiply(this.proceduralQuaternion);
+    bone.quaternion.multiply(this.proceduralQuaternion);
   }
 
   updateProceduralMotion(now) {
     const motion = this.actionMotion?.procedural;
     if (!motion || !this.proceduralPose.size) return;
     const elapsed = Math.max(0, now - this.actionStartedAt);
-    const rawWeight = Math.min(1, elapsed / 260);
+    const rawWeight = Math.min(1, elapsed / 320);
     const weight = rawWeight * rawWeight * (3 - 2 * rawWeight);
     const time = now * 0.001;
     const breath = Math.sin(time * 1.7);
     const gesture = Math.sin(time * 4.2);
     const wave = Math.sin(time * 6.2);
     const apply = (name, x = 0, y = 0, z = 0) => {
-      this.applyBoneDelta(name, x * weight, y * weight, z * weight);
+      this.applyBoneDelta(name, x * weight, y * weight, z * weight, weight);
     };
 
     for (const [name, bone] of this.proceduralBones) {
       const base = this.proceduralPose.get(name);
-      if (base) bone.quaternion.copy(base);
+      const outgoing = this.proceduralTransitionPose.get(name);
+      if (!base) continue;
+      if (outgoing && weight < 1) bone.quaternion.copy(outgoing).slerp(base, weight);
+      else bone.quaternion.copy(base);
     }
 
     apply('Spine02', breath * 0.012, 0, breath * 0.006);
@@ -449,6 +467,30 @@ export class Creature3DViewer {
       apply('RightArm', 0, 0, -0.04 - gesture * 0.035);
       apply('LeftForeArm', 0.04 + gesture * 0.025, 0, 0);
       apply('RightForeArm', 0.04 - gesture * 0.025, 0, 0);
+    } else if (motion === 'walk' || motion === 'run') {
+      const running = motion === 'run';
+      const rate = running ? 6.2 : 3.6;
+      const stride = Math.sin(time * rate);
+      const strideOpposite = -stride;
+      const leftLift = Math.max(0, stride);
+      const rightLift = Math.max(0, strideOpposite);
+      const legSwing = running ? 0.38 : 0.24;
+      const kneeBend = running ? 0.52 : 0.3;
+      const armSwing = running ? 0.28 : 0.17;
+      const torsoSway = Math.sin(time * rate * 0.5) * (running ? 0.025 : 0.014);
+      apply('Spine01', running ? -0.045 : -0.012, 0, torsoSway);
+      apply('Spine02', running ? -0.035 : -0.008, 0, -torsoSway * 0.75);
+      apply('Head', running ? 0.04 : 0.012, 0, torsoSway * 0.35);
+      apply('LeftUpLeg', stride * legSwing, 0, 0);
+      apply('RightUpLeg', strideOpposite * legSwing, 0, 0);
+      apply('LeftLeg', -leftLift * kneeBend, 0, 0);
+      apply('RightLeg', -rightLift * kneeBend, 0, 0);
+      apply('LeftFoot', leftLift * (running ? 0.2 : 0.11), 0, 0);
+      apply('RightFoot', rightLift * (running ? 0.2 : 0.11), 0, 0);
+      apply('LeftArm', strideOpposite * armSwing, 0, 0.025);
+      apply('RightArm', stride * armSwing, 0, -0.025);
+      apply('LeftForeArm', 0.08 + rightLift * (running ? 0.18 : 0.08), 0, 0);
+      apply('RightForeArm', 0.08 + leftLift * (running ? 0.18 : 0.08), 0, 0);
     } else if (motion === 'charging') {
       apply('Spine02', breath * 0.016, 0, 0);
       apply('Head', -0.025 + breath * 0.008, 0, 0);
@@ -531,13 +573,26 @@ export class Creature3DViewer {
   }
 
   getState() {
+    const motionValues = [
+      this.motionRoot?.position.x || 0,
+      this.motionRoot?.position.z || 0,
+      this.motionRoot?.rotation.y || 0
+    ];
     return {
       status: this.host.dataset.modelState || 'idle',
       starter: this.loadedStarter || this.starter,
       stage: this.loadedStage || this.stageId,
       action: this.host.dataset.modelAction || this.action,
       modelGeneration: this.modelGeneration,
-      cachedClips: this.clipCache.size
+      cachedClips: this.clipCache.size,
+      motion: {
+        procedural: this.actionMotion?.procedural || null,
+        stabilized: Boolean(this.actionMotion?.stabilizeXZ && this.actionMotion?.stabilizeYaw),
+        finite: motionValues.every(Number.isFinite),
+        offsetX: motionValues[0],
+        offsetZ: motionValues[1],
+        yaw: motionValues[2]
+      }
     };
   }
 
@@ -564,8 +619,13 @@ export class Creature3DViewer {
     this.updateProceduralMotion(now);
     this.updateMotionStabilization(now);
     if (this.model) {
+      const bobRate = Number(this.actionMotion?.bobRate || 1.7);
+      const bobPhase = now * 0.001 * bobRate;
+      const bobWave = this.actionMotion?.bobMode === 'step'
+        ? Math.abs(Math.sin(bobPhase))
+        : Math.sin(bobPhase);
       this.model.position.y = this.modelBaseY
-        + Math.sin(now * 0.0017) * Number(this.actionMotion?.bob || 0);
+        + bobWave * Number(this.actionMotion?.bob || 0);
     }
     this.yaw += (this.targetYaw - this.yaw) * Math.min(1, delta * 8);
     this.stage.rotation.y = this.baseYaw + this.formYaw + this.yaw;

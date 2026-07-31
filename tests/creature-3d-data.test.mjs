@@ -57,10 +57,14 @@ test('device states use distinct coordinated motion profiles', () => {
   }
   assert.ok(creatureActionProfiles.listening.lean < 0);
   assert.ok(creatureActionProfiles.sleep.lean > creatureActionProfiles['low-power'].lean);
-  for (const action of ['idle', 'listening', 'nod', 'affection', 'wave', 'speaking', 'charging', 'low-power', 'sleep']) {
+  for (const action of ['idle', 'listening', 'nod', 'affection', 'wave', 'speaking', 'walk', 'run', 'charging', 'low-power', 'sleep']) {
     assert.equal(creatureActionProfiles[action].freezePose, true);
     assert.equal(creatureActionProfiles[action].procedural, action);
   }
+  assert.equal(creature3DEntry('cute', 'seed').actions.walk, creature3DEntry('cute', 'seed').actions.idle);
+  assert.equal(creature3DEntry('cute', 'seed').actions.run, creature3DEntry('cute', 'seed').actions.idle);
+  assert.ok(creatureActionProfiles.run.bobRate > creatureActionProfiles.walk.bobRate);
+  assert.ok(creatureActionProfiles.run.lean < creatureActionProfiles.walk.lean);
   assert.equal(creature3DEntry('cute', 'resonance').yaw, 0);
   assert.equal(creature3DEntry('beautiful', 'young').yaw, -Math.PI / 2);
 });

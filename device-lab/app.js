@@ -9,8 +9,9 @@ import {
 import { creatureVoiceResources } from '../shared/companion-data.mjs';
 import { PENDANT_DISPLAY_SIZE } from '../shared/pendant-display.mjs';
 
-const RELEASE_ID = 'creature-motion-v80';
+const RELEASE_ID = 'locomotion-v81';
 const FRAME_READY_TIMEOUT_MS = 30000;
+const MOTION_SOAK_MS = 30000;
 const STARTERS = Object.freeze(['cute', 'cool', 'beautiful']);
 const STAGES = Object.freeze(['seed', 'young', 'resonance']);
 const MODEL_ACTIONS = Object.freeze([
@@ -167,6 +168,25 @@ async function waitForPendantModel(pendant, {
   throw new Error(`${starter}/${stage}/${action} 20 秒未就绪，当前 ${status}`);
 }
 
+async function sampleStableMotion(pendant, expected, duration = 600) {
+  const deadline = Date.now() + duration;
+  let samples = 0;
+  while (Date.now() < deadline) {
+    const current = pendant.getModelState();
+    assert(current?.status === 'ready', `${expected.starter}/${expected.stage}/${expected.action} 未保持就绪`);
+    assert(current.action === expected.action, `${expected.action} 动作被意外替换`);
+    assert(current.motion?.procedural === expected.action, `${expected.action} 没有使用定制骨骼步态`);
+    assert(current.motion?.stabilized && current.motion?.finite, `${expected.action} 根运动不稳定`);
+    assert(Math.abs(current.motion.offsetX) < 0.02, `${expected.action} 横向漂移 ${current.motion.offsetX}`);
+    assert(Math.abs(current.motion.offsetZ) < 0.02, `${expected.action} 纵向漂移 ${current.motion.offsetZ}`);
+    assert(Math.abs(current.motion.yaw) < 0.02, `${expected.action} 朝向漂移 ${current.motion.yaw}`);
+    assert(pendant.sampleModel()?.opaque > 100, `${expected.action} 连续渲染出现空帧`);
+    samples += 1;
+    await delay(100);
+  }
+  return samples;
+}
+
 async function runAllTests() {
   runButton.disabled = true;
   runButton.textContent = '正在测试';
@@ -259,6 +279,41 @@ async function runAllTests() {
       }
     }
     return `${loaded} / 33 动作切换通过`;
+  }));
+
+  results.push(await check('motion-soak', '九形态移动动作稳定性', async () => {
+    const startedAt = Date.now();
+    const covered = new Set();
+    let samples = 0;
+    let lastForm = { starter: 'cute', stage: 'seed' };
+    for (const starter of STARTERS) {
+      for (const stage of STAGES) {
+        lastForm = { starter, stage };
+        assert(pendant.setCompanionForm(starter, stage), `${starter}/${stage} 无法选择`);
+        const baseline = await waitForPendantModel(pendant, { starter, stage, action: 'idle' });
+        for (const action of ['walk', 'run']) {
+          assert(await pendant.loadModel(starter, action, stage), `${starter}/${stage}/${action} 加载失败`);
+          const current = await waitForPendantModel(pendant, { starter, stage, action });
+          assert(current.modelGeneration === baseline.modelGeneration, `${starter}/${stage}/${action} 错误重建模型`);
+          samples += await sampleStableMotion(pendant, { starter, stage, action });
+          covered.add(`${starter}/${stage}/${action}`);
+        }
+      }
+    }
+    let cycle = 0;
+    while (Date.now() - startedAt < MOTION_SOAK_MS) {
+      const action = cycle % 2 === 0 ? 'walk' : 'run';
+      assert(
+        await pendant.loadModel(lastForm.starter, action, lastForm.stage),
+        `${lastForm.starter}/${lastForm.stage}/${action} 长时切换失败`
+      );
+      await waitForPendantModel(pendant, { ...lastForm, action });
+      samples += await sampleStableMotion(pendant, { ...lastForm, action }, 450);
+      cycle += 1;
+    }
+    assert(covered.size === 18, `仅覆盖 ${covered.size} / 18 组移动动作`);
+    await pendant.loadModel(lastForm.starter, 'idle', lastForm.stage);
+    return `${Math.round((Date.now() - startedAt) / 1000)} 秒 / 18 组 / ${samples} 帧稳定`;
   }));
 
   results.push(await check('pair', '虚拟蓝牙连接', async () => {

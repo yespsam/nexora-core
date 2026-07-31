@@ -37,8 +37,8 @@ const creature = (id, name, species, directory, voice, formYaw = {}) => {
       affection: idleAction,
       wave: idleAction,
       speaking: idleAction,
-      walk: assetUrl(`${directory}/animations/walk.glb`),
-      run: assetUrl(`${directory}/animations/run.glb`),
+      walk: idleAction,
+      run: idleAction,
       charging: idleAction,
       'low-power': idleAction,
       sleep: idleAction
@@ -125,16 +125,26 @@ export const creatureActionProfiles = Object.freeze({
     sway: 0.004
   }),
   walk: Object.freeze({
-    timeScale: 0.92,
+    timeScale: 1,
+    freezePose: true,
+    procedural: 'walk',
     stabilizeYaw: true,
     stabilizeXZ: true,
-    bob: 0
+    bob: 0.012,
+    bobRate: 3.6,
+    bobMode: 'step',
+    lean: -0.012
   }),
   run: Object.freeze({
-    timeScale: 0.9,
+    timeScale: 1,
+    freezePose: true,
+    procedural: 'run',
     stabilizeYaw: true,
     stabilizeXZ: true,
-    bob: 0
+    bob: 0.022,
+    bobRate: 6.2,
+    bobMode: 'step',
+    lean: -0.045
   }),
   charging: Object.freeze({
     timeScale: 0.46,
