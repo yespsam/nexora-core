@@ -147,6 +147,8 @@ const totals = sliceResults.reduce((total, part) => ({
   durationSeconds: total.durationSeconds + part.durationSeconds
 }), { filamentGrams: 0, costUsd: 0, durationSeconds: 0 });
 
+const reportJsonPath = path.join(experimentRoot, 'nc01-simulation.json');
+const reportMarkdownPath = path.join(experimentRoot, 'nc01-simulation-report.md');
 const report = {
   generatedAt: new Date().toISOString(),
   product: manifest.product,
@@ -180,6 +182,17 @@ const report = {
     '贴肤材料、汗液、跌落和长期佩戴测试'
   ]
 };
+
+try {
+  const previous = JSON.parse(await readFile(reportJsonPath, 'utf8'));
+  const { generatedAt: previousGeneratedAt, ...previousResult } = previous;
+  const { generatedAt: nextGeneratedAt, ...nextResult } = report;
+  if (previousGeneratedAt && JSON.stringify(previousResult) === JSON.stringify(nextResult)) {
+    report.generatedAt = previousGeneratedAt;
+  }
+} catch (error) {
+  // A missing or invalid prior report should be replaced by the fresh result.
+}
 
 const sliceRows = sliceResults.map((part) =>
   `| ${part.name} | ${part.layers} | ${part.filamentGrams.toFixed(2)} g | ${part.duration} | ${part.warnings.length ? '警告' : '通过'} |`
@@ -231,8 +244,18 @@ ${physicalRows}
 - 导光条应先单独打印，确认透明 PETG 的实际收缩和散射效果，再打印整套外壳。
 `;
 
-await writeFile(path.join(experimentRoot, 'nc01-simulation.json'), `${JSON.stringify(report, null, 2)}\n`);
-await writeFile(path.join(experimentRoot, 'nc01-simulation-report.md'), markdown);
+async function writeIfChanged(filename, content) {
+  try {
+    if (await readFile(filename, 'utf8') === content) return false;
+  } catch (error) {
+    // The output does not exist yet.
+  }
+  await writeFile(filename, content);
+  return true;
+}
+
+await writeIfChanged(reportJsonPath, `${JSON.stringify(report, null, 2)}\n`);
+await writeIfChanged(reportMarkdownPath, markdown);
 
 const packFilename = 'nexora-core-nc01-print-pack.zip';
 const zipResult = spawnSync('zip', [
@@ -247,6 +270,6 @@ if (zipResult.status !== 0) {
 
 console.log(`NC-01 digital simulation ${report.digitalPass ? 'passed' : 'failed'}.`);
 console.log(`PETG ${report.totals.filamentGrams.toFixed(2)} g, estimated print time ${report.totals.duration}.`);
-console.log(`Report: ${path.join(experimentRoot, 'nc01-simulation-report.md')}`);
+console.log(`Report: ${reportMarkdownPath}`);
 
 if (!report.digitalPass) process.exitCode = 1;

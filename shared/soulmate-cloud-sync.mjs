@@ -247,15 +247,21 @@ export function mergeSoulmateSyncBundles(localValue, remoteValue, now = Date.now
     ),
     memories: [...memories.values()]
   }, now);
-  const messages = [];
-  const seen = new Set();
+  const messages = new Map();
+  let order = 0;
   for (const message of [...remote.history, ...local.history]) {
-    const key = `${message.role}:${message.content}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    messages.push(message);
+    const key = message.id || `legacy:${message.role}:${message.content}`;
+    if (!messages.has(key)) messages.set(key, { ...message, order });
+    order += 1;
   }
-  return createSoulmateExportBundle(profile, normalizeSoulmateHistory(messages).slice(-12), now);
+  const mergedHistory = [...messages.values()]
+    .sort((left, right) => (
+      (Number(left.createdAt) || 0) - (Number(right.createdAt) || 0)
+      || left.order - right.order
+    ))
+    .map(({ order: ignored, ...message }) => message)
+    .slice(-12);
+  return createSoulmateExportBundle(profile, normalizeSoulmateHistory(mergedHistory, now), now);
 }
 
 function syncHeaders(identity) {

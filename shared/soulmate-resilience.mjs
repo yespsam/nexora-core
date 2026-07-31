@@ -23,3 +23,18 @@ export function canResumeSoulmateCloudSync({
 } = {}) {
   return Boolean(ready && identity && profile && !busy && dirty && online);
 }
+
+export function isPrivateAccessExpired(status, error = '') {
+  return Number(status) === 401 && String(error) === 'authentication_required';
+}
+
+export function privateAccessLoginPath(locationValue = {}) {
+  const pathname = String(locationValue.pathname || '/');
+  const search = String(locationValue.search || '');
+  const safePath = pathname.startsWith('/') && !pathname.startsWith('//')
+    ? pathname
+    : '/';
+  const safeSearch = search.startsWith('?') ? search : '';
+  const next = `${safePath}${safeSearch}`.slice(0, 1200);
+  return `/access/?${new URLSearchParams({ next }).toString()}`;
+}

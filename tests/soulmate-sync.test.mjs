@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { createSoulmateProfile } from '../shared/soulmate-profile.mjs';
 import {
+  SOULMATE_SYNC_VERSION,
   SOULMATE_SYNC_STORAGE_KEY,
   createSoulmateSyncEnvelope,
   loadSoulmateSyncSnapshot,
@@ -11,6 +12,14 @@ import {
 } from '../shared/soulmate-sync.mjs';
 
 const now = Date.UTC(2026, 6, 30, 8, 0, 0);
+
+test('continuity v2 is isolated from stale v1 browser tabs', () => {
+  assert.equal(SOULMATE_SYNC_VERSION, 2);
+  assert.match(SOULMATE_SYNC_STORAGE_KEY, /v2$/);
+  const profile = createSoulmateProfile({ name: '星澜' }, now);
+  const current = createSoulmateSyncEnvelope(profile, [], { sourceId: 'current', revision: 2, now });
+  assert.equal(normalizeSoulmateSyncEnvelope({ ...current, version: 1 }, now), null);
+});
 
 test('continuity envelopes keep one normalized identity and recent conversation', () => {
   const profile = createSoulmateProfile({ name: '星澜', starter: 'beautiful' }, now);

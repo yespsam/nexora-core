@@ -1,4 +1,4 @@
-import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=24';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=25';
 import { creature3DEntry } from '../shared/creature-3d-data.mjs?v=15';
 
 const stage = document.querySelector('#model-stage');

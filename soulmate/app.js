@@ -12,7 +12,7 @@ import {
   soulmateStarterCatalog,
   stagesForStarter,
   stageProgress
-} from '../shared/soulmate-profile.mjs';
+} from '../shared/soulmate-profile.mjs?v=2';
 import {
   PENDANT_BLE_SERVICE_UUID,
   PENDANT_BLE_SNAPSHOT_UUID,
@@ -22,7 +22,7 @@ import { openPendantSimulatorWriter } from '../shared/pendant-simulator.mjs';
 import {
   SOULMATE_SYNC_STORAGE_KEY,
   openSoulmateSync
-} from '../shared/soulmate-sync.mjs?v=2';
+} from '../shared/soulmate-sync.mjs?v=3';
 import {
   clearSoulmateCloudDeviceState,
   createSoulmateCloudIdentity,
@@ -34,14 +34,14 @@ import {
   parseSoulmateRecoveryCode,
   saveSoulmateCloudDeviceState,
   uploadSoulmateCloudState
-} from '../shared/soulmate-cloud-sync.mjs?v=3';
+} from '../shared/soulmate-cloud-sync.mjs?v=4';
 import {
   clearSoulmateDeviceCloudState,
   getSoulmateDeviceCloudDiagnostic,
   mirrorSoulmateCloudState,
   requestSoulmateDeviceCloudDeletion
 } from '../shared/soulmate-device-cloud.mjs?v=2';
-import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=24';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=25';
 import {
   creatureActionForPhase,
   creatureActionForResponse
@@ -58,8 +58,10 @@ import {
 } from '../shared/voice-turn.mjs?v=4';
 import {
   canResumeSoulmateCloudSync,
+  isPrivateAccessExpired,
+  privateAccessLoginPath,
   soulmateCloudRetryDelay
-} from '../shared/soulmate-resilience.mjs?v=1';
+} from '../shared/soulmate-resilience.mjs?v=2';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -130,8 +132,9 @@ const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
 const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
-const APP_RELEASE = 'motion-orientation-v84';
+const APP_RELEASE = 'session-recovery-v85';
 const llmFailureMessages = Object.freeze({
+  authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
   server_key_quota: '云端 Kimi 额度不足，请联系管理员处理。',
   server_key_rate_limit: '云端请求较多，请稍后再试。',
@@ -271,6 +274,11 @@ function safeWrite(key, value) {
   }
 }
 
+function redirectToPrivateAccess() {
+  if (location.pathname.startsWith('/access')) return;
+  location.replace(privateAccessLoginPath(location));
+}
+
 function renderLlmConnection({ mode = '', provider = '', failure = '', available = false } = {}) {
   if (mode === 'cloud_llm' || available) {
     const labels = {
@@ -303,11 +311,16 @@ async function refreshLlmConnection() {
       credentials: 'same-origin',
       cache: 'no-store'
     });
+    const status = await response.json().catch(() => ({}));
+    if (isPrivateAccessExpired(response.status, status.error)) {
+      renderLlmConnection({ failure: 'authentication_required' });
+      redirectToPrivateAccess();
+      return;
+    }
     if (!response.ok) {
       renderLlmConnection({ failure: 'request_failed' });
       return;
     }
-    const status = await response.json();
     renderLlmConnection({
       available: status.enabled === true,
       provider: String(status.default_provider || ''),
@@ -321,7 +334,16 @@ async function refreshLlmConnection() {
 function cleanMessage(value) {
   const role = value?.role === 'assistant' ? 'assistant' : value?.role === 'user' ? 'user' : '';
   const content = String(value?.content || '').replace(/\s+/g, ' ').trim().slice(0, 300);
-  return role && content ? { role, content } : null;
+  if (!role || !content) return null;
+  let id = String(value?.id || '').trim();
+  if (!/^[a-zA-Z0-9_-]{8,64}$/.test(id)) {
+    id = globalThis.crypto?.randomUUID?.()
+      || `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+  const createdAt = Number.isFinite(Number(value?.createdAt))
+    ? Math.max(1, Math.floor(Number(value.createdAt)))
+    : Date.now();
+  return { role, content, id, createdAt };
 }
 
 function loadProfile() {
@@ -453,10 +475,10 @@ function completeBirth() {
     birthday: birthDate.value,
     ...state.birthSelections
   });
-  state.history = [{
+  state.history = [cleanMessage({
     role: 'assistant',
     content: `我醒了。我会记住今天，也会记住你给我的名字——${state.profile.name}。`
-  }];
+  })];
   saveProfile();
   saveHistory();
   birthFlow.hidden = true;
@@ -1013,6 +1035,16 @@ async function requestReply(text, {
     })
   });
   const body = await response.json().catch(() => null);
+  if (isPrivateAccessExpired(response.status, body?.error)) {
+    return {
+      reply: '',
+      mood: 'calm',
+      mode: 'authentication_required',
+      provider: '',
+      failure: 'authentication_required',
+      reauthenticate: true
+    };
+  }
   if (!response.ok || !body) {
     return {
       reply: '',
@@ -1069,6 +1101,13 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
     result = { reply: '', mood: 'calm', failure: 'request_failed' };
   }
   renderLlmConnection(result);
+  if (result.reauthenticate) {
+    state.busy = false;
+    setPhase('idle');
+    presenceLine.textContent = llmFailureMessages.authentication_required;
+    redirectToPrivateAccess();
+    return;
+  }
   if (!result.reply) {
     state.busy = false;
     setPhase('idle');
@@ -1747,7 +1786,10 @@ setupRecognition();
 state.profile = loadProfile();
 state.history = state.profile ? loadHistory() : [];
 if (state.profile && !state.history.length) {
-  state.history = [{ role: 'assistant', content: `你回来了。${state.profile.name}一直在等你。` }];
+  state.history = [cleanMessage({
+    role: 'assistant',
+    content: `你回来了。${state.profile.name}一直在等你。`
+  })];
 }
 state.continuity = openSoulmateSync({
   onState: applyContinuityState,

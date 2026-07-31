@@ -475,13 +475,19 @@ export class Creature3DViewer {
       const lift = Math.sin(Math.min(1, localTime / 0.42) * Math.PI * 0.5);
       const evolvedUpperBody = this.loadedStage !== 'seed' && this.loadedStarter !== 'cute';
       const aeraUpperBody = evolvedUpperBody && this.loadedStarter === 'beautiful';
-      const shoulderLift = evolvedUpperBody && !aeraUpperBody ? 1.95 : 1.25;
+      const veyrUpperBody = evolvedUpperBody && this.loadedStarter === 'cool';
+      const shoulderLift = veyrUpperBody ? 2.18 : 1.25;
+      const shoulderSweep = aeraUpperBody ? -0.8 : 0.5;
+      const elbowFold = veyrUpperBody ? 1.32 : -0.5;
       apply('Spine02', 0, 0, -0.045 * lift);
       apply('Head', 0, 0, 0.07 * lift);
-      apply('RightArm', -1.25 * lift, (aeraUpperBody ? -0.8 : 0.5) * lift,
+      apply('RightArm', (veyrUpperBody ? -1.15 : -1.25) * lift, shoulderSweep * lift,
         (shoulderLift + wave * 0.08) * lift);
-      apply('RightForeArm', -0.28 * lift, 0.5 * lift, (-0.5 + wave * 0.34) * lift);
-      apply('RightHand', -0.2 * lift, -0.35 * lift, (0.25 + wave * 0.48) * lift);
+      apply('RightForeArm', (veyrUpperBody ? -0.16 : -0.28) * lift,
+        0.5 * lift,
+        (elbowFold + wave * (veyrUpperBody ? 0.22 : 0.34)) * lift);
+      apply('RightHand', -0.2 * lift, -0.35 * lift,
+        (0.25 + wave * (veyrUpperBody ? 0.58 : 0.48)) * lift);
     } else if (motion === 'speaking') {
       apply('Spine02', breath * 0.018, gesture * 0.018, 0);
       apply('Head', gesture * 0.025, Math.sin(localTime * 2.4) * 0.025, 0);

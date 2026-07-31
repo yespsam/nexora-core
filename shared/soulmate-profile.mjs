@@ -169,12 +169,27 @@ export function normalizeSoulmateProfile(value, now = Date.now()) {
   };
 }
 
-export function normalizeSoulmateHistory(value) {
+function cleanMessageId(value) {
+  const id = String(value || '').trim();
+  return /^[a-zA-Z0-9_-]{8,64}$/.test(id) ? id : '';
+}
+
+export function normalizeSoulmateHistory(value, now = Date.now()) {
   if (!Array.isArray(value)) return [];
   return value.map((message) => {
     const role = message?.role === 'assistant' ? 'assistant' : message?.role === 'user' ? 'user' : '';
     const content = cleanText(message?.content, 300);
-    return role && content ? { role, content } : null;
+    if (!role || !content) return null;
+    const id = cleanMessageId(message?.id);
+    const createdAt = Number.isFinite(Number(message?.createdAt))
+      ? Math.floor(numeric(message.createdAt, 0, 1, now + 300000))
+      : 0;
+    return {
+      role,
+      content,
+      ...(id ? { id } : {}),
+      ...(createdAt ? { createdAt } : {})
+    };
   }).filter(Boolean).slice(-12);
 }
 
@@ -186,7 +201,7 @@ export function createSoulmateExportBundle(profile, history, now = Date.now()) {
     version: SOULMATE_EXPORT_VERSION,
     exportedAt: new Date(now).toISOString(),
     profile: normalizedProfile,
-    history: normalizeSoulmateHistory(history)
+    history: normalizeSoulmateHistory(history, now)
   };
 }
 
@@ -196,7 +211,7 @@ export function normalizeSoulmateExportBundle(value, now = Date.now()) {
   if (value.version !== undefined && value.version !== SOULMATE_EXPORT_VERSION) return null;
   const profile = normalizeSoulmateProfile(value.profile, now);
   if (!profile) return null;
-  return { profile, history: normalizeSoulmateHistory(value.history) };
+  return { profile, history: normalizeSoulmateHistory(value.history, now) };
 }
 
 export function growSoulmate(profile, interaction = {}, now = Date.now()) {

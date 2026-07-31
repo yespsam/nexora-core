@@ -3,9 +3,9 @@ import {
   normalizeSoulmateExportBundle
 } from './soulmate-profile.mjs?v=2';
 
-export const SOULMATE_SYNC_VERSION = 1;
-export const SOULMATE_SYNC_CHANNEL = 'nexora-core-continuity-v1';
-export const SOULMATE_SYNC_STORAGE_KEY = 'nexora-core-continuity-state-v1';
+export const SOULMATE_SYNC_VERSION = 2;
+export const SOULMATE_SYNC_CHANNEL = 'nexora-core-continuity-v2';
+export const SOULMATE_SYNC_STORAGE_KEY = 'nexora-core-continuity-state-v2';
 
 function cleanSourceId(value) {
   return String(value || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);

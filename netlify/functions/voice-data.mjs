@@ -1,10 +1,11 @@
 import {
+  creatureProfiles,
   creatureVoiceResources,
   personaKind,
   voiceResources
 } from '../../shared/companion-data.mjs';
 
-export { creatureVoiceResources, personaKind, voiceResources };
+export { creatureProfiles, creatureVoiceResources, personaKind, voiceResources };
 
 export function jsonResponse(body, statusCode = 200) {
   return {
@@ -17,10 +18,17 @@ export function jsonResponse(body, statusCode = 200) {
   };
 }
 
+export function resolveCreatureStarter(persona = '', starter = '') {
+  const candidates = [starter, persona]
+    .map((value) => String(value || '').trim().toLowerCase().replace(/^creature:/, ''));
+  return candidates.find((value) => ['cute', 'cool', 'beautiful'].includes(value)) || '';
+}
+
 export function resolveVoice(persona, archetype, starter = '') {
   const creatureKey = String(archetype || '');
+  const resolvedStarter = resolveCreatureStarter(persona, starter);
   const creatureCast = creatureVoiceResources.find((item) => item.archetype === creatureKey)
-    || creatureVoiceResources.find((item) => item.starter === starter);
+    || creatureVoiceResources.find((item) => item.starter === resolvedStarter);
   if (creatureCast) return creatureCast;
   const kind = personaKind(persona);
   const resources = voiceResources[kind];
@@ -28,8 +36,10 @@ export function resolveVoice(persona, archetype, starter = '') {
   return resources.find((item) => item.archetype === key) || resources[0];
 }
 
-export function voiceStatusBody() {
-  const cast = creatureVoiceResources.find((item) => item.id === 'aether');
+export function voiceStatusBody(starter = 'cute') {
+  const resolvedStarter = resolveCreatureStarter(starter, starter) || 'cute';
+  const cast = creatureVoiceResources.find((item) => item.starter === resolvedStarter)
+    || creatureVoiceResources[0];
   return {
     enabled: true,
     voice_enabled: true,

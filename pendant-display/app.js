@@ -11,7 +11,7 @@ import {
   pendantDisplayStates
 } from '../shared/pendant-display.mjs';
 import { observePendantSimulator } from '../shared/pendant-simulator.mjs';
-import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=24';
+import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=25';
 import { creatureActionForPhase } from '../shared/creature-3d-data.mjs?v=15';
 
 const $ = (selector, root = document) => root.querySelector(selector);

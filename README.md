@@ -2,7 +2,7 @@
 
 NEXORA CORE 是一个内部保密的随身 AI 情感伙伴产品原型。伙伴以原创 3D 生物形象出现，可以在手机、电脑桌面和 NC-01 项链圆屏模拟器中互动，并通过持续对话形成名字、生日、性格、记忆与成长阶段。未经书面授权，不得复制、分发、公开或用于衍生产品。
 
-[在线体验](https://nexora-core-ai.netlify.app/soulmate/) · [项链 3D 运行台](https://nexora-core-ai.netlify.app/pendant-display/) · [X / Twitter @yesp999](https://x.com/yesp999)
+[私密测试](https://product-private-cloud-staging--nexora-core-staging.netlify.app/soulmate/) · [项链 3D 运行台](https://product-private-cloud-staging--nexora-core-staging.netlify.app/pendant-display/) · [X / Twitter @yesp999](https://x.com/yesp999)
 
 ![NEXORA CORE 3D companion](NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png)
 

@@ -14,6 +14,8 @@ import {
 import {
   SOULMATE_CLOUD_RETRY_DELAYS_MS,
   canResumeSoulmateCloudSync,
+  isPrivateAccessExpired,
+  privateAccessLoginPath,
   soulmateCloudRetryDelay
 } from '../shared/soulmate-resilience.mjs';
 
@@ -112,4 +114,15 @@ test('cloud retry backs off and resumes only when a dirty companion is online', 
   assert.equal(canResumeSoulmateCloudSync({ ...active, online: false }), false);
   assert.equal(canResumeSoulmateCloudSync({ ...active, dirty: false }), false);
   assert.equal(canResumeSoulmateCloudSync({ ...active, busy: true }), false);
+});
+
+test('expired private sessions return to login without losing the current route', () => {
+  assert.equal(isPrivateAccessExpired(401, 'authentication_required'), true);
+  assert.equal(isPrivateAccessExpired(401, 'llm_unavailable'), false);
+  assert.equal(isPrivateAccessExpired(502, 'authentication_required'), false);
+  assert.equal(
+    privateAccessLoginPath({ pathname: '/soulmate/', search: '?release=audit&dialog=1' }),
+    '/access/?next=%2Fsoulmate%2F%3Frelease%3Daudit%26dialog%3D1'
+  );
+  assert.equal(privateAccessLoginPath({ pathname: '//attacker.test', search: '' }), '/access/?next=%2F');
 });

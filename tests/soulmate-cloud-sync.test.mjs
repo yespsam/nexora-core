@@ -70,6 +70,22 @@ test('conflict merge keeps the latest identity plus memories and unique messages
   assert.equal(merged.profile.lastActiveAt, now + 2000);
 });
 
+test('conflict merge keeps timestamped conversation turns in chronological order', () => {
+  const profile = createSoulmateProfile({ name: '星澜', starter: 'cute' }, now);
+  const first = { role: 'user', content: '我把咖啡换成热巧克力了', id: 'message-001', createdAt: now + 1000 };
+  const second = { role: 'assistant', content: '记住了，是热巧克力。', id: 'message-002', createdAt: now + 2000 };
+  const third = { role: 'user', content: '我刚才换成什么了？', id: 'message-003', createdAt: now + 3000 };
+  const local = createSoulmateExportBundle(profile, [first, third], now + 4000);
+  const remote = createSoulmateExportBundle(profile, [first, second], now + 4000);
+  const merged = mergeSoulmateSyncBundles(local, remote, now + 4000);
+
+  assert.deepEqual(merged.history.map((message) => message.id), [
+    'message-001',
+    'message-002',
+    'message-003'
+  ]);
+});
+
 test('cloud client sends only ciphertext and authenticates every request', async () => {
   const identity = createSoulmateCloudIdentity();
   const bundle = companionBundle();
