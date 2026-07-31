@@ -54,11 +54,24 @@ export function normalizeSoulmateSyncEnvelope(value, now = Date.now()) {
   };
 }
 
+export function loadSoulmateSyncSnapshot(
+  storage = globalThis.localStorage,
+  now = Date.now()
+) {
+  try {
+    const serialized = storage?.getItem?.(SOULMATE_SYNC_STORAGE_KEY);
+    return serialized ? normalizeSoulmateSyncEnvelope(JSON.parse(serialized), now) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
 export function openSoulmateSync({
   onState,
   sourceId = createSourceId(),
   storage = globalThis.localStorage,
   eventTarget = globalThis,
+  hydrateStoredState = true,
   channelFactory = typeof BroadcastChannel === 'function'
     ? (name) => new BroadcastChannel(name)
     : null
@@ -86,6 +99,10 @@ export function openSoulmateSync({
 
   channel?.addEventListener?.('message', onMessage);
   eventTarget?.addEventListener?.('storage', onStorage);
+  if (hydrateStoredState) {
+    const snapshot = loadSoulmateSyncSnapshot(storage);
+    if (snapshot) deliver(snapshot);
+  }
 
   return {
     sourceId: localSourceId,

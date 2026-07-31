@@ -19,7 +19,10 @@ import {
   encodePendantBleSnapshot
 } from '../shared/pendant-ble.mjs';
 import { openPendantSimulatorWriter } from '../shared/pendant-simulator.mjs';
-import { openSoulmateSync } from '../shared/soulmate-sync.mjs?v=1';
+import {
+  SOULMATE_SYNC_STORAGE_KEY,
+  openSoulmateSync
+} from '../shared/soulmate-sync.mjs?v=2';
 import {
   clearSoulmateCloudDeviceState,
   createSoulmateCloudIdentity,
@@ -113,10 +116,11 @@ const cloudSyncDelete = $('#cloud-sync-delete');
 const cloudSyncDiagnostic = $('#cloud-sync-diagnostic');
 const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
+const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
 const LLM_SESSION_KEY = 'nexora-llm-session-key';
 const LLM_PROVIDER_SESSION_KEY = 'nexora-llm-session-provider';
-const APP_RELEASE = 'voice-turn-v68';
+const APP_RELEASE = 'identity-recovery-v69';
 const llmProviderNames = Object.freeze({
   'kimi-cn': 'Kimi 中国',
   'kimi-global': 'Kimi 全球'
@@ -203,6 +207,7 @@ const state = {
   cloudBusy: false,
   cloudReady: false,
   cloudAvailable: true,
+  cloudRecoveryBlocked: false,
   cloudDiagnostic: null
 };
 
@@ -327,9 +332,10 @@ function cleanMessage(value) {
 }
 
 function loadProfile() {
-  if (new URLSearchParams(location.search).get('reset') === '1') {
+  if (resetRequested) {
     localStorage.removeItem(SOULMATE_STORAGE_KEY);
     localStorage.removeItem(SOULMATE_HISTORY_KEY);
+    localStorage.removeItem(SOULMATE_SYNC_STORAGE_KEY);
     history.replaceState({}, '', location.pathname);
     return null;
   }
@@ -510,8 +516,9 @@ function renderCompanion() {
 
 function applyContinuityState(bundle) {
   if (!bundle?.profile) return;
-  state.profile = bundle.profile;
-  state.history = bundle.history;
+  const merged = mergeSoulmateSyncBundles(currentCloudBundle(), bundle) || bundle;
+  state.profile = merged.profile;
+  state.history = merged.history;
   safeWrite(SOULMATE_STORAGE_KEY, state.profile);
   safeWrite(SOULMATE_HISTORY_KEY, state.history);
   birthFlow.hidden = true;
@@ -650,6 +657,31 @@ async function initializeCloudSync() {
     const saved = await loadSoulmateCloudDeviceState();
     state.cloudIdentity = saved?.identity || null;
     state.cloudRevision = saved?.revision || 0;
+    if (resetRequested && state.cloudIdentity) {
+      await clearSoulmateDeviceCloudState(state.cloudIdentity);
+      await clearSoulmateCloudDeviceState();
+      state.cloudIdentity = null;
+      state.cloudRevision = 0;
+    } else if (state.cloudIdentity && !state.profile) {
+      try {
+        setCloudSyncMessage('正在恢复这台设备上的伙伴');
+        const remote = await downloadSoulmateCloudState(state.cloudIdentity);
+        state.cloudRevision = remote.revision;
+        await persistCloudDeviceState();
+        applyCloudBundle(remote.bundle, `${remote.bundle.profile.name}已从加密云端恢复。`);
+        setCloudSyncMessage('伙伴身份和共同记忆已恢复');
+      } catch (error) {
+        if (error.status === 404) {
+          await clearSoulmateDeviceCloudState(state.cloudIdentity);
+          await clearSoulmateCloudDeviceState();
+          state.cloudIdentity = null;
+          state.cloudRevision = 0;
+        } else {
+          state.cloudRecoveryBlocked = true;
+          setCloudSyncMessage('已找到本机恢复凭证，但云端暂时无法连接');
+        }
+      }
+    }
     state.cloudDiagnostic = state.cloudIdentity
       ? await getSoulmateDeviceCloudDiagnostic(state.cloudIdentity)
       : null;
@@ -1511,6 +1543,7 @@ $('#reset-button').addEventListener('click', async () => {
   }
   localStorage.removeItem(SOULMATE_STORAGE_KEY);
   localStorage.removeItem(SOULMATE_HISTORY_KEY);
+  localStorage.removeItem(SOULMATE_SYNC_STORAGE_KEY);
   location.reload();
 });
 
@@ -1526,12 +1559,18 @@ $$('.sheet').forEach((sheet) => {
 birthDate.value = new Date().toISOString().slice(0, 10);
 setupRecognition();
 state.profile = loadProfile();
+state.history = state.profile ? loadHistory() : [];
+if (state.profile && !state.history.length) {
+  state.history = [{ role: 'assistant', content: `你回来了。${state.profile.name}一直在等你。` }];
+}
+state.continuity = openSoulmateSync({
+  onState: applyContinuityState,
+  hydrateStoredState: !resetRequested
+});
+await initializeCloudSync();
+
 if (state.profile) {
   saveProfile();
-  state.history = loadHistory();
-  if (!state.history.length) {
-    state.history = [{ role: 'assistant', content: `你回来了。${state.profile.name}一直在等你。` }];
-  }
   birthFlow.hidden = true;
   companionView.hidden = false;
   renderMessages();
@@ -1541,14 +1580,18 @@ if (state.profile) {
   birthFlow.hidden = false;
   companionView.hidden = true;
   showBirthStep(0);
+  if (state.cloudRecoveryBlocked) {
+    birthRestorePanel.hidden = false;
+    birthRestoreOpen.textContent = '云端恢复暂时不可用';
+    birthRestoreStatus.textContent = '请检查网络后刷新页面，或粘贴恢复码重试。';
+    birthNext.disabled = true;
+  }
 }
 
-state.continuity = openSoulmateSync({ onState: applyContinuityState });
 window.addEventListener('pagehide', () => {
   window.clearTimeout(state.cloudSyncTimer);
   state.continuity?.close();
 }, { once: true });
-initializeCloudSync();
 refreshLlmConnection();
 
 if (pendantSimulationMode) {

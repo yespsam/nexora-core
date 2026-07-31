@@ -3,7 +3,9 @@ import test from 'node:test';
 
 import { createSoulmateProfile } from '../shared/soulmate-profile.mjs';
 import {
+  SOULMATE_SYNC_STORAGE_KEY,
   createSoulmateSyncEnvelope,
+  loadSoulmateSyncSnapshot,
   normalizeSoulmateSyncEnvelope,
   openSoulmateSync
 } from '../shared/soulmate-sync.mjs';
@@ -85,5 +87,57 @@ test('continuity publisher writes the same envelope to storage and channel', () 
   assert.equal(posts.length, 1);
   assert.deepEqual(writes[0][1], posts[0]);
   assert.equal(posts[0].bundle.history[0].content, '记住我喜欢夜跑');
+  sync.close();
+});
+
+test('continuity restores a stored snapshot during startup', () => {
+  const profile = createSoulmateProfile({ name: '星澜', starter: 'beautiful' }, now);
+  const stored = createSoulmateSyncEnvelope(profile, [
+    { role: 'assistant', content: '我还记得你。' }
+  ], {
+    sourceId: 'previous-tab',
+    revision: 180,
+    now
+  });
+  const received = [];
+  const storage = {
+    getItem(key) {
+      return key === SOULMATE_SYNC_STORAGE_KEY ? JSON.stringify(stored) : null;
+    },
+    setItem() {}
+  };
+  const sync = openSoulmateSync({
+    sourceId: 'new-tab',
+    storage,
+    eventTarget: null,
+    channelFactory: null,
+    onState: (bundle) => received.push(bundle)
+  });
+
+  assert.equal(received.length, 1);
+  assert.equal(received[0].profile.name, '星澜');
+  assert.equal(received[0].history[0].content, '我还记得你。');
+  assert.equal(loadSoulmateSyncSnapshot(storage, now)?.revision, 180);
+  sync.close();
+});
+
+test('explicit reset can suppress stored continuity hydration', () => {
+  const profile = createSoulmateProfile({ name: '星澜' }, now);
+  const stored = createSoulmateSyncEnvelope(profile, [], {
+    sourceId: 'previous-tab',
+    revision: 181,
+    now
+  });
+  const received = [];
+  const sync = openSoulmateSync({
+    sourceId: 'reset-tab',
+    storage: { getItem: () => JSON.stringify(stored), setItem() {} },
+    eventTarget: null,
+    channelFactory: null,
+    hydrateStoredState: false,
+    onState: (bundle) => received.push(bundle)
+  });
+
+  assert.equal(received.length, 0);
   sync.close();
 });
