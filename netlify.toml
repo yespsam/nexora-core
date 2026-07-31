@@ -113,6 +113,24 @@
     Permissions-Policy = "camera=(), geolocation=(), payment=(), usb=()"
 
 [[headers]]
+  for = "/soulmate/*"
+  [headers.values]
+    Cache-Control = "private, no-store, max-age=0"
+    Pragma = "no-cache"
+
+[[headers]]
+  for = "/shared/*"
+  [headers.values]
+    Cache-Control = "private, no-store, max-age=0"
+    Pragma = "no-cache"
+
+[[headers]]
+  for = "/access/*"
+  [headers.values]
+    Cache-Control = "private, no-store, max-age=0"
+    Pragma = "no-cache"
+
+[[headers]]
   for = "/NEXORA_3D_CREATURES/*"
   [headers.values]
     Cache-Control = "private, no-store, max-age=0"

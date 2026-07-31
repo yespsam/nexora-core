@@ -85,10 +85,12 @@ test('creature prompt uses the selected route instead of the legacy gender perso
 test('handler forwards sanitized history to the cloud model request', async (t) => {
   const originalFetch = globalThis.fetch;
   let forwardedMessages = [];
+  let requestUrl = '';
   t.after(() => {
     globalThis.fetch = originalFetch;
   });
-  globalThis.fetch = async (_url, options) => {
+  globalThis.fetch = async (url, options) => {
+    requestUrl = String(url);
     forwardedMessages = JSON.parse(options.body).messages;
     return {
       ok: true,
@@ -111,6 +113,7 @@ test('handler forwards sanitized history to the cloud model request', async (t) 
       text: '那就去那家吧',
       persona_short: 'male',
       llm_key: 'sk-test-key',
+      llm_provider: 'kimi-global',
       history: [
         { role: 'user', content: '明天去火锅还是日料？' },
         { role: 'assistant', content: '我想去你昨天提到的日料店。' }
@@ -119,7 +122,9 @@ test('handler forwards sanitized history to the cloud model request', async (t) 
   const body = await response.json();
 
   assert.equal(body.mode, 'cloud_llm');
+  assert.equal(body.llm.provider, 'kimi_global');
   assert.equal(body.llm.context_turns, 2);
+  assert.equal(requestUrl, 'https://api.moonshot.ai/v1/chat/completions');
   assert.deepEqual(forwardedMessages.slice(1), [
     { role: 'user', content: '明天去火锅还是日料？' },
     { role: 'assistant', content: '我想去你昨天提到的日料店。' },
@@ -216,7 +221,7 @@ test('chat status reports default gateway availability without exposing credenti
   assert.equal(JSON.stringify(body).includes('hidden-test-key'), false);
 });
 
-test('handler keeps conversation available when the LLM provider fails', async (t) => {
+test('handler never disguises a personal LLM failure as a fixed reply', async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => {
     globalThis.fetch = originalFetch;
@@ -233,12 +238,12 @@ test('handler keeps conversation available when the LLM provider fails', async (
   }));
   const body = await response.json();
 
-  assert.equal(response.status, 200);
-  assert.equal(body.mode, 'cloud_scene_reply');
+  assert.equal(response.status, 502);
+  assert.equal(body.mode, 'provider_error');
   assert.equal(body.llm.bound, true);
   assert.equal(body.llm.failure, 'personal_key_network');
-  assert.ok(body.text);
-  assert.ok(body.thinking);
+  assert.equal(body.text, undefined);
+  assert.equal(body.thinking, undefined);
 });
 
 test('personal Kimi authentication failures are classified without exposing the key', async (t) => {
@@ -260,13 +265,17 @@ test('personal Kimi authentication failures are classified without exposing the 
   const response = await handler(chatRequest('POST', {
     text: '你好',
     persona_short: 'creature:cute',
-    llm_key: 'sk-never-log-this-key'
+    llm_key: 'sk-never-log-this-key',
+    client_release: 'natural-dialogue-v67'
   }));
   const body = await response.json();
 
+  assert.equal(response.status, 502);
+  assert.equal(body.mode, 'provider_error');
   assert.equal(body.llm.failure, 'personal_key_auth');
   assert.equal(warnings.some((line) => line.includes('"upstream_status":401')), true);
   assert.equal(warnings.some((line) => line.includes('invalid_api_key')), true);
+  assert.equal(warnings.some((line) => line.includes('natural-dialogue-v67')), true);
   assert.equal(warnings.some((line) => line.includes('sk-never-log-this-key')), false);
 });
 
@@ -297,7 +306,7 @@ test('fallback reports when no real dialogue provider is configured', async (t) 
   assert.equal(body.llm.failure, 'not_configured');
 });
 
-test('handler reports the selected creature identity when the provider fails', async (t) => {
+test('handler keeps the selected provider diagnostic when a personal request fails', async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => {
     globalThis.fetch = originalFetch;
@@ -310,6 +319,7 @@ test('handler reports the selected creature identity when the provider fails', a
     text: '今天有点累',
     persona_short: 'creature:cool',
     llm_key: 'sk-test-key',
+    llm_provider: 'kimi-global',
     soulmate: {
       name: '维尔',
       starterId: 'cool',
@@ -320,7 +330,9 @@ test('handler reports the selected creature identity when the provider fails', a
   }));
   const body = await response.json();
 
-  assert.equal(body.persona_id, 'creature_cool');
-  assert.equal(body.creature, 'cool');
-  assert.doesNotMatch(body.text, /小栖|栖安|主人/);
+  assert.equal(response.status, 502);
+  assert.equal(body.mode, 'provider_error');
+  assert.equal(body.llm.provider, 'kimi-global');
+  assert.equal(body.llm.failure, 'personal_key_network');
+  assert.equal(body.text, undefined);
 });

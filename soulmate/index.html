@@ -242,10 +242,14 @@
           <span id="model-settings-title">对话模型</span>
           <strong id="llm-provider-label">正在检查</strong>
         </div>
+        <div class="segmented llm-provider-selector" role="group" aria-label="选择 Kimi API 区域">
+          <button type="button" data-llm-provider="kimi-cn">中国 API</button>
+          <button type="button" data-llm-provider="kimi-global">全球 API</button>
+        </div>
         <label class="field-label" for="llm-api-key">Kimi API Key</label>
         <input class="provider-key-input" id="llm-api-key" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" placeholder="sk-...">
         <div class="model-setting-actions">
-          <button class="wide-command" id="llm-api-save" type="button">连接本次会话</button>
+          <button class="wide-command" id="llm-api-save" type="button">验证并连接</button>
           <button class="wide-command" id="llm-api-clear" type="button" hidden>断开</button>
         </div>
         <p class="device-note">密钥只保存在当前浏览器会话，关闭标签页后自动清除。</p>
@@ -281,6 +285,6 @@
       <button class="wide-command danger" id="reset-button" type="button">重新诞生</button>
     </dialog>
   </main>
-  <script type="module" src="./app.js?v=0.9.7"></script>
+  <script type="module" src="./app.js?v=0.9.8"></script>
 </body>
 </html>

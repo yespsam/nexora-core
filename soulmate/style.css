@@ -618,6 +618,13 @@ input:focus-visible {
   background: #f6c7d1;
 }
 
+.message.error {
+  border-left: 2px solid #d45d62;
+  background: #fff3f2;
+  color: #7a292d;
+  box-shadow: none;
+}
+
 .queued-audio {
   width: 100%;
   height: 34px;
@@ -1004,6 +1011,13 @@ input:focus-visible {
   width: 100%;
 }
 
+.settings-voice-selector button {
+  min-width: 0;
+  padding-inline: 5px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .model-settings {
   margin-bottom: 8px;
   padding: 14px 0 18px;
@@ -1017,6 +1031,11 @@ input:focus-visible {
 .model-settings .field-label {
   display: block;
   margin: 10px 0 8px;
+}
+
+.llm-provider-selector {
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .provider-key-input {
