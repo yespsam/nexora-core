@@ -26,9 +26,11 @@ test('memory engine rejects questions, commands, and test prompts', () => {
 
 test('memory engine keeps meaningful plans and cleans memory instructions', () => {
   const plan = extractSoulmateMemory('我准备把产品发布会安排在上海', 1000);
+  const requestedPlan = extractSoulmateMemory('我准备把下一次产品发布会安排在深圳，请记住这个计划。', 1500);
   const birthday = extractSoulmateMemory('请记住我的生日是七月二十八日', 2000);
   assert.equal(plan.type, 'event');
   assert.match(plan.summary, /上海/);
+  assert.equal(requestedPlan.summary, '我准备把下一次产品发布会安排在深圳');
   assert.equal(birthday.type, 'fact');
   assert.equal(birthday.summary, '我的生日是七月二十八日');
 });

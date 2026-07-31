@@ -27,6 +27,7 @@ function memoryType(text) {
 function memorySummary(text, type) {
   let summary = cleanText(text, 120)
     .replace(/^(?:请)?(?:记住|别忘了)[：:，,\s]*/u, '')
+    .replace(/[，,]\s*(?:请)?(?:记住|别忘了)(?:这个|这件)?(?:计划|事情|安排)?[。！!]?$/u, '')
     .replace(/[，,。.\s]*(?:你)?(?:记住了吗|知道了吗|明白了吗)[？?]?$/u, '')
     .trim();
   if (type === 'fact' || type === 'preference') {

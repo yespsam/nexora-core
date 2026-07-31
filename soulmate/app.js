@@ -124,7 +124,7 @@ const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
 const LLM_SESSION_KEY = 'nexora-llm-session-key';
 const LLM_PROVIDER_SESSION_KEY = 'nexora-llm-session-provider';
-const APP_RELEASE = 'dialogue-memory-v71';
+const APP_RELEASE = 'dialogue-memory-v72';
 const llmProviderNames = Object.freeze({
   'kimi-cn': 'Kimi 中国',
   'kimi-global': 'Kimi 全球'
