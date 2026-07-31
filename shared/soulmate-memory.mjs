@@ -69,6 +69,13 @@ function fingerprint(value) {
     .replace(/我真的|我比较|我很|其实|就是|有点/g, '');
 }
 
+export function soulmateMemoryFingerprint(value) {
+  const summary = typeof value === 'object'
+    ? value?.summary || value?.text || value?.sourceText
+    : value;
+  return fingerprint(summary);
+}
+
 function memoryId(type, text, createdAt) {
   const seed = `${type}:${fingerprint(text)}:${createdAt}`;
   let hash = 2166136261;

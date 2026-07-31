@@ -4,6 +4,7 @@ import {
   normalizeSoulmateHistory,
   normalizeSoulmateProfile
 } from './soulmate-profile.mjs?v=2';
+import { soulmateMemoryFingerprint } from './soulmate-memory.mjs?v=2';
 
 export const SOULMATE_CLOUD_SYNC_VERSION = 1;
 export const SOULMATE_CLOUD_SYNC_DB_NAME = 'nexora-core-private';
@@ -217,14 +218,33 @@ export function mergeSoulmateSyncBundles(localValue, remoteValue, now = Date.now
   const primary = local.profile.lastActiveAt >= remote.profile.lastActiveAt ? local.profile : remote.profile;
   const memories = new Map();
   for (const memory of [...remote.profile.memories, ...local.profile.memories]) {
-    const current = memories.get(memory.id);
-    if (!current || memory.updatedAt >= current.updatedAt) memories.set(memory.id, memory);
+    const key = `${memory.type}:${soulmateMemoryFingerprint(memory)}`;
+    const current = memories.get(key);
+    if (!current) {
+      memories.set(key, memory);
+      continue;
+    }
+    const latest = memory.updatedAt >= current.updatedAt ? memory : current;
+    memories.set(key, {
+      ...latest,
+      id: current.id,
+      importance: Math.max(current.importance, memory.importance),
+      createdAt: Math.min(current.createdAt, memory.createdAt),
+      updatedAt: Math.max(current.updatedAt, memory.updatedAt),
+      mentionCount: Math.max(current.mentionCount, memory.mentionCount)
+    });
   }
   const profile = normalizeSoulmateProfile({
     ...primary,
     bond: Math.max(local.profile.bond, remote.profile.bond),
     interactions: Math.max(local.profile.interactions, remote.profile.interactions),
     lastActiveAt: Math.max(local.profile.lastActiveAt, remote.profile.lastActiveAt),
+    traits: Object.fromEntries(
+      Object.keys(primary.traits).map((trait) => [
+        trait,
+        Math.max(local.profile.traits[trait], remote.profile.traits[trait])
+      ])
+    ),
     memories: [...memories.values()]
   }, now);
   const messages = [];

@@ -23,6 +23,7 @@ const publicFiles = [
   'pendant-display/style.css',
   'shared/soulmate-profile.mjs',
   'shared/soulmate-memory.mjs',
+  'shared/soulmate-resilience.mjs',
   'shared/soulmate-sync.mjs',
   'shared/soulmate-cloud-sync.mjs',
   'shared/soulmate-device-cloud.mjs',

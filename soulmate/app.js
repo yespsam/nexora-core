@@ -34,7 +34,7 @@ import {
   parseSoulmateRecoveryCode,
   saveSoulmateCloudDeviceState,
   uploadSoulmateCloudState
-} from '../shared/soulmate-cloud-sync.mjs?v=1';
+} from '../shared/soulmate-cloud-sync.mjs?v=2';
 import {
   clearSoulmateDeviceCloudState,
   getSoulmateDeviceCloudDiagnostic,
@@ -50,6 +50,10 @@ import {
   shouldBlockRecognizedSpeech,
   voiceControlState
 } from '../shared/voice-turn.mjs?v=2';
+import {
+  canResumeSoulmateCloudSync,
+  soulmateCloudRetryDelay
+} from '../shared/soulmate-resilience.mjs?v=1';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -124,7 +128,7 @@ const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
 const LLM_SESSION_KEY = 'nexora-llm-session-key';
 const LLM_PROVIDER_SESSION_KEY = 'nexora-llm-session-provider';
-const APP_RELEASE = 'voice-latency-v74';
+const APP_RELEASE = 'longevity-resilience-v75';
 const llmProviderNames = Object.freeze({
   'kimi-cn': 'Kimi 中国',
   'kimi-global': 'Kimi 全球'
@@ -208,6 +212,11 @@ const state = {
   cloudIdentity: null,
   cloudRevision: 0,
   cloudSyncTimer: 0,
+  cloudRetryTimer: 0,
+  cloudRetryAttempt: 0,
+  cloudWaitingForOnline: false,
+  cloudChangeVersion: 0,
+  cloudSyncedVersion: 0,
   cloudBusy: false,
   cloudReady: false,
   cloudAvailable: true,
@@ -609,6 +618,7 @@ async function pushCloudState({ manual = false } = {}) {
   if (!state.cloudReady || !state.cloudIdentity || !state.profile || state.cloudBusy) return false;
   const localBundle = currentCloudBundle();
   if (!localBundle) return false;
+  const targetVersion = state.cloudChangeVersion;
   state.cloudBusy = true;
   renderCloudSync();
   if (manual) setCloudSyncMessage('正在加密并同步');
@@ -629,6 +639,11 @@ async function pushCloudState({ manual = false } = {}) {
       }
     }
     state.cloudRevision = result.revision;
+    state.cloudSyncedVersion = Math.max(state.cloudSyncedVersion, targetVersion);
+    state.cloudRetryAttempt = 0;
+    state.cloudWaitingForOnline = false;
+    window.clearTimeout(state.cloudRetryTimer);
+    state.cloudRetryTimer = 0;
     await persistCloudDeviceState();
     const mirror = await mirrorSoulmateCloudState(
       currentCloudBundle(),
@@ -647,18 +662,73 @@ async function pushCloudState({ manual = false } = {}) {
     setCloudSyncMessage(`已端到端加密同步 · ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`);
     return true;
   } catch (error) {
-    setCloudSyncMessage('同步暂时不可用，本地数据已保留');
+    scheduleCloudRetry();
     return false;
   } finally {
     state.cloudBusy = false;
     renderCloudSync();
+    if (
+      state.cloudChangeVersion > state.cloudSyncedVersion
+      && !state.cloudRetryTimer
+      && !state.cloudWaitingForOnline
+    ) {
+      scheduleCloudSync(0);
+    }
   }
 }
 
-function queueCloudSync() {
+function scheduleCloudSync(delay = 1400) {
   window.clearTimeout(state.cloudSyncTimer);
   if (!state.cloudReady || !state.cloudIdentity || !state.profile) return;
-  state.cloudSyncTimer = window.setTimeout(() => pushCloudState(), 1400);
+  state.cloudSyncTimer = window.setTimeout(() => {
+    state.cloudSyncTimer = 0;
+    void pushCloudState();
+  }, Math.max(0, Number(delay) || 0));
+}
+
+function scheduleCloudRetry() {
+  window.clearTimeout(state.cloudRetryTimer);
+  state.cloudRetryTimer = 0;
+  if (!state.cloudReady || !state.cloudIdentity || !state.profile) return;
+  if (navigator.onLine === false) {
+    state.cloudWaitingForOnline = true;
+    setCloudSyncMessage('网络已断开，本地数据会在联网后自动同步');
+    return;
+  }
+  state.cloudWaitingForOnline = false;
+  const delay = soulmateCloudRetryDelay(state.cloudRetryAttempt);
+  state.cloudRetryAttempt += 1;
+  setCloudSyncMessage(`同步暂时不可用，本地数据已保留，${Math.ceil(delay / 1000)} 秒后重试`);
+  state.cloudRetryTimer = window.setTimeout(() => {
+    state.cloudRetryTimer = 0;
+    void pushCloudState();
+  }, delay);
+}
+
+function queueCloudSync() {
+  state.cloudChangeVersion += 1;
+  window.clearTimeout(state.cloudRetryTimer);
+  state.cloudRetryTimer = 0;
+  scheduleCloudSync();
+}
+
+function resumeCloudSync(message = '') {
+  const dirty = state.cloudChangeVersion > state.cloudSyncedVersion;
+  if (!canResumeSoulmateCloudSync({
+    ready: state.cloudReady,
+    identity: state.cloudIdentity,
+    profile: state.profile,
+    busy: state.cloudBusy,
+    dirty,
+    online: navigator.onLine !== false
+  })) return false;
+  window.clearTimeout(state.cloudRetryTimer);
+  state.cloudRetryTimer = 0;
+  state.cloudRetryAttempt = 0;
+  state.cloudWaitingForOnline = false;
+  if (message) setCloudSyncMessage(message);
+  void pushCloudState();
+  return true;
 }
 
 async function initializeCloudSync() {
@@ -1616,10 +1686,26 @@ if (state.profile) {
   revealInitialSurface();
 }
 
-window.addEventListener('pagehide', () => {
+window.addEventListener('online', () => {
+  state.cloudWaitingForOnline = false;
+  resumeCloudSync('网络已恢复，正在续传陪伴数据');
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    resumeCloudSync('伙伴已醒来，正在检查同步');
+  }
+});
+
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) resumeCloudSync('伙伴已从休眠中醒来');
+});
+
+window.addEventListener('pagehide', (event) => {
   window.clearTimeout(state.cloudSyncTimer);
-  state.continuity?.close();
-}, { once: true });
+  window.clearTimeout(state.cloudRetryTimer);
+  if (!event.persisted) state.continuity?.close();
+});
 refreshLlmConnection();
 
 if (pendantSimulationMode) {
