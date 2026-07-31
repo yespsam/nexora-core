@@ -21,8 +21,8 @@ test('cleanHistory keeps only safe recent user and assistant turns', () => {
   ];
 
   const history = cleanHistory(input);
-  assert.equal(history.length, 10);
-  assert.equal(history[0].content, '第 2 条 内容');
+  assert.equal(history.length, 6);
+  assert.equal(history[0].content, '第 6 条 内容');
   assert.equal(history.at(-1).content, '第 11 条 内容');
   assert.ok(history.every((message) => ['user', 'assistant'].includes(message.role)));
 });
@@ -62,6 +62,7 @@ test('Soulmate profile customizes identity and keeps memory context compact', ()
   assert.match(messages[0].content, /已陪伴 3 天/);
   assert.match(messages[0].content, /曜影兽/);
   assert.match(messages[0].content, /不得声称看到/);
+  assert.match(messages[0].content, /默认用自然的简体中文/);
 });
 
 test('creature prompt uses the selected route instead of the legacy gender persona', () => {

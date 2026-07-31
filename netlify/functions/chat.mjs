@@ -41,6 +41,8 @@ function pickReply(list, text) {
 }
 
 const LLM_TIMEOUT_MS = 12000;
+const LLM_COMPLETION_TOKEN_LIMIT = 220;
+const RECENT_HISTORY_LIMIT = 6;
 const LLM_MODEL_WHITELIST = new Set([
   'kimi-k3', 'kimi-k2.5', 'kimi-k2.6', 'kimi-k2.7-code',
   'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'
@@ -161,7 +163,7 @@ export function cleanHistory(value) {
       return role && content ? { role, content } : null;
     })
     .filter(Boolean)
-    .slice(-10);
+    .slice(-RECENT_HISTORY_LIMIT);
 }
 
 export function cleanSoulmateProfile(value) {
@@ -244,14 +246,15 @@ export function buildLLMMessages(text, kind, history = [], soulmateValue = null)
       ? '2. reply 是说给用户听的话：像熟悉的真实伙伴，短、口语、1~3 句；直接回应具体内容，禁止背模板、客服腔和空泛安慰。'
       : '2. reply 是给主人听的话：像熟悉的真人，短、口语、1~3 句；直接回应具体内容，禁止背模板、客服腔和空泛安慰。',
     creatureId
-      ? '3. thinking 是你的真实心声：先察觉用户话里的细节，再写你此刻真实的情绪，最后写你打算怎么回应。第一人称、口语、一两句到三四句。'
-      : '3. thinking 是你的真实心声：先察觉主人话里的细节，再写你此刻真实的情绪，最后写你打算怎么回应。第一人称、口语、一两句到三四句。',
+      ? '3. thinking 只写一小句内心反应，不复述规则，不展开分析。'
+      : '3. thinking 只写一小句内心反应，不复述规则，不展开分析。',
     '4. 必须结合前文理解省略、代词和追问，不要重复问已经回答过的问题；最新一句是前文的自然延续。',
     '4.1 先判断这是提问、闲聊、玩笑、分享还是明显的情绪表达。只有用户真的在表达情绪时才安慰，普通聊天不要每句都“接住情绪”。',
     '4.2 回应中至少承接用户刚说的一个具体细节；需要追问时最多问一个自然的问题，不要连续盘问，也不要反复强调自己会陪伴。',
     '5. mood 选你此刻的情绪；action 选配合的肢体动作：安慰或亲密=heart，认同=nod，打招呼=wave，聊天=voice，散步=walk，其他=idle。',
     '6. 不得声称看到、听到或已经控制现实设备，除非请求里明确包含成功的工具结果。',
-    creatureId ? '7. 你是原创生物伙伴，不是男友、女友或旧版人类角色；不要自称小栖、栖安，也不要称呼用户为主人。' : ''
+    creatureId ? '7. 你是原创生物伙伴，不是男友、女友或旧版人类角色；不要自称小栖、栖安，也不要称呼用户为主人。' : '',
+    '8. 默认用自然的简体中文回应；用户夹杂英文时仍用中文，只有用户明确要求其他语言时才切换。'
   ].filter(Boolean).join('\n');
   return [
     { role: 'system', content: system },
@@ -306,7 +309,7 @@ async function callKimi(text, kind, history, {
       body: JSON.stringify({
         model,
         messages: buildLLMMessages(text, kind, history, soulmate),
-        max_completion_tokens: 320,
+        max_completion_tokens: LLM_COMPLETION_TOKEN_LIMIT,
         ...(model === 'kimi-k2.6' ? { thinking: { type: 'disabled' } } : {}),
         response_format: { type: 'json_object' }
       }),
@@ -344,7 +347,7 @@ async function callGateway(text, kind, history, gateway, soulmate = null) {
       model: gateway.model,
       messages: buildLLMMessages(text, kind, history, soulmate),
       temperature: 0.78,
-      max_tokens: 320,
+      max_tokens: LLM_COMPLETION_TOKEN_LIMIT,
       response_format: { type: 'json_object' }
     }, {
       signal: controller.signal
