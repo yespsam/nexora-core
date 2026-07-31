@@ -49,10 +49,13 @@ import {
 import {
   recognitionFailureMessage,
   recognitionTranscript,
+  parseVoiceControlCommand,
   shouldBlockRecognizedSpeech,
   VOICE_LISTEN_TIMEOUT_MS,
+  VOICE_WAKE_COMMAND_WINDOW_MS,
+  voiceWakeWords,
   voiceControlState
-} from '../shared/voice-turn.mjs?v=3';
+} from '../shared/voice-turn.mjs?v=4';
 import {
   canResumeSoulmateCloudSync,
   soulmateCloudRetryDelay
@@ -84,12 +87,14 @@ const bondLabel = $('#bond-label');
 const bondTrackValue = $('#bond-track-value');
 const companionTouch = $('#companion-touch');
 const companionModel = $('#companion-model');
+const actionDock = $('#action-dock');
 const presenceLine = $('#presence-line');
 const conversationStateLabel = $('#conversation-state-label');
 const messageList = $('#message-list');
 const composer = $('#composer');
 const chatInput = $('#chat-input');
 const micButton = $('#mic-button');
+const wakeButton = $('#wake-button');
 const queuedAudioButton = $('#queued-audio');
 const growthSheet = $('#growth-sheet');
 const deviceSheet = $('#device-sheet');
@@ -125,7 +130,7 @@ const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
 const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
-const APP_RELEASE = 'locomotion-v81';
+const APP_RELEASE = 'voice-actions-v82';
 const llmFailureMessages = Object.freeze({
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
   server_key_quota: '云端 Kimi 额度不足，请联系管理员处理。',
@@ -144,6 +149,7 @@ const llmFailureMessages = Object.freeze({
 
 const phaseLabels = {
   idle: '待机',
+  acting: '正在互动',
   affection: '正在靠近你',
   listening: '正在听你说',
   thinking: '正在思考',
@@ -153,6 +159,17 @@ const phaseLabels = {
   error: '播放失败',
   offline: '语音暂不可用'
 };
+
+const companionActions = Object.freeze({
+  wave: Object.freeze({ label: '正在向你招手', line: '它抬起手向你打招呼。', duration: 1900 }),
+  nod: Object.freeze({ label: '正在点头', line: '它认真地点了点头。', duration: 1500 }),
+  affection: Object.freeze({ label: '正在靠近你', line: '它轻轻靠近了你。', duration: 1700 }),
+  walk: Object.freeze({ label: '正在行走', line: '它在你面前走了起来。', duration: 2600 }),
+  run: Object.freeze({ label: '正在奔跑', line: '它轻快地跑了起来。', duration: 2400 }),
+  idle: Object.freeze({ label: '待机', line: '它停下来，重新看向你。', duration: 0 })
+});
+
+const WAKE_RESTART_DELAY_MS = 650;
 
 const voiceNames = {
   soft: '星语',
@@ -180,6 +197,8 @@ const state = {
   profile: null,
   history: [],
   phase: 'idle',
+  activeAction: '',
+  actionLabel: '',
   busy: false,
   touchRewards: 0,
   careRewards: 0,
@@ -187,8 +206,12 @@ const state = {
   recognitionSupported: false,
   recognitionAccepting: false,
   recognitionResultReceived: false,
+  recognitionMode: '',
   listeningTimer: 0,
   recognitionTimeout: 0,
+  wakeEnabled: false,
+  wakeRestartTimer: 0,
+  wakeCommandUntil: 0,
   echoGuardUntil: 0,
   voiceRequestController: null,
   voiceRequestId: 0,
@@ -339,14 +362,23 @@ function voiceArchetype(voice = state.profile?.voice || state.birthSelections.vo
 }
 
 function setPhase(phase, responseAction = '') {
+  if (phase !== 'acting') {
+    state.activeAction = '';
+    state.actionLabel = '';
+    $$('[data-companion-action]').forEach((button) => button.classList.remove('active'));
+  }
   state.phase = phase;
   companionView.dataset.conversationPhase = phase;
-  conversationStateLabel.textContent = phaseLabels[phase] || phaseLabels.idle;
+  conversationStateLabel.textContent = phase === 'acting' && state.actionLabel
+    ? state.actionLabel
+    : phaseLabels[phase] || phaseLabels.idle;
   if (state.profile) {
     const stage = stageProgress(state.profile).stage.id;
-    const action = phase === 'thinking' && creatureActionForResponse[responseAction]
-      ? creatureActionForResponse[responseAction]
-      : creatureActionForPhase[phase] || 'idle';
+    const action = phase === 'acting' && state.activeAction
+      ? state.activeAction
+      : phase === 'thinking' && creatureActionForResponse[responseAction]
+        ? creatureActionForResponse[responseAction]
+        : creatureActionForPhase[phase] || 'idle';
     creatureViewer?.load(state.profile.starter, action, stage);
   }
   const voiceControl = voiceControlState({
@@ -363,6 +395,8 @@ function setPhase(phase, responseAction = '') {
   micButton.textContent = voiceControl.label;
   micButton.setAttribute('aria-label', voiceControl.ariaLabel);
   micButton.setAttribute('aria-pressed', voiceControl.pressed ? 'true' : 'false');
+  renderWakeButton();
+  if (phase === 'idle') scheduleWakeRecognition();
   queuePendantSync();
 }
 
@@ -470,7 +504,9 @@ function renderCompanion() {
     state.currentStageId = stageIdentity;
     creatureViewer?.load(
       state.profile.starter,
-      creatureActionForPhase[state.phase] || 'idle',
+      state.phase === 'acting' && state.activeAction
+        ? state.activeAction
+        : creatureActionForPhase[state.phase] || 'idle',
       progress.stage.id
     ).then((loaded) => {
       if (loaded) creatureViewer.preload(state.profile.starter, ['nod', 'speaking'], progress.stage.id);
@@ -485,6 +521,39 @@ function renderCompanion() {
   $('#setting-starter').textContent = (soulmateStarterCatalog[state.profile.starter] || soulmateStarterCatalog.cute).species;
   $('#setting-birthday').textContent = state.profile.birthday;
   renderGrowth();
+}
+
+function setActionDockOpen(open) {
+  const next = Boolean(open);
+  actionDock.hidden = !next;
+  companionTouch.setAttribute('aria-expanded', next ? 'true' : 'false');
+  companionTouch.setAttribute('aria-label', next ? '收起伙伴动作' : '打开伙伴动作');
+}
+
+function runCompanionAction(action, { source = 'touch' } = {}) {
+  const definition = companionActions[action];
+  if (!definition || !state.profile) return false;
+  if (state.busy || ['listening', 'thinking', 'speaking', 'ready'].includes(state.phase)) {
+    presenceLine.textContent = '它正在听你或回答，稍后再试一次。';
+    return false;
+  }
+  window.clearTimeout(state.presencePhaseTimer);
+  if (action === 'idle') {
+    presenceLine.textContent = definition.line;
+    setPhase('idle');
+    return true;
+  }
+  state.activeAction = action;
+  state.actionLabel = definition.label;
+  setPhase('acting');
+  $$('[data-companion-action]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.companionAction === action);
+  });
+  presenceLine.textContent = source === 'voice'
+    ? `听见了。${definition.line}`
+    : definition.line;
+  state.presencePhaseTimer = window.setTimeout(() => setPhase('idle'), definition.duration);
+  return true;
 }
 
 function applyContinuityState(bundle) {
@@ -1152,6 +1221,96 @@ async function speakText(text, {
   }
 }
 
+function renderWakeButton() {
+  wakeButton.disabled = !state.recognitionSupported;
+  wakeButton.textContent = state.wakeEnabled ? '监听' : '唤醒';
+  wakeButton.setAttribute('aria-pressed', state.wakeEnabled ? 'true' : 'false');
+  wakeButton.setAttribute('aria-label', state.wakeEnabled ? '关闭语音唤醒' : '开启语音唤醒');
+}
+
+function scheduleWakeRecognition(delay = WAKE_RESTART_DELAY_MS) {
+  window.clearTimeout(state.wakeRestartTimer);
+  state.wakeRestartTimer = 0;
+  if (!state.wakeEnabled || !state.recognition || document.visibilityState === 'hidden') return;
+  state.wakeRestartTimer = window.setTimeout(() => {
+    state.wakeRestartTimer = 0;
+    if (!state.wakeEnabled || state.recognitionAccepting) return;
+    if (
+      state.busy
+      || state.voiceRequestController
+      || state.currentAudio
+      || state.queuedAudio
+      || ['acting', 'listening', 'thinking', 'speaking', 'ready'].includes(state.phase)
+      || Date.now() < state.echoGuardUntil
+    ) {
+      scheduleWakeRecognition(900);
+      return;
+    }
+    beginRecognition('wake');
+  }, Math.max(0, delay));
+}
+
+function finishRecognitionSession({ resetPhase = true } = {}) {
+  window.clearTimeout(state.recognitionTimeout);
+  state.recognitionTimeout = 0;
+  state.recognitionAccepting = false;
+  state.recognitionMode = '';
+  if (resetPhase && state.phase === 'listening') setPhase('idle');
+}
+
+function beginRecognition(mode) {
+  if (!state.recognition || state.recognitionAccepting) return false;
+  window.clearTimeout(state.wakeRestartTimer);
+  state.wakeRestartTimer = 0;
+  try {
+    state.recognitionMode = mode;
+    state.recognitionAccepting = true;
+    state.recognitionResultReceived = false;
+    state.recognition.start();
+    if (mode === 'manual') {
+      window.clearTimeout(state.recognitionTimeout);
+      state.recognitionTimeout = window.setTimeout(() => {
+        if (!state.recognitionAccepting || state.recognitionMode !== 'manual') return;
+        presenceLine.textContent = '这次收音已结束，再按一次就能继续说。';
+        stopListening();
+      }, VOICE_LISTEN_TIMEOUT_MS);
+      setPhase('listening');
+    } else {
+      renderWakeButton();
+    }
+    return true;
+  } catch (error) {
+    finishRecognitionSession();
+    if (mode === 'wake') scheduleWakeRecognition(1200);
+    return false;
+  }
+}
+
+function handleRecognizedVoice(text, mode) {
+  const command = parseVoiceControlCommand(text, {
+    wakeWords: voiceWakeWords(state.profile?.name, state.profile?.starter),
+    wakeActive: mode === 'manual' || Date.now() < state.wakeCommandUntil
+  });
+  if (command?.type === 'action') {
+    state.wakeCommandUntil = 0;
+    runCompanionAction(command.action, { source: 'voice' });
+    return;
+  }
+  if (command?.type === 'wake') {
+    state.wakeCommandUntil = Date.now() + VOICE_WAKE_COMMAND_WINDOW_MS;
+    presenceLine.textContent = `我在。请在 ${VOICE_WAKE_COMMAND_WINDOW_MS / 1000} 秒内说出动作或想聊的话。`;
+    scheduleWakeRecognition(220);
+    return;
+  }
+  if (command?.type === 'message') {
+    state.wakeCommandUntil = 0;
+    sendMessage(command.remainder, { source: 'voice' });
+    return;
+  }
+  if (mode === 'manual') sendMessage(text, { source: 'voice' });
+  else scheduleWakeRecognition();
+}
+
 function setupRecognition() {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) {
@@ -1159,6 +1318,7 @@ function setupRecognition() {
     micButton.textContent = '不可用';
     micButton.title = '当前浏览器不支持语音识别，请使用文字输入';
     micButton.setAttribute('aria-label', '当前浏览器不支持语音识别，请使用文字输入');
+    renderWakeButton();
     return;
   }
   const recognition = new Recognition();
@@ -1166,40 +1326,49 @@ function setupRecognition() {
   recognition.continuous = false;
   recognition.interimResults = false;
   recognition.onresult = (event) => {
+    const mode = state.recognitionMode;
     const text = recognitionTranscript(event.results);
-    const accepting = state.recognitionAccepting
-      && state.phase === 'listening'
-      && Date.now() >= state.echoGuardUntil;
+    const accepting = state.recognitionAccepting && Date.now() >= state.echoGuardUntil;
     state.recognitionResultReceived = Boolean(text);
-    stopListening();
+    finishRecognitionSession();
     if (!text) {
-      presenceLine.textContent = recognitionFailureMessage('no-speech');
+      if (mode === 'manual') presenceLine.textContent = recognitionFailureMessage('no-speech');
+      else scheduleWakeRecognition();
       return;
     }
     if (!accepting || looksLikeEcho(text)) {
       presenceLine.textContent = '已阻止语音回声，没有将它当成你的话。';
+      scheduleWakeRecognition(900);
       return;
     }
-    sendMessage(text, { source: 'voice' });
+    handleRecognizedVoice(text, mode);
   };
   recognition.onerror = (event) => {
-    const message = recognitionFailureMessage(event?.error);
-    window.clearTimeout(state.recognitionTimeout);
-    state.recognitionTimeout = 0;
-    state.recognitionAccepting = false;
-    if (state.phase === 'listening') setPhase('idle');
-    if (message) presenceLine.textContent = message;
+    const mode = state.recognitionMode;
+    const code = String(event?.error || '');
+    const message = recognitionFailureMessage(code);
+    finishRecognitionSession();
+    if (mode === 'wake' && ['not-allowed', 'service-not-allowed', 'audio-capture'].includes(code)) {
+      state.wakeEnabled = false;
+      renderWakeButton();
+      if (message) presenceLine.textContent = message;
+      return;
+    }
+    if (mode === 'manual' && message) presenceLine.textContent = message;
+    scheduleWakeRecognition(code === 'network' ? 1800 : 750);
   };
   recognition.onend = () => {
+    const mode = state.recognitionMode;
     const endedWithoutResult = state.recognitionAccepting && !state.recognitionResultReceived;
-    window.clearTimeout(state.recognitionTimeout);
-    state.recognitionTimeout = 0;
-    state.recognitionAccepting = false;
-    if (state.phase === 'listening') setPhase('idle');
-    if (endedWithoutResult) presenceLine.textContent = recognitionFailureMessage('no-speech');
+    finishRecognitionSession();
+    if (mode === 'manual' && endedWithoutResult) {
+      presenceLine.textContent = recognitionFailureMessage('no-speech');
+    }
+    scheduleWakeRecognition();
   };
   state.recognition = recognition;
   state.recognitionSupported = true;
+  renderWakeButton();
   setPhase(state.phase);
 }
 
@@ -1209,6 +1378,7 @@ function startListening() {
     stopListening();
     return;
   }
+  if (state.recognitionMode === 'wake') stopListening({ resumeWake: false });
   const interrupting = Boolean(
     state.voiceRequestController
     || state.currentAudio
@@ -1218,45 +1388,53 @@ function startListening() {
   stopAudio({ clearQueue: true, guardMs: interrupting ? 500 : 0 });
   if (interrupting) presenceLine.textContent = '回答已打断，我在听你说。';
   const delay = Math.max(0, state.echoGuardUntil - Date.now(), interrupting ? 220 : 0);
-  const beginListening = () => {
+  const start = () => {
     state.listeningTimer = 0;
     if (state.busy || state.voiceRequestController || state.currentAudio) {
       setPhase('idle');
       return;
     }
-    try {
-      state.recognitionAccepting = true;
-      state.recognitionResultReceived = false;
-      state.recognition.start();
-      window.clearTimeout(state.recognitionTimeout);
-      state.recognitionTimeout = window.setTimeout(() => {
-        if (!state.recognitionAccepting) return;
-        presenceLine.textContent = '这次收音已结束，再按一次就能继续说。';
-        stopListening();
-      }, VOICE_LISTEN_TIMEOUT_MS);
-      setPhase('listening');
-    } catch (error) {
-      state.recognitionAccepting = false;
-      setPhase('idle');
-    }
+    beginRecognition('manual');
   };
   setPhase('listening');
-  if (delay > 0) {
-    state.listeningTimer = window.setTimeout(beginListening, delay + 30);
-  } else {
-    beginListening();
-  }
+  if (delay > 0) state.listeningTimer = window.setTimeout(start, delay + 30);
+  else start();
 }
 
-function stopListening() {
+function stopListening({ resumeWake = true } = {}) {
   window.clearTimeout(state.listeningTimer);
   window.clearTimeout(state.recognitionTimeout);
   state.listeningTimer = 0;
   state.recognitionTimeout = 0;
   if (!state.recognition) return;
   state.recognitionAccepting = false;
+  state.recognitionMode = '';
   try { state.recognition.abort(); } catch (error) {}
   if (state.phase === 'listening') setPhase('idle');
+  if (resumeWake) scheduleWakeRecognition();
+}
+
+function pauseWakeRecognition() {
+  window.clearTimeout(state.wakeRestartTimer);
+  state.wakeRestartTimer = 0;
+  if (state.recognitionMode === 'wake') stopListening({ resumeWake: false });
+}
+
+function toggleWakeRecognition() {
+  if (!state.recognitionSupported) return;
+  state.wakeEnabled = !state.wakeEnabled;
+  state.wakeCommandUntil = 0;
+  if (state.wakeEnabled) {
+    stopListening({ resumeWake: false });
+    presenceLine.textContent = `语音唤醒已开启。可以说“${state.profile?.name || '伙伴'}，招招手”。`;
+    scheduleWakeRecognition(0);
+  } else {
+    window.clearTimeout(state.wakeRestartTimer);
+    state.wakeRestartTimer = 0;
+    if (state.recognitionMode === 'wake') stopListening({ resumeWake: false });
+    presenceLine.textContent = '语音唤醒已关闭。';
+  }
+  renderWakeButton();
 }
 
 function openSheet(name) {
@@ -1452,7 +1630,14 @@ $$('[data-setting-voice]').forEach((button) => {
   });
 });
 
-companionTouch.addEventListener('click', () => reactToTouch('touch'));
+companionTouch.addEventListener('click', () => {
+  const opening = actionDock.hidden;
+  setActionDockOpen(opening);
+  if (opening) runCompanionAction('wave');
+});
+$$('[data-companion-action]').forEach((button) => {
+  button.addEventListener('click', () => runCompanionAction(button.dataset.companionAction));
+});
 $$('[data-presence-action]').forEach((button) => {
   button.addEventListener('click', () => reactToTouch(button.dataset.presenceAction));
 });
@@ -1463,6 +1648,7 @@ composer.addEventListener('submit', (event) => {
 });
 
 micButton.addEventListener('click', startListening);
+wakeButton.addEventListener('click', toggleWakeRecognition);
 queuedAudioButton.addEventListener('click', async () => {
   const blob = state.queuedAudio;
   if (blob) await playAudioBlob(blob, false);
@@ -1606,6 +1792,9 @@ window.addEventListener('online', () => {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     resumeCloudSync('伙伴已醒来，正在检查同步');
+    scheduleWakeRecognition(300);
+  } else if (state.recognitionMode === 'wake') {
+    stopListening({ resumeWake: false });
   }
 });
 
@@ -1616,6 +1805,8 @@ window.addEventListener('pageshow', (event) => {
 window.addEventListener('pagehide', (event) => {
   window.clearTimeout(state.cloudSyncTimer);
   window.clearTimeout(state.cloudRetryTimer);
+  window.clearTimeout(state.wakeRestartTimer);
+  if (state.recognitionMode === 'wake') stopListening({ resumeWake: false });
   if (!event.persisted) state.continuity?.close();
 });
 refreshLlmConnection();
@@ -1628,11 +1819,18 @@ if (pendantSimulationMode) {
     value: Object.freeze({
       connectPendant,
       interact: reactToTouch,
+      runAction: runCompanionAction,
+      parseVoiceCommand: (text, wakeActive = false) => parseVoiceControlCommand(text, {
+        wakeWords: voiceWakeWords(state.profile?.name, state.profile?.starter),
+        wakeActive
+      }),
       publishState: () => state.continuity?.publish(state.profile, state.history),
       sendMessage,
       setPhase,
       getState: () => ({
         phase: state.phase,
+        activeAction: state.activeAction,
+        wakeEnabled: state.wakeEnabled,
         busy: state.busy,
         profile: state.profile ? structuredClone(state.profile) : null,
         history: structuredClone(state.history),

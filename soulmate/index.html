@@ -130,12 +130,20 @@
           <span id="stage-name">灵魂种子</span>
           <span id="bond-label">共鸣 0</span>
         </div>
-        <button class="companion-touch" id="companion-touch" type="button" aria-label="摸摸你的伙伴">
+        <button class="companion-touch" id="companion-touch" type="button" aria-label="打开伙伴动作" aria-expanded="false" aria-controls="action-dock">
           <span class="presence-ring" aria-hidden="true"></span>
           <span class="companion-model" id="companion-model" aria-hidden="true"></span>
           <span class="core-pulse" aria-hidden="true"></span>
         </button>
         <p class="presence-line" id="presence-line">它刚刚醒来，正在记住你。</p>
+        <div class="action-dock" id="action-dock" role="group" aria-label="伙伴动作" hidden>
+          <button type="button" data-companion-action="wave">招手</button>
+          <button type="button" data-companion-action="nod">点头</button>
+          <button type="button" data-companion-action="affection">靠近</button>
+          <button type="button" data-companion-action="walk">行走</button>
+          <button type="button" data-companion-action="run">奔跑</button>
+          <button type="button" data-companion-action="idle">停下</button>
+        </div>
         <div class="bond-track" aria-label="成长进度">
           <span id="bond-track-value"></span>
         </div>
@@ -154,6 +162,7 @@
         <div class="message-list" id="message-list" aria-live="polite"></div>
         <button class="queued-audio" id="queued-audio" type="button" hidden>点击播放回答</button>
         <form class="composer" id="composer">
+          <button class="wake-button" id="wake-button" type="button" aria-label="开启语音唤醒" aria-pressed="false">唤醒</button>
           <button class="mic-button" id="mic-button" type="button" aria-label="语音输入">说话</button>
           <input id="chat-input" maxlength="160" autocomplete="off" placeholder="跟它说句话" aria-label="跟伙伴说句话">
           <button class="send-button" type="submit">发送</button>
@@ -279,6 +288,6 @@
       <button class="wide-command danger" id="reset-button" type="button">重新诞生</button>
     </dialog>
   </main>
-  <script type="module" src="./app.js?v=0.9.27"></script>
+  <script type="module" src="./app.js?v=0.9.28"></script>
 </body>
 </html>

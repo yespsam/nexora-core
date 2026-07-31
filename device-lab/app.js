@@ -9,7 +9,7 @@ import {
 import { creatureVoiceResources } from '../shared/companion-data.mjs';
 import { PENDANT_DISPLAY_SIZE } from '../shared/pendant-display.mjs';
 
-const RELEASE_ID = 'locomotion-v81';
+const RELEASE_ID = 'voice-actions-v82';
 const FRAME_READY_TIMEOUT_MS = 30000;
 const MOTION_SOAK_MS = 30000;
 const STARTERS = Object.freeze(['cute', 'cool', 'beautiful']);
@@ -356,7 +356,16 @@ async function runAllTests() {
     assert(happy.companion.pose === 'happy', '双击没有切换开心姿势');
     await waitForPendantAction(pendant, 'wave');
     pendant.setState('idle');
-    return '亲近 affection / 开心 wave';
+    const generation = phone.getModelState().modelGeneration;
+    assert(phone.runAction('wave'), '点击动作入口没有执行招手');
+    await waitFor(() => phone.getModelState().action === 'wave');
+    const voiceCommand = phone.parseVoiceCommand(`${phone.getState().profile.name}，跑起来`);
+    assert(voiceCommand?.action === 'run', '唤醒词没有解析奔跑指令');
+    assert(phone.runAction(voiceCommand.action, { source: 'voice' }), '语音动作没有执行');
+    await waitFor(() => phone.getModelState().action === 'run');
+    assert(phone.getModelState().modelGeneration === generation, '语音动作错误重建模型');
+    phone.runAction('idle');
+    return '点击招手 / 语音奔跑 / 平滑停下';
   }));
 
   for (const [id, label, phase] of [

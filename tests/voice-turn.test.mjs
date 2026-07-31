@@ -4,9 +4,12 @@ import test from 'node:test';
 import {
   recognitionFailureMessage,
   recognitionTranscript,
+  parseVoiceControlCommand,
   shouldBlockRecognizedSpeech,
   speechOverlapRatio,
   VOICE_LISTEN_TIMEOUT_MS,
+  VOICE_WAKE_COMMAND_WINDOW_MS,
+  voiceWakeWords,
   voiceControlState
 } from '../shared/voice-turn.mjs';
 
@@ -22,6 +25,36 @@ test('recognition combines final speech segments and bounds the message', () => 
     Object.assign([{ transcript: 'a'.repeat(220) }], { isFinal: true })
   ]).length, 160);
   assert.equal(VOICE_LISTEN_TIMEOUT_MS, 12000);
+  assert.equal(VOICE_WAKE_COMMAND_WINDOW_MS, 8000);
+});
+
+test('wake words resolve custom names and route names', () => {
+  assert.deepEqual(voiceWakeWords('星澜', 'cute').slice(0, 2), ['星澜', '露莫']);
+  assert.ok(voiceWakeWords('', 'cool').includes('维尔'));
+  assert.ok(voiceWakeWords('', 'beautiful').includes('艾拉'));
+});
+
+test('voice commands require a wake word unless a manual command window is active', () => {
+  const wakeWords = voiceWakeWords('星澜', 'cute');
+  assert.equal(parseVoiceControlCommand('随便招招手', { wakeWords }), null);
+  assert.deepEqual(parseVoiceControlCommand('星澜，招招手', { wakeWords }), {
+    type: 'action',
+    action: 'wave',
+    wakeWord: '星澜',
+    remainder: '招招手'
+  });
+  assert.equal(parseVoiceControlCommand('跑起来', { wakeWords, wakeActive: true }).action, 'run');
+  assert.equal(parseVoiceControlCommand('停下', { wakeWords, wakeActive: true }).action, 'idle');
+});
+
+test('wake-only and wake-plus-message phrases stay distinct', () => {
+  const wakeWords = voiceWakeWords('露莫', 'cute');
+  assert.equal(parseVoiceControlCommand('露莫', { wakeWords }).type, 'wake');
+  assert.deepEqual(parseVoiceControlCommand('露莫，今天过得怎么样', { wakeWords }), {
+    type: 'message',
+    wakeWord: '露莫',
+    remainder: '今天过得怎么样'
+  });
 });
 
 test('recognition failures give recoverable user-facing guidance', () => {

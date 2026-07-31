@@ -3,6 +3,60 @@ export function normalizeSpeech(value) {
 }
 
 export const VOICE_LISTEN_TIMEOUT_MS = 12000;
+export const VOICE_WAKE_COMMAND_WINDOW_MS = 8000;
+
+const VOICE_ACTIONS = Object.freeze([
+  Object.freeze({ action: 'wave', phrases: Object.freeze(['招手', '挥手', '打招呼', 'wave']) }),
+  Object.freeze({ action: 'nod', phrases: Object.freeze(['点头', '点点头', 'nod']) }),
+  Object.freeze({ action: 'affection', phrases: Object.freeze(['靠近', '过来', '贴近', '抱抱']) }),
+  Object.freeze({ action: 'walk', phrases: Object.freeze(['走路', '走一走', '散步', '向前走', 'walk']) }),
+  Object.freeze({ action: 'run', phrases: Object.freeze(['跑步', '跑起来', '快跑', 'run']) }),
+  Object.freeze({ action: 'idle', phrases: Object.freeze(['停下', '停止', '别动', '待机', '休息', 'stop']) })
+]);
+
+export function voiceWakeWords(name = '', starter = 'cute') {
+  const routeName = {
+    cute: '露莫',
+    cool: '维尔',
+    beautiful: '艾拉'
+  }[starter] || '露莫';
+  return [...new Set([name, routeName, '奈索拉', 'nexora', 'soulmate', '伙伴']
+    .map(normalizeSpeech)
+    .filter((word) => word.length >= 2))];
+}
+
+export function parseVoiceControlCommand(text, {
+  wakeWords = [],
+  wakeActive = false
+} = {}) {
+  const normalized = normalizeSpeech(text);
+  if (!normalized) return null;
+  const normalizedWakeWords = wakeWords
+    .map(normalizeSpeech)
+    .filter((word) => word.length >= 2)
+    .sort((left, right) => right.length - left.length);
+  const matchedWakeWord = normalizedWakeWords.find((word) => normalized.includes(word)) || '';
+  const awakened = Boolean(wakeActive || matchedWakeWord);
+  if (!awakened) return null;
+  const remainder = matchedWakeWord
+    ? normalized.replace(matchedWakeWord, '')
+    : normalized;
+  const matchedAction = VOICE_ACTIONS.find((entry) => entry.phrases
+    .some((phrase) => remainder.includes(normalizeSpeech(phrase))));
+  if (matchedAction) {
+    return {
+      type: 'action',
+      action: matchedAction.action,
+      wakeWord: matchedWakeWord,
+      remainder
+    };
+  }
+  return {
+    type: remainder ? 'message' : 'wake',
+    wakeWord: matchedWakeWord,
+    remainder
+  };
+}
 
 export function recognitionTranscript(results) {
   return Array.from(results || [])

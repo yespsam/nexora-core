@@ -546,6 +546,32 @@ input:focus-visible {
   text-align: center;
 }
 
+.action-dock {
+  z-index: 3;
+  width: min(460px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 5px;
+  margin: 0 0 10px;
+}
+
+.action-dock button {
+  min-width: 0;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 4px;
+  background: rgba(249, 251, 250, 0.88);
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.action-dock button.active {
+  border-color: var(--coral);
+  background: var(--coral);
+  color: #261519;
+}
+
 .bond-track {
   width: min(260px, 60vw);
   height: 3px;
@@ -657,7 +683,7 @@ input:focus-visible {
 .composer {
   height: 54px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   align-items: center;
   gap: 8px;
   padding: 6px;
@@ -680,6 +706,7 @@ input:focus-visible {
   color: rgba(255, 255, 255, 0.45);
 }
 
+.wake-button,
 .mic-button,
 .send-button {
   height: 42px;
@@ -690,11 +717,18 @@ input:focus-visible {
   font-weight: 720;
 }
 
+.wake-button,
 .mic-button {
   background: rgba(255, 255, 255, 0.09);
   color: rgba(255, 255, 255, 0.8);
 }
 
+.wake-button[aria-pressed="true"] {
+  background: var(--mint);
+  color: #07191a;
+}
+
+.wake-button:disabled,
 .mic-button:disabled {
   cursor: not-allowed;
   opacity: 0.42;
@@ -1153,6 +1187,10 @@ input:focus-visible {
     margin-top: 0;
   }
 
+  .action-dock {
+    width: min(94vw, 390px);
+  }
+
   .presence-actions {
     margin-top: 10px;
   }
@@ -1160,6 +1198,12 @@ input:focus-visible {
   .conversation {
     bottom: calc(var(--safe-bottom) + 48px);
     width: calc(100vw - 20px);
+  }
+
+  .wake-button,
+  .mic-button,
+  .send-button {
+    padding: 0 10px;
   }
 
   .message-list {
