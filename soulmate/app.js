@@ -136,7 +136,13 @@ const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
 const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
-const APP_RELEASE = 'streaming-dialogue-v91';
+const diagnosticLlmModels = new Set(['kimi-k2.6', 'moonshot-v1-8k']);
+const requestedDiagnosticLlmModel = pageParams.get('chat_model') || '';
+const diagnosticLlmModel = pageParams.get('probe') === '1'
+  && diagnosticLlmModels.has(requestedDiagnosticLlmModel)
+  ? requestedDiagnosticLlmModel
+  : '';
+const APP_RELEASE = 'latency-probe-v92';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -1143,7 +1149,8 @@ async function requestReply(text, {
       history,
       soulmate: soulmatePromptProfile(state.profile, text),
       client_release: APP_RELEASE,
-      probe,
+      probe: probe || Boolean(diagnosticLlmModel),
+      ...(diagnosticLlmModel ? { llm_model: diagnosticLlmModel } : {}),
       stream: true
     })
   });
