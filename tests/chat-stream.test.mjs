@@ -29,6 +29,7 @@ test('chat stream deltas remain compact and never exceed the message boundary', 
 
 test('early speech waits for a meaningful sentence or clause boundary', () => {
   assert.equal(firstSpeechSegment('下午累坏了吧，是开会多'), '下午累坏了吧，');
+  assert.equal(firstSpeechSegment('辛苦啦，后面还有一句', 3), '辛苦啦，');
   assert.equal(firstSpeechSegment('好，继续说'), '');
   assert.equal(firstSpeechSegment('今天想早点休息。后面还有一句'), '今天想早点休息。');
   assert.equal(firstSpeechSegment('还没有完整停顿'), '');

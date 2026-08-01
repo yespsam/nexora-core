@@ -1,5 +1,5 @@
 import { Constants, EdgeTTS } from '@andresaya/edge-tts';
-import { jsonResponse, resolveVoice } from './voice-data.mjs';
+import { resolveVoice } from './voice-data.mjs';
 
 const outputFormat = Constants.OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3
   || 'audio-24khz-96kbitrate-mono-mp3';
@@ -42,31 +42,96 @@ export function voiceProsody(cast, mood = '') {
   };
 }
 
-async function synthesize(text, cast, mood) {
+async function* synthesizeChunks(text, cast, mood) {
   const prosody = voiceProsody(cast, mood);
   const tts = new EdgeTTS();
-  await tts.synthesize(text, cast.voice, {
+  yield* tts.synthesizeStream(text, cast.voice, {
     outputFormat,
     ...prosody
   });
-  return tts.toBuffer();
 }
 
-export const handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return jsonResponse({ error: 'method not allowed' }, 405);
+export function createVoiceReadableStream(text, cast, mood, {
+  synthesizeVoice = synthesizeChunks,
+  retryDelayMs = 250,
+  onComplete = () => {},
+  onError = () => {}
+} = {}) {
+  let cancelled = false;
+  return new ReadableStream({
+    start(controller) {
+      void (async () => {
+        let sentBytes = 0;
+        let firstChunkMs = 0;
+        let lastError;
+        const startedAt = Date.now();
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            for await (const chunk of synthesizeVoice(text, cast, mood)) {
+              if (cancelled) return;
+              const bytes = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+              if (!bytes.byteLength) continue;
+              if (!firstChunkMs) firstChunkMs = Date.now() - startedAt;
+              sentBytes += bytes.byteLength;
+              controller.enqueue(bytes);
+            }
+            if (cancelled) return;
+            controller.close();
+            onComplete({
+              durationMs: Date.now() - startedAt,
+              firstChunkMs,
+              bytes: sentBytes
+            });
+            return;
+          } catch (error) {
+            lastError = error;
+            if (sentBytes > 0 || attempt > 0) break;
+            await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+          }
+        }
+        if (cancelled) return;
+        onError({
+          durationMs: Date.now() - startedAt,
+          firstChunkMs,
+          bytes: sentBytes,
+          error: lastError
+        });
+        controller.error(lastError || new Error('voice synthesis failed'));
+      })();
+    },
+    cancel() {
+      cancelled = true;
+    }
+  });
+}
+
+function responseHeaders(cast) {
+  return {
+    'Content-Type': 'audio/mpeg',
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Nexora-Voice': cast.voice,
+    'X-Nexora-Archetype': cast.archetype || 'default',
+    'X-Nexora-Audio-Quality': '24khz-48kbps-stream',
+    'X-Nexora-Voice-Profile': 'natural-v3-stream'
+  };
+}
+
+export default async function voiceSpeak(request) {
+  if (request.method !== 'POST') {
+    return Response.json({ error: 'method not allowed' }, { status: 405 });
   }
 
   let payload;
   try {
-    payload = JSON.parse(event.body || '{}');
+    payload = await request.json();
   } catch (error) {
-    return jsonResponse({ error: 'invalid json' }, 400);
+    return Response.json({ error: 'invalid json' }, { status: 400 });
   }
 
   const text = prepareSpeechText(payload.text);
   if (!text) {
-    return jsonResponse({ error: 'missing text' }, 400);
+    return Response.json({ error: 'missing text' }, { status: 400 });
   }
 
   const cast = resolveVoice(
@@ -74,55 +139,34 @@ export const handler = async (event) => {
     payload.archetype || payload.voice || '',
     payload.starter || ''
   );
-  const startedAt = Date.now();
-  try {
-    let buffer;
-    let lastError;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        buffer = await synthesize(text, cast, payload.mood);
-        break;
-      } catch (error) {
-        lastError = error;
-        if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 250));
-      }
+  const stream = createVoiceReadableStream(text, cast, payload.mood, {
+    onComplete({ durationMs, firstChunkMs, bytes }) {
+      console.info(JSON.stringify({
+        event: 'voice_synthesis_result',
+        status: 'ok',
+        voice: cast.voice,
+        archetype: cast.archetype || 'default',
+        mood: String(payload.mood || 'neutral').slice(0, 24),
+        first_chunk_ms: firstChunkMs,
+        duration_ms: durationMs,
+        bytes
+      }));
+    },
+    onError({ durationMs, firstChunkMs, bytes, error }) {
+      console.warn(JSON.stringify({
+        event: 'voice_synthesis_result',
+        status: 'error',
+        voice: cast.voice,
+        archetype: cast.archetype || 'default',
+        first_chunk_ms: firstChunkMs,
+        duration_ms: durationMs,
+        bytes,
+        failure: String(error?.name || 'synthesis_failed').slice(0, 48)
+      }));
     }
-    if (!buffer) throw lastError;
-    console.info(JSON.stringify({
-      event: 'voice_synthesis_result',
-      status: 'ok',
-      voice: cast.voice,
-      archetype: cast.archetype || 'default',
-      mood: String(payload.mood || 'neutral').slice(0, 24),
-      duration_ms: Date.now() - startedAt,
-      bytes: buffer.length
-    }));
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'audio/mpeg',
-        'Cache-Control': 'no-store',
-        'X-Nexora-Voice': cast.voice,
-        'X-Nexora-Archetype': cast.archetype || 'default',
-        'X-Nexora-Audio-Quality': '24khz-96kbps',
-        'X-Nexora-Voice-Profile': 'natural-v2'
-      },
-      body: buffer.toString('base64'),
-      isBase64Encoded: true
-    };
-  } catch (error) {
-    console.warn(JSON.stringify({
-      event: 'voice_synthesis_result',
-      status: 'error',
-      voice: cast.voice,
-      archetype: cast.archetype || 'default',
-      duration_ms: Date.now() - startedAt,
-      failure: String(error?.name || 'synthesis_failed').slice(0, 48)
-    }));
-    return jsonResponse({
-      enabled: false,
-      error: `voice synthesis failed: ${error.message || error}`,
-      cast
-    }, 502);
-  }
-};
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: responseHeaders(cast)
+  });
+}

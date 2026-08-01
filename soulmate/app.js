@@ -144,7 +144,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   && diagnosticLlmModels.has(requestedDiagnosticLlmModel)
   ? requestedDiagnosticLlmModel
   : '';
-const APP_RELEASE = 'streaming-voice-v94';
+const APP_RELEASE = 'progressive-voice-v95';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -238,6 +238,8 @@ const state = {
   currentAudioSource: null,
   currentAudio: null,
   currentAudioUrl: '',
+  currentVoiceReader: null,
+  currentMediaSource: null,
   queuedAudio: null,
   queuedAudioUrl: '',
   queuedAudioOnStarted: null,
@@ -1237,7 +1239,7 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
         conversationStateLabel.textContent = phaseLabels.speaking;
         presenceLine.textContent = partial;
         renderMessages();
-        startEarlySpeech(firstSpeechSegment(partial));
+        startEarlySpeech(firstSpeechSegment(partial, 3));
       }
     });
   } catch (error) {
@@ -1297,6 +1299,11 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
 }
 
 async function fetchVoice(text, mood = 'happy', signal) {
+  const response = await fetchVoiceResponse(text, mood, signal);
+  return response.blob();
+}
+
+async function fetchVoiceResponse(text, mood = 'happy', signal) {
   const body = JSON.stringify({
     text,
     persona: personaFromStarter(),
@@ -1315,7 +1322,7 @@ async function fetchVoice(text, mood = 'happy', signal) {
         signal
       });
       const type = response.headers.get('content-type') || '';
-      if (response.ok && type.includes('audio')) return response.blob();
+      if (response.ok && type.includes('audio')) return response;
       lastError = new Error(`voice ${response.status}`);
     } catch (error) {
       if (error?.name === 'AbortError' || signal?.aborted) throw error;
@@ -1379,11 +1386,14 @@ function unlockAudioPlayback() {
 function stopAudio({
   clearQueue = false,
   guardMs = 1000,
-  preserveContinuationVoice = false
+  preserveContinuationVoice = false,
+  preserveVoiceRequest = false
 } = {}) {
-  if (state.voiceRequestController) state.voiceRequestController.abort();
-  state.voiceRequestController = null;
-  state.voiceRequestId += 1;
+  if (!preserveVoiceRequest) {
+    if (state.voiceRequestController) state.voiceRequestController.abort();
+    state.voiceRequestController = null;
+    state.voiceRequestId += 1;
+  }
   if (!preserveContinuationVoice) {
     if (state.continuationVoiceController) state.continuationVoiceController.abort();
     state.continuationVoiceController = null;
@@ -1412,6 +1422,11 @@ function stopAudio({
   if (state.currentAudioUrl) URL.revokeObjectURL(state.currentAudioUrl);
   state.currentAudio = null;
   state.currentAudioUrl = '';
+  if (state.currentVoiceReader) {
+    state.currentVoiceReader.cancel().catch(() => {});
+  }
+  state.currentVoiceReader = null;
+  state.currentMediaSource = null;
   if (clearQueue) clearQueuedAudio();
   if (hadOutput) {
     const existingGuard = state.echoGuardUntil === Number.MAX_SAFE_INTEGER
@@ -1455,9 +1470,167 @@ async function playUnlockedAudioBlob(blob, playbackId, { onStarted, onEnded } = 
   }
 }
 
-async function playAudioBlob(blob, allowQueue = true, callbacks = {}) {
+function supportsProgressiveVoicePlayback() {
+  return Boolean(
+    globalThis.MediaSource
+    && typeof MediaSource.isTypeSupported === 'function'
+    && MediaSource.isTypeSupported('audio/mpeg')
+  );
+}
+
+function appendMediaChunk(sourceBuffer, chunk) {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      sourceBuffer.removeEventListener('updateend', onUpdateEnd);
+      sourceBuffer.removeEventListener('error', onError);
+    };
+    const onUpdateEnd = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error('voice media append failed'));
+    };
+    sourceBuffer.addEventListener('updateend', onUpdateEnd, { once: true });
+    sourceBuffer.addEventListener('error', onError, { once: true });
+    try {
+      sourceBuffer.appendBuffer(chunk);
+    } catch (error) {
+      cleanup();
+      reject(error);
+    }
+  });
+}
+
+async function playStreamingVoiceResponse(response, allowQueue = true, callbacks = {}) {
+  if (!supportsProgressiveVoicePlayback() || !response.body) {
+    return playAudioBlob(await response.blob(), allowQueue, callbacks, {
+      preserveVoiceRequest: true
+    });
+  }
+
   stopListening();
-  stopAudio({ clearQueue: true, guardMs: 0 });
+  stopAudio({ clearQueue: true, guardMs: 0, preserveVoiceRequest: true });
+  const playbackId = state.playbackId + 1;
+  state.playbackId = playbackId;
+  const mediaSource = new MediaSource();
+  const url = URL.createObjectURL(mediaSource);
+  const audio = new Audio(url);
+  audio.playsInline = true;
+  state.currentAudio = audio;
+  state.currentAudioUrl = url;
+  state.currentMediaSource = mediaSource;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let started = false;
+    let playRejected = false;
+    let playAttempted = false;
+    const chunks = [];
+    const settle = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    const markStarted = () => {
+      if (started || playbackId !== state.playbackId) return;
+      started = true;
+      state.echoGuardUntil = Number.MAX_SAFE_INTEGER;
+      setPhase('speaking');
+      callbacks.onStarted?.();
+      settle(true);
+    };
+    const failPlayback = () => {
+      if (playbackId !== state.playbackId) {
+        settle(false);
+        return;
+      }
+      stopAudio({ guardMs: started ? 800 : 0, preserveVoiceRequest: true });
+      setPhase('error');
+      settle(false);
+    };
+    const queueBufferedAudio = () => {
+      if (playbackId !== state.playbackId) {
+        settle(false);
+        return;
+      }
+      const blob = new Blob(chunks, { type: 'audio/mpeg' });
+      stopAudio({ clearQueue: true, guardMs: 0, preserveVoiceRequest: true });
+      if (!allowQueue || !blob.size) {
+        setPhase('error');
+        settle(false);
+        return;
+      }
+      state.queuedAudio = blob;
+      state.queuedAudioUrl = URL.createObjectURL(blob);
+      state.queuedAudioOnStarted = callbacks.onStarted || null;
+      state.queuedAudioOnEnded = callbacks.onEnded || null;
+      queuedAudioButton.hidden = false;
+      setPhase('ready');
+      settle(true);
+    };
+    audio.onplaying = markStarted;
+    audio.onended = () => {
+      if (playbackId !== state.playbackId) return;
+      stopAudio({ guardMs: 1800, preserveContinuationVoice: true });
+      setPhase(state.busy ? 'thinking' : 'idle');
+      callbacks.onEnded?.();
+    };
+    audio.onerror = () => {
+      if (playRejected || playbackId !== state.playbackId) return;
+      failPlayback();
+    };
+    mediaSource.addEventListener('sourceopen', () => {
+      void (async () => {
+        if (playbackId !== state.playbackId) return;
+        let reader;
+        try {
+          const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+          reader = response.body.getReader();
+          state.currentVoiceReader = reader;
+          while (true) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            if (playbackId !== state.playbackId) {
+              await reader.cancel();
+              return;
+            }
+            if (!chunk.value?.byteLength) continue;
+            const bytes = chunk.value.slice();
+            chunks.push(bytes);
+            await appendMediaChunk(sourceBuffer, bytes);
+            if (!playAttempted) {
+              playAttempted = true;
+              audio.play().then(markStarted).catch(() => {
+                playRejected = true;
+              });
+            }
+          }
+          if (state.currentVoiceReader === reader) state.currentVoiceReader = null;
+          if (playRejected) {
+            queueBufferedAudio();
+            return;
+          }
+          if (mediaSource.readyState === 'open' && !sourceBuffer.updating) {
+            mediaSource.endOfStream();
+          }
+          if (!playAttempted) failPlayback();
+        } catch (error) {
+          if (state.currentVoiceReader === reader) state.currentVoiceReader = null;
+          if (playRejected && chunks.length) queueBufferedAudio();
+          else failPlayback();
+        }
+      })();
+    }, { once: true });
+  });
+}
+
+async function playAudioBlob(blob, allowQueue = true, callbacks = {}, {
+  preserveVoiceRequest = false
+} = {}) {
+  stopListening();
+  stopAudio({ clearQueue: true, guardMs: 0, preserveVoiceRequest });
   const playbackId = state.playbackId + 1;
   state.playbackId = playbackId;
   if (await playUnlockedAudioBlob(blob, playbackId, callbacks)) return true;
@@ -1514,9 +1687,17 @@ async function speakText(text, {
   state.voiceRequestController = controller;
   setPhase('thinking', action);
   try {
+    const response = await fetchVoiceResponse(text, mood, controller.signal);
+    if (controller.signal.aborted || requestId !== state.voiceRequestId) return false;
+    const streamed = await playStreamingVoiceResponse(response, allowQueue, { onStarted, onEnded });
+    if (streamed) {
+      if (state.voiceRequestController === controller) state.voiceRequestController = null;
+      return true;
+    }
+    if (controller.signal.aborted || requestId !== state.voiceRequestId) return false;
     const blob = await fetchVoice(text, mood, controller.signal);
     if (controller.signal.aborted || requestId !== state.voiceRequestId) return false;
-    state.voiceRequestController = null;
+    if (state.voiceRequestController === controller) state.voiceRequestController = null;
     return await playAudioBlob(blob, allowQueue, { onStarted, onEnded });
   } catch (error) {
     if (state.voiceRequestController === controller) state.voiceRequestController = null;
