@@ -100,7 +100,7 @@ test('managed Kimi streams reply deltas before the structured response completes
 
   assert.match(response.headers.get('content-type'), /text\/event-stream/);
   assert.equal(forwarded.stream, true);
-  assert.equal(forwarded.max_completion_tokens, 140);
+  assert.equal(forwarded.max_completion_tokens, 96);
   assert.deepEqual(forwarded.thinking, { type: 'disabled' });
   assert.match(forwarded.messages[0].content, /\{"reply":"\.\.\."/);
   assert.doesNotMatch(forwarded.messages[0].content, /\{"thinking":"\.\.\."/);
@@ -146,6 +146,7 @@ test('Soulmate profile customizes identity and keeps memory context compact', ()
   assert.match(messages[0].content, /默认用自然的简体中文/);
   assert.match(messages[0].content, /以最新说法为准/);
   assert.match(messages[0].content, /避免重复最近回答/);
+  assert.ok(messages[0].content.length < 850);
 });
 
 test('creature prompt uses the selected route instead of the legacy gender persona', () => {
