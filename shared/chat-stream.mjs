@@ -18,3 +18,21 @@ export function appendChatStreamDelta(current, delta, maxLength = 300) {
     .replace(/\s+/g, ' ')
     .slice(0, Math.max(1, Number(maxLength) || 300));
 }
+
+export function firstSpeechSegment(value, minLength = 7) {
+  const text = String(value || '').replace(/\s+/g, ' ').trimStart();
+  const punctuation = /[。！？!?；;，,]/gu;
+  for (const match of text.matchAll(punctuation)) {
+    const segment = text.slice(0, match.index + match[0].length).trim();
+    if (segment.replace(/\s/g, '').length >= minLength) return segment;
+  }
+  return '';
+}
+
+export function remainingSpeechText(fullReply, spokenSegment) {
+  const full = String(fullReply || '').replace(/\s+/g, ' ').trim();
+  const spoken = String(spokenSegment || '').replace(/\s+/g, ' ').trim();
+  if (!spoken) return full;
+  if (!full.startsWith(spoken)) return null;
+  return full.slice(spoken.length).trim();
+}

@@ -64,8 +64,10 @@ import {
 } from '../shared/soulmate-resilience.mjs?v=2';
 import {
   appendChatStreamDelta,
+  firstSpeechSegment,
+  remainingSpeechText,
   parseChatStreamEvent
-} from '../shared/chat-stream.mjs?v=1';
+} from '../shared/chat-stream.mjs?v=2';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -142,7 +144,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   && diagnosticLlmModels.has(requestedDiagnosticLlmModel)
   ? requestedDiagnosticLlmModel
   : '';
-const APP_RELEASE = 'latency-optimized-v93';
+const APP_RELEASE = 'streaming-voice-v94';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -229,6 +231,8 @@ const state = {
   echoGuardUntil: 0,
   voiceRequestController: null,
   voiceRequestId: 0,
+  continuationVoiceController: null,
+  continuationVoiceId: 0,
   playbackId: 0,
   audioContext: null,
   currentAudioSource: null,
@@ -236,6 +240,8 @@ const state = {
   currentAudioUrl: '',
   queuedAudio: null,
   queuedAudioUrl: '',
+  queuedAudioOnStarted: null,
+  queuedAudioOnEnded: null,
   lastAssistantText: '',
   lastAssistantAt: 0,
   currentStageId: '',
@@ -297,7 +303,8 @@ function renderLlmConnection({
   provider = '',
   failure = '',
   available = false,
-  latency = null
+  latency = null,
+  voiceLatencyMs = 0
 } = {}) {
   if (mode === 'cloud_llm' || available) {
     const labels = {
@@ -311,11 +318,15 @@ function renderLlmConnection({
     const timing = firstTokenMs
       ? ` 本次首字 ${(firstTokenMs / 1000).toFixed(1)} 秒，完整 ${(totalMs / 1000).toFixed(1)} 秒。`
       : '';
+    const voiceTiming = voiceLatencyMs
+      ? ` 首声 ${(voiceLatencyMs / 1000).toFixed(1)} 秒。`
+      : '';
     llmApiStatus.textContent = mode === 'cloud_llm'
-      ? `真实模型正在结合前文与长期记忆回答。${timing}`
+      ? `真实模型正在结合前文与长期记忆回答。${timing}${voiceTiming}`
       : '服务器凭据已就绪，设备端无需填写 API Key。';
     llmApiStatus.dataset.firstTokenMs = firstTokenMs ? String(Math.round(firstTokenMs)) : '';
     llmApiStatus.dataset.totalMs = totalMs ? String(Math.round(totalMs)) : '';
+    llmApiStatus.dataset.voiceLatencyMs = voiceLatencyMs ? String(Math.round(voiceLatencyMs)) : '';
     return;
   }
   if (failure && failure !== 'not_configured') {
@@ -435,6 +446,7 @@ function setPhase(phase, responseAction = '') {
     busy: state.busy,
     hasVoiceOutput: Boolean(
       state.voiceRequestController
+      || state.continuationVoiceController
       || state.currentAudioSource
       || state.currentAudio
       || state.queuedAudio
@@ -1165,6 +1177,50 @@ async function requestReply(text, {
 async function sendMessage(rawText, { source = 'text' } = {}) {
   const text = String(rawText || '').replace(/\s+/g, ' ').trim().slice(0, 160);
   if (!text || state.busy || (source === 'voice' && looksLikeEcho(text))) return;
+  const turnStartedAt = Date.now();
+  let firstVoiceMs = 0;
+  let connectionResult = null;
+  let earlySpeechText = '';
+  let earlySpeechStarted = null;
+  let resolveEarlyContinuation = null;
+  const recordFirstVoice = () => {
+    if (firstVoiceMs) return;
+    firstVoiceMs = Math.max(1, Date.now() - turnStartedAt);
+    if (connectionResult) {
+      renderLlmConnection({ ...connectionResult, voiceLatencyMs: firstVoiceMs });
+    }
+  };
+  const startEarlySpeech = (segment) => {
+    if (!segment || earlySpeechStarted) return;
+    earlySpeechText = segment;
+    const continuation = new Promise((resolve) => {
+      resolveEarlyContinuation = resolve;
+    });
+    earlySpeechStarted = speakText(segment, {
+      mood: 'calm',
+      action: 'voice',
+      allowQueue: true,
+      onStarted: recordFirstVoice,
+      onEnded: async () => {
+        const next = await continuation;
+        if (!next?.text) {
+          if (!state.busy) setPhase('idle');
+          return;
+        }
+        setPhase('thinking', next.action);
+        const preparedBlob = await next.preparedVoice;
+        if (preparedBlob) {
+          await playAudioBlob(preparedBlob, true);
+          return;
+        }
+        await speakText(next.text, {
+          mood: next.mood,
+          action: next.action,
+          allowQueue: true
+        });
+      }
+    });
+  };
   stopListening();
   stopAudio({ clearQueue: true });
   state.busy = true;
@@ -1181,14 +1237,18 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
         conversationStateLabel.textContent = phaseLabels.speaking;
         presenceLine.textContent = partial;
         renderMessages();
+        startEarlySpeech(firstSpeechSegment(partial));
       }
     });
   } catch (error) {
     result = { reply: '', mood: 'calm', failure: 'request_failed' };
   }
   state.streamingReply = '';
-  renderLlmConnection(result);
+  connectionResult = result;
+  renderLlmConnection({ ...result, voiceLatencyMs: firstVoiceMs });
   if (result.reauthenticate) {
+    resolveEarlyContinuation?.(null);
+    stopAudio({ clearQueue: true, guardMs: 0 });
     state.busy = false;
     setPhase('idle');
     presenceLine.textContent = llmFailureMessages.authentication_required;
@@ -1196,6 +1256,8 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
     return;
   }
   if (!result.reply) {
+    resolveEarlyContinuation?.(null);
+    stopAudio({ clearQueue: true, guardMs: 0 });
     state.busy = false;
     setPhase('idle');
     showConversationError(result.failure);
@@ -1206,11 +1268,31 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   state.lastAssistantText = result.reply;
   state.lastAssistantAt = Date.now();
   presenceLine.textContent = result.reply;
+  if (earlySpeechStarted) {
+    const remainder = remainingSpeechText(result.reply, earlySpeechText);
+    const preparedVoice = remainder
+      ? prepareVoiceBlob(remainder, result.mood)
+      : Promise.resolve(null);
+    const started = await earlySpeechStarted;
+    if (started && remainder !== null) {
+      state.busy = false;
+      resolveEarlyContinuation?.({
+        text: remainder,
+        mood: result.mood,
+        action: result.action,
+        preparedVoice
+      });
+      return;
+    }
+    resolveEarlyContinuation?.(null);
+    stopAudio({ clearQueue: true, guardMs: 0 });
+  }
   state.busy = false;
   await speakText(result.reply, {
     mood: result.mood,
     action: result.action,
-    allowQueue: true
+    allowQueue: true,
+    onStarted: recordFirstVoice
   });
 }
 
@@ -1247,10 +1329,32 @@ async function fetchVoice(text, mood = 'happy', signal) {
   throw lastError || new Error('voice unavailable');
 }
 
+async function prepareVoiceBlob(text, mood = 'happy') {
+  if (!text) return null;
+  if (state.continuationVoiceController) state.continuationVoiceController.abort();
+  const requestId = state.continuationVoiceId + 1;
+  const controller = new AbortController();
+  state.continuationVoiceId = requestId;
+  state.continuationVoiceController = controller;
+  try {
+    const blob = await fetchVoice(text, mood, controller.signal);
+    if (controller.signal.aborted || requestId !== state.continuationVoiceId) return null;
+    return blob;
+  } catch (error) {
+    return null;
+  } finally {
+    if (state.continuationVoiceController === controller) {
+      state.continuationVoiceController = null;
+    }
+  }
+}
+
 function clearQueuedAudio() {
   if (state.queuedAudioUrl) URL.revokeObjectURL(state.queuedAudioUrl);
   state.queuedAudio = null;
   state.queuedAudioUrl = '';
+  state.queuedAudioOnStarted = null;
+  state.queuedAudioOnEnded = null;
   queuedAudioButton.hidden = true;
 }
 
@@ -1272,10 +1376,19 @@ function unlockAudioPlayback() {
   }
 }
 
-function stopAudio({ clearQueue = false, guardMs = 1000 } = {}) {
+function stopAudio({
+  clearQueue = false,
+  guardMs = 1000,
+  preserveContinuationVoice = false
+} = {}) {
   if (state.voiceRequestController) state.voiceRequestController.abort();
   state.voiceRequestController = null;
   state.voiceRequestId += 1;
+  if (!preserveContinuationVoice) {
+    if (state.continuationVoiceController) state.continuationVoiceController.abort();
+    state.continuationVoiceController = null;
+    state.continuationVoiceId += 1;
+  }
   state.playbackId += 1;
   const hadOutput = Boolean(state.currentAudio)
     || Boolean(state.currentAudioSource)
@@ -1312,7 +1425,7 @@ function stopAudio({ clearQueue = false, guardMs = 1000 } = {}) {
   setPhase(state.phase);
 }
 
-async function playUnlockedAudioBlob(blob, playbackId) {
+async function playUnlockedAudioBlob(blob, playbackId, { onStarted, onEnded } = {}) {
   const context = state.audioContext;
   if (!context) return false;
   try {
@@ -1329,23 +1442,25 @@ async function playUnlockedAudioBlob(blob, playbackId) {
       if (playbackId !== state.playbackId || state.currentAudioSource !== source) return;
       state.currentAudioSource = null;
       source.disconnect();
-      stopAudio({ guardMs: 1800 });
-      setPhase('idle');
+      stopAudio({ guardMs: 1800, preserveContinuationVoice: true });
+      setPhase(state.busy ? 'thinking' : 'idle');
+      onEnded?.();
     };
     setPhase('speaking');
     source.start(0);
+    onStarted?.();
     return true;
   } catch (error) {
     return false;
   }
 }
 
-async function playAudioBlob(blob, allowQueue = true) {
+async function playAudioBlob(blob, allowQueue = true, callbacks = {}) {
   stopListening();
   stopAudio({ clearQueue: true, guardMs: 0 });
   const playbackId = state.playbackId + 1;
   state.playbackId = playbackId;
-  if (await playUnlockedAudioBlob(blob, playbackId)) return true;
+  if (await playUnlockedAudioBlob(blob, playbackId, callbacks)) return true;
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
   audio.playsInline = true;
@@ -1354,8 +1469,9 @@ async function playAudioBlob(blob, allowQueue = true) {
   state.echoGuardUntil = Number.MAX_SAFE_INTEGER;
   audio.onended = () => {
     if (playbackId !== state.playbackId) return;
-    stopAudio({ guardMs: 1800 });
-    setPhase('idle');
+    stopAudio({ guardMs: 1800, preserveContinuationVoice: true });
+    setPhase(state.busy ? 'thinking' : 'idle');
+    callbacks.onEnded?.();
   };
   audio.onerror = () => {
     if (playbackId !== state.playbackId) return;
@@ -1365,6 +1481,7 @@ async function playAudioBlob(blob, allowQueue = true) {
   setPhase('speaking');
   try {
     await audio.play();
+    callbacks.onStarted?.();
   } catch (error) {
     if (playbackId !== state.playbackId) return false;
     stopAudio({ guardMs: 0 });
@@ -1374,6 +1491,8 @@ async function playAudioBlob(blob, allowQueue = true) {
     }
     state.queuedAudio = blob;
     state.queuedAudioUrl = URL.createObjectURL(blob);
+    state.queuedAudioOnStarted = callbacks.onStarted || null;
+    state.queuedAudioOnEnded = callbacks.onEnded || null;
     queuedAudioButton.hidden = false;
     setPhase('ready');
   }
@@ -1383,7 +1502,9 @@ async function playAudioBlob(blob, allowQueue = true) {
 async function speakText(text, {
   mood = 'happy',
   action = '',
-  allowQueue = false
+  allowQueue = false,
+  onStarted = null,
+  onEnded = null
 } = {}) {
   stopListening();
   stopAudio({ clearQueue: true, guardMs: 0 });
@@ -1396,7 +1517,7 @@ async function speakText(text, {
     const blob = await fetchVoice(text, mood, controller.signal);
     if (controller.signal.aborted || requestId !== state.voiceRequestId) return false;
     state.voiceRequestController = null;
-    return await playAudioBlob(blob, allowQueue);
+    return await playAudioBlob(blob, allowQueue, { onStarted, onEnded });
   } catch (error) {
     if (state.voiceRequestController === controller) state.voiceRequestController = null;
     if (controller.signal.aborted || requestId !== state.voiceRequestId) return false;
@@ -1422,6 +1543,7 @@ function scheduleWakeRecognition(delay = WAKE_RESTART_DELAY_MS) {
     if (
       state.busy
       || state.voiceRequestController
+      || state.continuationVoiceController
       || state.currentAudioSource
       || state.currentAudio
       || state.queuedAudio
@@ -1566,6 +1688,7 @@ function startListening() {
   if (state.recognitionMode === 'wake') stopListening({ resumeWake: false });
   const interrupting = Boolean(
     state.voiceRequestController
+    || state.continuationVoiceController
     || state.currentAudioSource
     || state.currentAudio
     || state.queuedAudio
@@ -1576,7 +1699,13 @@ function startListening() {
   const delay = Math.max(0, state.echoGuardUntil - Date.now(), interrupting ? 220 : 0);
   const start = () => {
     state.listeningTimer = 0;
-    if (state.busy || state.voiceRequestController || state.currentAudioSource || state.currentAudio) {
+    if (
+      state.busy
+      || state.voiceRequestController
+      || state.continuationVoiceController
+      || state.currentAudioSource
+      || state.currentAudio
+    ) {
       setPhase('idle');
       return;
     }
@@ -1848,7 +1977,9 @@ wakeButton.addEventListener('click', () => {
 queuedAudioButton.addEventListener('click', async () => {
   unlockAudioPlayback();
   const blob = state.queuedAudio;
-  if (blob) await playAudioBlob(blob, false);
+  const onStarted = state.queuedAudioOnStarted;
+  const onEnded = state.queuedAudioOnEnded;
+  if (blob) await playAudioBlob(blob, false, { onStarted, onEnded });
 });
 
 $$('[data-open-panel]').forEach((button) => {
