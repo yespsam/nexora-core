@@ -12,6 +12,7 @@ import {
   cleanVoiceGrantScope,
   createVoiceGrant
 } from './_shared/voice-grant.mjs';
+import { createChatGrant } from './_shared/chat-grant.mjs';
 
 const sceneLibrary = Object.fromEntries(interactionScenes.map((scene) => [scene.id, {
   mood: scene.mood,
@@ -635,9 +636,15 @@ export default async function handler(request) {
   const gateway = gatewayConfig();
   const serverKey = serverLlmKey();
   if (request.method === 'GET') {
+    const clientRelease = safeLogToken(request.headers.get('x-nexora-client-release'));
+    const chatGrant = createChatGrant(clientRelease, serverKey);
     return json({
       enabled: gateway.available || Boolean(serverKey),
       default_provider: gateway.available ? 'netlify_ai_gateway' : serverKey ? 'kimi' : 'fallback',
+      ...(chatGrant ? {
+        chat_grant: chatGrant,
+        chat_grant_expires_in: 480
+      } : {}),
       gateway: {
         available: gateway.available,
         model: gateway.model,

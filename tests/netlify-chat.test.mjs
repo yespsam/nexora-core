@@ -9,11 +9,15 @@ import handler, {
   extractStreamedReply
 } from '../netlify/functions/chat.mjs';
 import { verifyVoiceGrant } from '../netlify/functions/_shared/voice-grant.mjs';
+import { verifyChatGrant } from '../netlify/functions/_shared/chat-grant.mjs';
 
-function chatRequest(method, body) {
+function chatRequest(method, body, headers = {}) {
   return new Request('http://localhost/api/chat', {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers: {
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...headers
+    },
     body: body ? JSON.stringify(body) : undefined
   });
 }
@@ -365,7 +369,9 @@ test('chat status reports managed Kimi availability without exposing credentials
     }
   };
 
-  const response = await handler(chatRequest('GET'));
+  const response = await handler(chatRequest('GET', null, {
+    'X-Nexora-Client-Release': 'signed-chat-route-v99'
+  }));
   const body = await response.json();
 
   assert.equal(body.enabled, true);
@@ -373,6 +379,12 @@ test('chat status reports managed Kimi availability without exposing credentials
   assert.equal(body.kimi.server_key_available, true);
   assert.equal(body.kimi.managed, true);
   assert.equal(body.kimi.base_url, 'https://api.moonshot.cn/v1');
+  assert.equal(verifyChatGrant(
+    body.chat_grant,
+    'signed-chat-route-v99',
+    'sk-hidden-managed-key'
+  ), true);
+  assert.equal(body.chat_grant_expires_in, 480);
   assert.equal(JSON.stringify(body).includes('sk-hidden-managed-key'), false);
 });
 

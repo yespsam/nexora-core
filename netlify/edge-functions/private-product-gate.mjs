@@ -64,6 +64,7 @@ export const config = {
     '/access',
     '/access/*',
     '/api/access/*',
+    '/api/chat/stream',
     '/api/voice/stream',
     '/.netlify/identity',
     '/.netlify/identity/*'

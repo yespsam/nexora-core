@@ -144,7 +144,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   && diagnosticLlmModels.has(requestedDiagnosticLlmModel)
   ? requestedDiagnosticLlmModel
   : '';
-const APP_RELEASE = 'signed-voice-route-v98';
+const APP_RELEASE = 'signed-chat-route-v99';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -211,6 +211,7 @@ const state = {
   },
   profile: null,
   history: [],
+  chatGrant: '',
   streamingReply: '',
   phase: 'idle',
   activeAction: '',
@@ -354,7 +355,10 @@ async function refreshLlmConnection() {
   renderLlmConnection({ mode: 'checking' });
   try {
     const response = await fetch('/api/chat', {
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'X-Nexora-Client-Release': APP_RELEASE
+      },
       credentials: 'same-origin',
       cache: 'no-store'
     });
@@ -368,6 +372,7 @@ async function refreshLlmConnection() {
       renderLlmConnection({ failure: 'request_failed' });
       return;
     }
+    state.chatGrant = String(status.chat_grant || '').slice(0, 1200);
     renderLlmConnection({
       available: status.enabled === true,
       provider: String(status.default_provider || ''),
@@ -1160,36 +1165,47 @@ async function requestReply(text, {
   onDelta = null,
   onVoiceGrant = null
 } = {}) {
-  const response = await fetch('/api/chat', {
+  const body = JSON.stringify({
+    text,
+    persona: personaFromStarter(),
+    persona_short: personaFromStarter(),
+    relationship: 'companion',
+    scene: 'daily',
+    history,
+    soulmate: soulmatePromptProfile(state.profile, text),
+    voice_context: {
+      persona: personaFromStarter(),
+      archetype: voiceArchetype(),
+      starter: state.profile?.starter || state.birthSelections.starter
+    },
+    client_release: APP_RELEASE,
+    probe: probe || Boolean(diagnosticLlmModel),
+    ...(diagnosticLlmModel ? { llm_model: diagnosticLlmModel } : {}),
+    stream: true
+  });
+  const requestChat = (path, grant = '') => fetch(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(grant ? { 'X-Nexora-Chat-Grant': grant } : {})
+    },
     credentials: 'same-origin',
     cache: 'no-store',
-    body: JSON.stringify({
-      text,
-      persona: personaFromStarter(),
-      persona_short: personaFromStarter(),
-      relationship: 'companion',
-      scene: 'daily',
-      history,
-      soulmate: soulmatePromptProfile(state.profile, text),
-      voice_context: {
-        persona: personaFromStarter(),
-        archetype: voiceArchetype(),
-        starter: state.profile?.starter || state.birthSelections.starter
-      },
-      client_release: APP_RELEASE,
-      probe: probe || Boolean(diagnosticLlmModel),
-      ...(diagnosticLlmModel ? { llm_model: diagnosticLlmModel } : {}),
-      stream: true
-    })
+    body
   });
+  const grant = String(state.chatGrant || '').slice(0, 1200);
+  let response = await requestChat(grant ? '/api/chat/stream' : '/api/chat', grant);
+  if (grant && response.status === 401) {
+    state.chatGrant = '';
+    response = await requestChat('/api/chat');
+    window.setTimeout(() => refreshLlmConnection(), 0);
+  }
   const type = response.headers.get('content-type') || '';
   if (response.ok && type.includes('text/event-stream')) {
     return readChatStream(response, { onDelta, onVoiceGrant });
   }
-  const body = await response.json().catch(() => null);
-  return replyResultFromBody(response, body);
+  const responseBody = await response.json().catch(() => null);
+  return replyResultFromBody(response, responseBody);
 }
 
 async function sendMessage(rawText, { source = 'text' } = {}) {
