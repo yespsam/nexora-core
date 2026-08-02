@@ -17,7 +17,9 @@ test('desktop pet surface contains only the native 3D companion', () => {
   assert.match(viewer, /interactiveRotation === false/);
   assert.doesNotMatch(html, /<img\b/i);
   assert.doesNotMatch(css, /background-image/);
-  assert.match(css, /background: transparent !important/);
+  assert.match(css, /background-color: rgba\(0, 0, 0, 0\) !important/);
+  assert.doesNotMatch(html, /color-scheme/);
+  assert.doesNotMatch(css, /color-scheme/);
 });
 
 test('desktop pet supports bounded click interactions and full-chat handoff', () => {
@@ -33,13 +35,23 @@ test('macOS shell uses a transparent persistent panel with drag and click-throug
   assert.match(native, /DesktopPetPanel: NSPanel/);
   assert.match(native, /panel\.backgroundColor = \.clear/);
   assert.match(native, /panel\.isOpaque = false/);
+  assert.match(native, /TransparentPetWebView/);
+  assert.match(native, /setValue\(false, forKey: "drawsBackground"\)/);
   assert.match(native, /panel\.level = \.floating/);
   assert.match(native, /\.canJoinAllSpaces/);
   assert.match(native, /panel\.ignoresMouseEvents = enabled/);
   assert.match(native, /NSEvent\.addLocalMonitorForEvents/);
+  assert.match(native, /\.scrollWheel/);
+  assert.match(native, /\.magnify/);
+  assert.match(native, /resizeWindow\(toWidth/);
+  assert.match(native, /max\(220/);
+  assert.match(native, /min\(560/);
   assert.match(native, /desktopPet\.frame\.v1/);
   assert.match(native, /inspectRuntime/);
   assert.match(native, /opaquePixels > 100/);
+  assert.match(native, /CGWindowListCreateImage/);
+  assert.match(native, /cornerAlpha/);
+  assert.match(native, /resizeForSelfTest/);
 });
 
 test('macOS package embeds the private 3D runtime for offline rendering', () => {

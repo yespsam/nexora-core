@@ -535,6 +535,10 @@ private final class DesktopPetPanel: NSPanel {
   override var canBecomeMain: Bool { false }
 }
 
+private final class TransparentPetWebView: WKWebView {
+  override var isOpaque: Bool { false }
+}
+
 private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
   private static let frameKey = "desktopPet.frame.v1"
   private static let visibleKey = "desktopPet.visible.v1"
@@ -545,12 +549,13 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
   private static let stages = Set(["seed", "young", "resonance"])
   private static let actions = Set(["idle", "listening", "nod", "affection", "wave", "speaking", "walk", "run"])
 
-  private let defaults = UserDefaults.standard
+  private let defaults: UserDefaults
   private let schemeHandler: BundleSchemeHandler
   private var panel: DesktopPetPanel!
   private var webView: WKWebView!
   private var eventMonitor: Any?
   private var dragStart: (mouse: NSPoint, origin: NSPoint)?
+  private var frameSaveWorkItem: DispatchWorkItem?
   private(set) var modelReady = false
   private(set) var modelError: String?
   private(set) var starter: String
@@ -558,13 +563,15 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
   private(set) var isClickThrough: Bool
 
   var isVisible: Bool { panel.isVisible }
+  var currentSize: NSSize { panel.frame.size }
 
-  override init() {
-    let savedStarter = UserDefaults.standard.string(forKey: Self.starterKey) ?? "cute"
-    let savedStage = UserDefaults.standard.string(forKey: Self.stageKey) ?? "seed"
+  init(defaults: UserDefaults = .standard) {
+    self.defaults = defaults
+    let savedStarter = defaults.string(forKey: Self.starterKey) ?? "cute"
+    let savedStage = defaults.string(forKey: Self.stageKey) ?? "seed"
     starter = Self.starters.contains(savedStarter) ? savedStarter : "cute"
     stage = Self.stages.contains(savedStage) ? savedStage : "seed"
-    isClickThrough = UserDefaults.standard.bool(forKey: Self.clickThroughKey)
+    isClickThrough = defaults.bool(forKey: Self.clickThroughKey)
     let webRoot = Bundle.main.resourceURL?.appendingPathComponent("Web")
       ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     schemeHandler = BundleSchemeHandler(rootURL: webRoot)
@@ -585,6 +592,8 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
   }
 
   func stop() {
+    frameSaveWorkItem?.cancel()
+    frameSaveWorkItem = nil
     panel?.orderOut(nil)
     webView?.stopLoading()
     webView?.configuration.userContentController.removeScriptMessageHandler(forName: "desktopPet")
@@ -602,7 +611,10 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
     webView.evaluateJavaScript("window.__NEXORA_DESKTOP_PET_QA__?.sampleModel()") { value, error in
       let result = value as? [String: Any]
       let opaquePixels = (result?["opaque"] as? NSNumber)?.intValue ?? 0
-      completion(error == nil && transparent && opaquePixels > 100)
+      let cornerAlphas = self.windowCornerAlphas()
+      let cornersTransparent = cornerAlphas?.allSatisfy { $0 < 0.05 } == true
+      print("NEXORA desktop pet runtime: webgl=\(opaquePixels) transparent=\(transparent) cornerAlpha=\(cornerAlphas ?? [])")
+      completion(error == nil && transparent && opaquePixels > 100 && cornersTransparent)
     }
   }
 
@@ -657,6 +669,16 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
     panel.setFrameOrigin(origin)
     saveFrame()
     show()
+  }
+
+  func resetSize() {
+    resizeWindow(toWidth: 340, anchor: NSPoint(x: panel.frame.midX, y: panel.frame.midY))
+    saveFrame()
+    show()
+  }
+
+  func resizeForSelfTest(by factor: CGFloat) {
+    resizeWindow(by: factor, anchor: NSPoint(x: panel.frame.midX, y: panel.frame.midY))
   }
 
   func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -721,11 +743,21 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
     configuration.websiteDataStore = .nonPersistent()
     configuration.setURLSchemeHandler(schemeHandler, forURLScheme: "nexora-pet")
     configuration.userContentController.add(self, name: "desktopPet")
-    webView = WKWebView(frame: panel.contentView?.bounds ?? NSRect(origin: .zero, size: size), configuration: configuration)
+    webView = TransparentPetWebView(
+      frame: panel.contentView?.bounds ?? NSRect(origin: .zero, size: size),
+      configuration: configuration
+    )
     webView.navigationDelegate = self
     webView.autoresizingMask = [.width, .height]
     webView.underPageBackgroundColor = .clear
+    webView.wantsLayer = true
+    webView.layer?.isOpaque = false
+    webView.layer?.backgroundColor = NSColor.clear.cgColor
+    webView.setValue(false, forKey: "drawsBackground")
     panel.contentView = webView
+    panel.contentView?.wantsLayer = true
+    panel.contentView?.layer?.isOpaque = false
+    panel.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
 
     if savedFrame == nil { resetPosition() }
     if let url = URL(string: "nexora-pet://app/desktop-pet/index.html") {
@@ -735,15 +767,28 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
 
   private func installDragMonitor() {
     eventMonitor = NSEvent.addLocalMonitorForEvents(
-      matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
+      matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .scrollWheel, .magnify]
     ) { [weak self] event in
-      self?.handleDragEvent(event)
+      self?.handlePointerEvent(event)
       return event
     }
   }
 
-  private func handleDragEvent(_ event: NSEvent) {
+  private func handlePointerEvent(_ event: NSEvent) {
     guard !isClickThrough, event.window === panel else { return }
+    if event.type == .scrollWheel {
+      let sensitivity: CGFloat = event.hasPreciseScrollingDeltas ? 0.012 : 0.045
+      let factor = exp(CGFloat(event.scrollingDeltaY) * sensitivity)
+      resizeWindow(by: factor, anchor: NSEvent.mouseLocation)
+      scheduleFrameSave()
+      return
+    }
+    if event.type == .magnify {
+      let factor = min(1.18, max(0.82, 1 + CGFloat(event.magnification)))
+      resizeWindow(by: factor, anchor: NSEvent.mouseLocation)
+      scheduleFrameSave()
+      return
+    }
     if event.type == .leftMouseDown {
       dragStart = (NSEvent.mouseLocation, panel.frame.origin)
       return
@@ -768,6 +813,61 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
       x: min(max(proposed.x, visibleFrame.minX), visibleFrame.maxX - panel.frame.width),
       y: min(max(proposed.y, visibleFrame.minY), visibleFrame.maxY - panel.frame.height)
     ))
+  }
+
+  private func resizeWindow(by factor: CGFloat, anchor: NSPoint) {
+    resizeWindow(toWidth: panel.frame.width * min(1.25, max(0.8, factor)), anchor: anchor)
+  }
+
+  private func resizeWindow(toWidth proposedWidth: CGFloat, anchor: NSPoint) {
+    let frame = panel.frame
+    let aspectRatio: CGFloat = 340 / 430
+    let visibleFrame = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
+    let maximumWidth = min(560, max(220, (visibleFrame?.width ?? 576) - 16))
+    let width = min(maximumWidth, max(220, proposedWidth))
+    let height = width / aspectRatio
+    let anchorX = min(1, max(0, (anchor.x - frame.minX) / max(1, frame.width)))
+    let anchorY = min(1, max(0, (anchor.y - frame.minY) / max(1, frame.height)))
+    var nextFrame = NSRect(
+      x: anchor.x - width * anchorX,
+      y: anchor.y - height * anchorY,
+      width: width,
+      height: height
+    )
+    if let visibleFrame {
+      nextFrame.origin.x = min(max(nextFrame.minX, visibleFrame.minX), visibleFrame.maxX - width)
+      nextFrame.origin.y = min(max(nextFrame.minY, visibleFrame.minY), visibleFrame.maxY - height)
+    }
+    panel.setFrame(nextFrame, display: true)
+  }
+
+  private func scheduleFrameSave() {
+    frameSaveWorkItem?.cancel()
+    let workItem = DispatchWorkItem { [weak self] in self?.saveFrame() }
+    frameSaveWorkItem = workItem
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: workItem)
+  }
+
+  private func windowCornerAlphas() -> [CGFloat]? {
+    panel.displayIfNeeded()
+    guard panel.windowNumber > 0,
+          let image = CGWindowListCreateImage(
+            .null,
+            .optionIncludingWindow,
+            CGWindowID(panel.windowNumber),
+            [.boundsIgnoreFraming]
+          ) else { return nil }
+    let bitmap = NSBitmapImageRep(cgImage: image)
+    let inset = 3
+    let samples = [
+      (inset, inset),
+      (max(inset, bitmap.pixelsWide - inset - 1), inset),
+      (inset, max(inset, bitmap.pixelsHigh - inset - 1)),
+      (max(inset, bitmap.pixelsWide - inset - 1), max(inset, bitmap.pixelsHigh - inset - 1))
+    ]
+    return samples.map { point in
+      bitmap.colorAt(x: point.0, y: point.1)?.alphaComponent ?? 1
+    }
   }
 
   private func saveFrame() {
@@ -885,6 +985,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     resetPetPosition.target = self
     menu.addItem(resetPetPosition)
 
+    let resetPetSize = NSMenuItem(title: "恢复默认大小", action: #selector(resetPetSize), keyEquivalent: "")
+    resetPetSize.target = self
+    menu.addItem(resetPetSize)
+
     menu.addItem(.separator())
 
     pairMenuItem = NSMenuItem(title: "配对电脑...", action: #selector(showPairingWindow), keyEquivalent: "p")
@@ -965,6 +1069,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
   @objc private func resetPetPosition() {
     desktopPet.resetPosition()
+    refreshPetMenu()
+  }
+
+  @objc private func resetPetSize() {
+    desktopPet.resetSize()
     refreshPetMenu()
   }
 
@@ -1108,9 +1217,17 @@ private enum SelfTest {
 
   static func runDesktopPet() throws {
     NSApplication.shared.setActivationPolicy(.accessory)
-    let controller = DesktopPetController()
+    let suiteName = "com.nexora.core.bridge.self-test.\(ProcessInfo.processInfo.processIdentifier)"
+    guard let defaults = UserDefaults(suiteName: suiteName) else {
+      throw TestError.failed("desktop pet test preferences")
+    }
+    defaults.removePersistentDomain(forName: suiteName)
+    let controller = DesktopPetController(defaults: defaults)
     controller.start()
-    defer { controller.stop() }
+    defer {
+      controller.stop()
+      defaults.removePersistentDomain(forName: suiteName)
+    }
 
     let loadDeadline = Date().addingTimeInterval(20)
     while !controller.modelReady && controller.modelError == nil && Date() < loadDeadline {
@@ -1118,6 +1235,13 @@ private enum SelfTest {
     }
     guard controller.modelReady, controller.modelError == nil else {
       throw TestError.failed("desktop pet model load")
+    }
+
+    let initialSize = controller.currentSize
+    controller.resizeForSelfTest(by: 1.1)
+    guard controller.currentSize.width > initialSize.width,
+          controller.currentSize.height > initialSize.height else {
+      throw TestError.failed("desktop pet mouse resize")
     }
 
     var runtimePassed: Bool?
@@ -1142,7 +1266,7 @@ if CommandLine.arguments.contains("--self-test-pet") {
     try SelfTest.runDesktopPet()
     exit(EXIT_SUCCESS)
   } catch {
-    fputs("NEXORA desktop pet native self-test failed\n", stderr)
+    fputs("NEXORA desktop pet native self-test failed: \(error)\n", stderr)
     exit(EXIT_FAILURE)
   }
 }

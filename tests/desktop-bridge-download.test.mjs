@@ -10,10 +10,10 @@ import {
 } from '../shared/desktop-bridge-download.mjs';
 
 test('desktop bridge downloads stay pinned to the private internal release', () => {
-  assert.equal(DESKTOP_BRIDGE_RELEASE_TAG, 'bridge-v0.2.0-internal');
+  assert.equal(DESKTOP_BRIDGE_RELEASE_TAG, 'bridge-v0.2.1-internal');
   assert.deepEqual(Object.keys(DESKTOP_BRIDGE_DOWNLOADS), ['macos', 'windows-x64', 'windows-arm64']);
   for (const download of Object.values(DESKTOP_BRIDGE_DOWNLOADS)) {
-    assert.match(download.href, /^https:\/\/github\.com\/yespsam\/nexora-core\/releases\/download\/bridge-v0\.2\.0-internal\//);
+    assert.match(download.href, /^https:\/\/github\.com\/yespsam\/nexora-core\/releases\/download\/bridge-v0\.2\.1-internal\//);
     assert.match(download.file, /\.(?:dmg|zip)$/);
   }
 });

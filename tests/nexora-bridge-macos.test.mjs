@@ -44,4 +44,5 @@ test('macOS bridge exposes the desktop pet from its menu without a second app', 
   assert.match(source, /进化形态/);
   assert.match(source, /互动动作/);
   assert.match(source, /鼠标穿透/);
+  assert.match(source, /恢复默认大小/);
 });

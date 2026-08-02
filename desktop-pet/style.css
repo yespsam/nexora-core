@@ -1,7 +1,6 @@
 :root {
-  color-scheme: dark;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
-  background: transparent;
+  background-color: rgba(0, 0, 0, 0) !important;
 }
 
 * {
@@ -14,7 +13,7 @@ body {
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background: transparent !important;
+  background-color: rgba(0, 0, 0, 0) !important;
 }
 
 body {
@@ -30,7 +29,7 @@ body {
   overflow: hidden;
   outline: none;
   cursor: grab;
-  background: transparent;
+  background-color: rgba(0, 0, 0, 0);
   touch-action: none;
 }
 
@@ -44,7 +43,7 @@ body {
   width: 100%;
   height: 100%;
   display: block;
-  background: transparent;
+  background-color: rgba(0, 0, 0, 0);
   pointer-events: none;
 }
 

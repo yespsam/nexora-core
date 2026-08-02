@@ -105,9 +105,11 @@ export class Creature3DViewer {
       canvas: this.canvas,
       alpha: true,
       antialias: true,
+      premultipliedAlpha: true,
       powerPreference: 'high-performance'
     });
     this.renderer.setClearColor(0x000000, 0);
+    this.renderer.setClearAlpha(0);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = options.exposure || 0.96;
