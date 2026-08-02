@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+const [source, plist, build] = await Promise.all([
+  readFile(new URL('../macos/NexoraBridge/main.swift', import.meta.url), 'utf8'),
+  readFile(new URL('../macos/NexoraBridge/Info.plist', import.meta.url), 'utf8'),
+  readFile(new URL('../tools/build-nexora-bridge-macos.sh', import.meta.url), 'utf8')
+]);
+
+test('native macOS bridge keeps credentials in the device-only Keychain', () => {
+  assert.match(source, /kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly/);
+  assert.match(source, /SecItemCopyMatching/);
+  assert.match(source, /SecItemUpdate/);
+  assert.doesNotMatch(source, /print\([^\n]*(?:secret|pairing)/i);
+});
+
+test('native macOS bridge implements the same encrypted command boundary', () => {
+  assert.match(source, /HKDF<SHA256>/);
+  assert.match(source, /AES\.GCM\.open/);
+  assert.match(source, /nexora-device-command-v1/);
+  assert.match(source, /NXC1/);
+});
+
+test('native execution uses fixed binaries and never invokes a shell', () => {
+  assert.match(source, /\/usr\/bin\/open/);
+  assert.match(source, /\/usr\/bin\/osascript/);
+  assert.match(source, /"calculator"/);
+  assert.doesNotMatch(source, /\/bin\/(?:sh|bash|zsh)/);
+});
+
+test('macOS bundle is a menu bar app and packages distributable artifacts', () => {
+  assert.match(plist, /<key>LSUIElement<\/key>\s*<true\/>/);
+  assert.match(plist, /com\.nexora\.core\.bridge/);
+  assert.match(build, /arm64 x86_64/);
+  assert.match(build, /NEXORA-Bridge-macOS\.zip/);
+  assert.match(build, /NEXORA-Bridge-macOS\.dmg/);
+});

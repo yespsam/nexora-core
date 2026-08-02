@@ -52,7 +52,9 @@ http://localhost:8888/device-lab/?autorun=1
 
 ## 配对电脑控制
 
-先在伙伴页打开“设备”，选择“电脑”，然后点击“配对电脑”。在仓库根目录执行：
+普通用户在 macOS 使用 `NEXORA Bridge.app`，在 Windows 使用 `NEXORA Bridge.exe`：打开伙伴页的“设备 → 电脑助手 → 配对电脑”，复制配对码，双击应用并粘贴。配对凭据分别保存在当前 Mac 的系统钥匙串或 Windows 凭据管理器；菜单栏/系统托盘图标会显示在线、暂停、重新配对和移除本机配对状态。两个版本使用同一套端到端加密短时指令协议，并且只执行音量、音乐和五个固定应用动作。
+
+开发环境也可以在仓库根目录执行：
 
 ```bash
 npm run bridge:pair
@@ -60,6 +62,22 @@ npm run bridge:cloud
 ```
 
 第一条命令会提示粘贴网页生成的一次性配对码，并将凭据保存到当前用户的 `~/.nexora/bridge.json`。第二条命令启动加密云端指令通道，默认只模拟执行并返回结果。确认需要真实控制当前 Mac 后，可改用 `npm run bridge:native`；原生模式仅允许音量、静音、音乐播放和少量固定应用指令，不执行任意脚本。家庭电器在接入实际蓝牙或 Matter 网关前仍保持模拟模式。
+
+构建 macOS 应用和分发包：
+
+```bash
+npm run build:bridge:macos
+```
+
+产物位于 `dist/`。当前内部测试包使用临时签名；向外部分发前仍需 Apple Developer ID 签名与公证。
+
+Windows 版本需要 .NET 8 SDK 与 PowerShell 7，在 Windows 构建机执行：
+
+```powershell
+npm run build:bridge:windows
+```
+
+私有仓库的 `Build Windows Bridge` 工作流会同时生成无需安装 .NET 的 Windows x64 与 ARM64 单文件程序，并执行 x64 加密协议自测。Windows 对外发布前仍需 Authenticode 代码签名，避免 SmartScreen 的未知发布者提示。
 
 ## 验证
 
@@ -83,6 +101,8 @@ npm run test:computer
 | `netlify/functions/` | 聊天、语音、密文同步、设备云和维护云函数 |
 | `cloud/` | 实体设备 PostgreSQL 迁移、事件存储和密钥边界，不进入公开发布包 |
 | `hardware/soulmate-pendant/` | 固件、外壳、打印和实验资料 |
+| `macos/NexoraBridge/` | macOS 菜单栏电脑控制客户端 |
+| `windows/NexoraBridge/` | Windows 系统托盘电脑控制客户端 |
 
 ## 硬件状态
 
