@@ -932,6 +932,84 @@ input:focus-visible {
   min-height: 230px;
 }
 
+.bridge-client-row {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bridge-client-row div,
+.bridge-client-row strong,
+.bridge-client-row small,
+.bridge-client-kicker {
+  display: block;
+}
+
+.bridge-client-kicker {
+  margin-bottom: 3px;
+  color: var(--ink-soft);
+  font-size: 9px;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.bridge-client-row strong {
+  font-size: 13px;
+}
+
+.bridge-client-row small {
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
+.bridge-download-primary {
+  min-width: 76px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0 14px;
+  border-radius: 4px;
+  background: var(--charcoal);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 740;
+  text-decoration: none;
+}
+
+.bridge-download-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 12px 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bridge-download-options a {
+  min-width: 0;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-right: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 10px;
+  text-decoration: none;
+}
+
+.bridge-download-options a:last-child {
+  border-right: 0;
+}
+
+.bridge-download-options a.active {
+  background: rgba(32, 189, 197, 0.12);
+  color: var(--ink);
+  font-weight: 760;
+}
+
 .connection-row,
 .setting-row {
   display: flex;
@@ -1294,6 +1372,9 @@ input:focus-visible {
 
   .connection-actions .small-command {
     width: 92px;
+    padding-inline: 8px;
+    font-size: 11px;
+    white-space: nowrap;
   }
 
   .evolution-item {

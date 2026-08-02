@@ -28,6 +28,7 @@ const publicFiles = [
   'shared/chat-stream.mjs',
   'shared/device-command.mjs',
   'shared/device-command-cloud.mjs',
+  'shared/desktop-bridge-download.mjs',
   'shared/soulmate-command-agent.mjs',
   'shared/soulmate-sync.mjs',
   'shared/soulmate-cloud-sync.mjs',

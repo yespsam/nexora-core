@@ -29,6 +29,7 @@ test('public build contains only the product runtime allowlist', async () => {
     'pendant-display/index.html',
     'shared/soulmate-resilience.mjs',
     'shared/chat-stream.mjs',
+    'shared/desktop-bridge-download.mjs',
     'shared/soulmate-sync.mjs',
     'shared/soulmate-cloud-sync.mjs',
     'shared/soulmate-device-cloud.mjs',

@@ -77,6 +77,11 @@ import {
   registerSoulmateCommandAgent,
   soulmateCommandAgentPairingCode
 } from '../shared/soulmate-command-agent.mjs?v=1';
+import {
+  DESKTOP_BRIDGE_DOWNLOADS,
+  desktopBridgeDownloadView,
+  detectDesktopBridgePlatform
+} from '../shared/desktop-bridge-download.mjs?v=1';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -130,6 +135,10 @@ const bridgePairButton = $('#bridge-pair-button');
 const bridgePairing = $('#bridge-pairing');
 const bridgePairCode = $('#bridge-pair-code');
 const bridgeCopyButton = $('#bridge-copy-button');
+const bridgePlatformLabel = $('#bridge-platform-label');
+const bridgePlatformNote = $('#bridge-platform-note');
+const bridgeDownloadPrimary = $('#bridge-download-primary');
+const bridgeDownloadOptions = $$('[data-bridge-download]');
 const voiceSettingStatus = $('#voice-setting-status');
 const llmProviderLabel = $('#llm-provider-label');
 const llmApiStatus = $('#llm-api-status');
@@ -160,7 +169,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   ? requestedDiagnosticLlmModel
   : '';
 const REALTIME_LLM_MODEL = 'moonshot-v1-8k';
-const APP_RELEASE = 'encrypted-command-queue-v109';
+const APP_RELEASE = 'desktop-install-v110';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -2431,6 +2440,23 @@ function activateBrowserDeviceSimulation() {
   return true;
 }
 
+async function renderBridgeDownloads() {
+  const platform = await detectDesktopBridgePlatform(navigator);
+  const view = desktopBridgeDownloadView(platform);
+  bridgePlatformLabel.textContent = view.label;
+  bridgePlatformNote.textContent = view.note;
+  bridgeDownloadPrimary.textContent = view.action;
+  bridgeDownloadPrimary.href = view.href;
+  bridgeDownloadOptions.forEach((link) => {
+    const download = DESKTOP_BRIDGE_DOWNLOADS[link.dataset.bridgeDownload];
+    if (!download) return;
+    link.href = download.href;
+    link.title = download.file;
+    link.classList.toggle('active', download.id === platform);
+    link.setAttribute('aria-current', download.id === platform ? 'true' : 'false');
+  });
+}
+
 async function pairCommandAgent() {
   if (!state.cloudIdentity) {
     bridgeStatus.textContent = '请先在设置中开启加密云同步';
@@ -2794,6 +2820,7 @@ window.addEventListener('pagehide', (event) => {
   if (!event.persisted) state.continuity?.close();
 });
 refreshLlmConnection();
+renderBridgeDownloads();
 
 if (pendantSimulationMode) {
   pendantStatus.textContent = '电脑模拟设备待连接';
