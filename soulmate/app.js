@@ -68,6 +68,7 @@ import {
   remainingSpeechText,
   parseChatStreamEvent
 } from '../shared/chat-stream.mjs?v=2';
+import { parseDeviceCommand } from '../shared/device-command.mjs?v=1';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -138,6 +139,7 @@ const cloudSyncStatus = $('#cloud-sync-status');
 const pageParams = new URLSearchParams(location.search);
 const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
+const BRIDGE_URL = 'http://127.0.0.1:8765';
 const diagnosticLlmModels = new Set(['kimi-k2.6', 'moonshot-v1-8k']);
 const requestedDiagnosticLlmModel = pageParams.get('chat_model') || '';
 const diagnosticLlmModel = pageParams.get('probe') === '1'
@@ -145,7 +147,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   ? requestedDiagnosticLlmModel
   : '';
 const REALTIME_LLM_MODEL = 'moonshot-v1-8k';
-const APP_RELEASE = 'safari-audio-session-v103';
+const APP_RELEASE = 'device-control-v107';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -273,7 +275,10 @@ const state = {
   cloudReady: false,
   cloudAvailable: true,
   cloudRecoveryBlocked: false,
-  cloudDiagnostic: null
+  cloudDiagnostic: null,
+  bridgeConnected: false,
+  bridgeMode: '',
+  bridgeCapabilities: []
 };
 
 let creatureViewer = null;
@@ -1226,9 +1231,60 @@ async function requestReply(text, {
   return replyResultFromBody(response, responseBody);
 }
 
+async function sendBridgeCommand(command) {
+  if (!state.bridgeConnected && !await detectBridge({ quiet: true })) {
+    return { ok: false, summary: '电脑控制服务尚未连接，请先启动 NEXORA Bridge。' };
+  }
+  try {
+    const response = await fetch(`${BRIDGE_URL}/commands`, {
+      method: 'POST',
+      mode: 'cors',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body.ok !== true) throw new Error('command failed');
+    const simulationSuffix = state.bridgeMode === 'simulation' ? '，当前由电脑模拟器执行' : '';
+    const summary = `${String(body.summary || command.label).replace(/[。！]+$/g, '')}${simulationSuffix}。`;
+    if (command.target === 'home') bluetoothStatus.textContent = summary;
+    else bridgeStatus.textContent = summary;
+    return { ok: true, summary };
+  } catch (error) {
+    state.bridgeConnected = false;
+    bridgeStatus.textContent = 'NEXORA Bridge 连接已中断';
+    return { ok: false, summary: '电脑控制服务连接中断，请重新检测。' };
+  }
+}
+
+async function handleDeviceCommandInput(text) {
+  const command = parseDeviceCommand(text);
+  if (!command) return false;
+  stopListening();
+  stopAudio({ clearQueue: true });
+  state.busy = true;
+  chatInput.value = '';
+  appendMessage('user', text);
+  setPhase('thinking');
+  presenceLine.textContent = command.target === 'home' ? '正在连接虚拟家庭网关……' : '正在连接电脑助手……';
+  const result = await sendBridgeCommand(command);
+  appendMessage('assistant', result.summary);
+  state.lastAssistantText = result.summary;
+  state.lastAssistantAt = Date.now();
+  presenceLine.textContent = result.summary;
+  state.busy = false;
+  await speakText(result.summary, {
+    mood: result.ok ? 'happy' : 'calm',
+    action: result.ok ? 'nod' : 'idle',
+    allowQueue: true
+  });
+  return true;
+}
+
 async function sendMessage(rawText, { source = 'text' } = {}) {
   const text = String(rawText || '').replace(/\s+/g, ' ').trim().slice(0, 160);
   if (!text || state.busy || (source === 'voice' && looksLikeEcho(text))) return;
+  if (await handleDeviceCommandInput(text)) return;
   const turnStartedAt = Date.now();
   let firstVoiceMs = 0;
   const voiceTiming = {};
@@ -1976,7 +2032,7 @@ function setupRecognition() {
     try {
       const grammars = new GrammarList();
       grammars.addFromString(
-        '#JSGF V1.0; grammar nexora; public <command> = NEXORA | 奈索拉 | 伙伴 | 招手 | 挥手 | 点头 | 靠近 | 抱抱 | 走路 | 散步 | 跑步 | 停下;',
+        '#JSGF V1.0; grammar nexora; public <command> = NEXORA | 奈索拉 | 伙伴 | 招手 | 挥手 | 点头 | 靠近 | 抱抱 | 走路 | 散步 | 跑步 | 停下 | 音量 | 静音 | 播放音乐 | 暂停音乐 | 打开灯 | 关闭灯 | 打开窗帘 | 关闭窗帘 | 空调温度;',
         1
       );
       recognition.grammars = grammars;
@@ -2136,6 +2192,7 @@ function openSheet(name) {
   const sheet = { growth: growthSheet, device: deviceSheet, settings: settingsSheet }[name];
   if (!sheet) return;
   if (name === 'growth') renderGrowth();
+  if (name === 'device') void detectBridge({ quiet: true });
   sheet.showModal();
 }
 
@@ -2145,6 +2202,11 @@ function closeSheet(name) {
 }
 
 async function pairBluetooth() {
+  if (state.bridgeConnected && state.bridgeCapabilities.includes('virtual-ble-home')) {
+    bluetoothStatus.textContent = '虚拟蓝牙家庭网关已连接';
+    bluetoothButton.textContent = '已连接';
+    return;
+  }
   if (!navigator.bluetooth) {
     bluetoothStatus.textContent = '此浏览器不支持 Web Bluetooth';
     return;
@@ -2227,17 +2289,37 @@ async function connectPendant() {
   }
 }
 
-async function detectBridge() {
-  bridgeStatus.textContent = '正在检测 127.0.0.1:8765';
+async function detectBridge({ quiet = false } = {}) {
+  if (!quiet) bridgeStatus.textContent = '正在检测 127.0.0.1:8765';
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 2200);
   try {
-    const response = await fetch('http://127.0.0.1:8765/status', { signal: controller.signal });
-    if (!response.ok) throw new Error('offline');
-    bridgeStatus.textContent = '已连接本机服务';
+    const response = await fetch(`${BRIDGE_URL}/status`, {
+      signal: controller.signal,
+      mode: 'cors',
+      cache: 'no-store'
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body.product !== 'NEXORA Bridge') throw new Error('offline');
+    state.bridgeConnected = true;
+    state.bridgeMode = body.mode === 'simulation' ? 'simulation' : 'native';
+    state.bridgeCapabilities = Array.isArray(body.capabilities) ? body.capabilities.slice(0, 8) : [];
+    bridgeStatus.textContent = state.bridgeMode === 'simulation'
+      ? '电脑模拟服务已连接'
+      : '本机服务已连接';
     bridgeButton.textContent = '已连接';
+    if (state.bridgeCapabilities.includes('virtual-ble-home')) {
+      bluetoothStatus.textContent = '虚拟蓝牙家庭网关已连接';
+      bluetoothButton.textContent = '已连接';
+    }
+    return true;
   } catch (error) {
+    state.bridgeConnected = false;
+    state.bridgeMode = '';
+    state.bridgeCapabilities = [];
     bridgeStatus.textContent = '未发现 NEXORA Bridge';
+    bridgeButton.textContent = '检测';
+    return false;
   } finally {
     window.clearTimeout(timer);
   }
