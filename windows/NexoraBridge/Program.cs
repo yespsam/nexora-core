@@ -102,6 +102,33 @@ internal static class CredentialStore
 
     internal static void Save(BridgeConfiguration configuration)
     {
+        Save(configuration, AppConstants.CredentialTarget);
+    }
+
+    internal static BridgeConfiguration? Load() => Load(AppConstants.CredentialTarget);
+
+    internal static void Delete() => Delete(AppConstants.CredentialTarget);
+
+    internal static void SaveForSelfTest(BridgeConfiguration configuration, string target)
+    {
+        EnsureSelfTestTarget(target);
+        Save(configuration, target);
+    }
+
+    internal static BridgeConfiguration? LoadForSelfTest(string target)
+    {
+        EnsureSelfTestTarget(target);
+        return Load(target);
+    }
+
+    internal static void DeleteForSelfTest(string target)
+    {
+        EnsureSelfTestTarget(target);
+        Delete(target);
+    }
+
+    private static void Save(BridgeConfiguration configuration, string target)
+    {
         byte[] blob = JsonSerializer.SerializeToUtf8Bytes(configuration, JsonDefaults.Options);
         if (blob.Length > 512) throw new InvalidOperationException("Credential is too large.");
 
@@ -112,7 +139,7 @@ internal static class CredentialStore
             NativeCredential credential = new()
             {
                 Type = CredTypeGeneric,
-                TargetName = AppConstants.CredentialTarget,
+                TargetName = target,
                 CredentialBlobSize = (uint)blob.Length,
                 CredentialBlob = blobPointer,
                 Persist = CredPersistLocalMachine,
@@ -131,9 +158,9 @@ internal static class CredentialStore
         }
     }
 
-    internal static BridgeConfiguration? Load()
+    private static BridgeConfiguration? Load(string target)
     {
-        if (!CredRead(AppConstants.CredentialTarget, CredTypeGeneric, 0, out IntPtr pointer)) return null;
+        if (!CredRead(target, CredTypeGeneric, 0, out IntPtr pointer)) return null;
         try
         {
             NativeCredential credential = Marshal.PtrToStructure<NativeCredential>(pointer);
@@ -156,13 +183,24 @@ internal static class CredentialStore
         }
     }
 
-    internal static void Delete()
+    private static void Delete(string target)
     {
-        if (!CredDelete(AppConstants.CredentialTarget, CredTypeGeneric, 0))
+        if (!CredDelete(target, CredTypeGeneric, 0))
         {
             int error = Marshal.GetLastWin32Error();
             const int ErrorNotFound = 1168;
             if (error != ErrorNotFound) throw new InvalidOperationException($"Credential deletion failed ({error}).");
+        }
+    }
+
+    private static void EnsureSelfTestTarget(string target)
+    {
+        string prefix = AppConstants.CredentialTarget + ".SelfTest.";
+        if (!target.StartsWith(prefix, StringComparison.Ordinal) ||
+            !int.TryParse(target[prefix.Length..], out int processId) ||
+            processId != Environment.ProcessId)
+        {
+            throw new InvalidOperationException("Invalid self-test credential target.");
         }
     }
 
@@ -885,7 +923,33 @@ internal static class SelfTest
         }
         DeviceCommand unsafeCommand = new(1, "computer", "shell.execute", new CommandParameters(null, null, null, null, null), "unsafe");
         if (unsafeCommand.IsAllowed) throw new InvalidOperationException("Command allowlist failed.");
+        VerifyCredentialManager(configuration);
+        using PairingForm pairingForm = new();
+        if (pairingForm.AcceptButton is null || pairingForm.CancelButton is null || pairingForm.Controls.Count == 0)
+        {
+            throw new InvalidOperationException("Pairing window initialization failed.");
+        }
         Console.WriteLine("NEXORA Bridge Windows self-test passed");
+    }
+
+    private static void VerifyCredentialManager(BridgeConfiguration configuration)
+    {
+        string target = $"{AppConstants.CredentialTarget}.SelfTest.{Environment.ProcessId}";
+        try
+        {
+            CredentialStore.DeleteForSelfTest(target);
+            CredentialStore.SaveForSelfTest(configuration, target);
+            BridgeConfiguration? loaded = CredentialStore.LoadForSelfTest(target);
+            if (loaded != configuration) throw new InvalidOperationException("Credential Manager round trip failed.");
+        }
+        finally
+        {
+            CredentialStore.DeleteForSelfTest(target);
+        }
+        if (CredentialStore.LoadForSelfTest(target) is not null)
+        {
+            throw new InvalidOperationException("Credential Manager self-test cleanup failed.");
+        }
     }
 }
 
@@ -894,6 +958,9 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
         if (args.Contains("--self-test", StringComparer.Ordinal))
         {
             try
@@ -908,9 +975,6 @@ internal static class Program
             }
         }
 
-        Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
-        Application.EnableVisualStyles();
-        Application.SetCompatibleTextRenderingDefault(false);
         using Mutex singleInstance = new(true, "Local\\NEXORA.CORE.Bridge", out bool createdNew);
         if (!createdNew)
         {

@@ -14,6 +14,9 @@ test('Windows bridge stores credentials in Windows Credential Manager', () => {
   assert.match(source, /CredReadW/);
   assert.match(source, /CredDeleteW/);
   assert.match(source, /CredPersistLocalMachine/);
+  assert.match(source, /Credential Manager round trip failed/);
+  assert.match(source, /Credential Manager self-test cleanup failed/);
+  assert.match(source, /\.SelfTest\.\{Environment\.ProcessId\}/);
   assert.doesNotMatch(source, /Console\.(?:Write|WriteLine)\([^\n]*(?:secret|pairing)/i);
 });
 
@@ -43,4 +46,10 @@ test('Windows app packages self-contained x64 and ARM64 executables', () => {
   assert.match(workflow, /win-x64/);
   assert.match(workflow, /win-arm64/);
   assert.match(workflow, /windows-latest/);
+});
+
+test('Windows self-test initializes the real pairing window without displaying it', () => {
+  assert.match(source, /using PairingForm pairingForm = new\(\)/);
+  assert.match(source, /pairingForm\.AcceptButton/);
+  assert.match(source, /Application\.SetHighDpiMode\(HighDpiMode\.PerMonitorV2\)/);
 });
