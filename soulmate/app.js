@@ -144,7 +144,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   && diagnosticLlmModels.has(requestedDiagnosticLlmModel)
   ? requestedDiagnosticLlmModel
   : '';
-const APP_RELEASE = 'safari-voice-unlock-v97';
+const APP_RELEASE = 'signed-voice-route-v98';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -1118,7 +1118,7 @@ function replyResultFromBody(response, body) {
   };
 }
 
-async function readChatStream(response, onDelta) {
+async function readChatStream(response, { onDelta, onVoiceGrant } = {}) {
   if (!response.body) return { reply: '', mood: 'calm', failure: 'request_failed' };
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -1129,7 +1129,9 @@ async function readChatStream(response, onDelta) {
   const consume = (block) => {
     const message = parseChatStreamEvent(block);
     if (!message) return;
-    if (message.event === 'delta') {
+    if (message.event === 'start') {
+      onVoiceGrant?.(String(message.data?.voice_grant || '').slice(0, 1200));
+    } else if (message.event === 'delta') {
       partial = appendChatStreamDelta(partial, message.data?.text);
       onDelta?.(partial);
     } else if (message.event === 'done') {
@@ -1155,7 +1157,8 @@ async function readChatStream(response, onDelta) {
 async function requestReply(text, {
   history = state.history.slice(0, -1),
   probe = false,
-  onDelta = null
+  onDelta = null,
+  onVoiceGrant = null
 } = {}) {
   const response = await fetch('/api/chat', {
     method: 'POST',
@@ -1170,6 +1173,11 @@ async function requestReply(text, {
       scene: 'daily',
       history,
       soulmate: soulmatePromptProfile(state.profile, text),
+      voice_context: {
+        persona: personaFromStarter(),
+        archetype: voiceArchetype(),
+        starter: state.profile?.starter || state.birthSelections.starter
+      },
       client_release: APP_RELEASE,
       probe: probe || Boolean(diagnosticLlmModel),
       ...(diagnosticLlmModel ? { llm_model: diagnosticLlmModel } : {}),
@@ -1178,7 +1186,7 @@ async function requestReply(text, {
   });
   const type = response.headers.get('content-type') || '';
   if (response.ok && type.includes('text/event-stream')) {
-    return readChatStream(response, onDelta);
+    return readChatStream(response, { onDelta, onVoiceGrant });
   }
   const body = await response.json().catch(() => null);
   return replyResultFromBody(response, body);
@@ -1190,6 +1198,7 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   const turnStartedAt = Date.now();
   let firstVoiceMs = 0;
   const voiceTiming = {};
+  let turnVoiceGrant = '';
   let connectionResult = null;
   let earlySpeechText = '';
   let earlySpeechStarted = null;
@@ -1220,6 +1229,7 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
       mood: 'calm',
       action: 'voice',
       allowQueue: true,
+      voiceGrant: turnVoiceGrant,
       onTiming: recordVoiceStage,
       onStarted: recordFirstVoice,
       onEnded: async () => {
@@ -1237,7 +1247,8 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
         await speakText(next.text, {
           mood: next.mood,
           action: next.action,
-          allowQueue: true
+          allowQueue: true,
+          voiceGrant: next.voiceGrant
         });
       }
     });
@@ -1253,6 +1264,9 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   let result;
   try {
     result = await requestReply(text, {
+      onVoiceGrant(grant) {
+        turnVoiceGrant = grant;
+      },
       onDelta(partial) {
         state.streamingReply = partial;
         conversationStateLabel.textContent = phaseLabels.speaking;
@@ -1292,7 +1306,7 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   if (earlySpeechStarted) {
     const remainder = remainingSpeechText(result.reply, earlySpeechText);
     const preparedVoice = remainder
-      ? prepareVoiceBlob(remainder, result.mood)
+      ? prepareVoiceBlob(remainder, result.mood, turnVoiceGrant)
       : Promise.resolve(null);
     const started = await earlySpeechStarted;
     if (started && remainder !== null) {
@@ -1301,6 +1315,7 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
         text: remainder,
         mood: result.mood,
         action: result.action,
+        voiceGrant: turnVoiceGrant,
         preparedVoice
       });
       return;
@@ -1314,17 +1329,18 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
     mood: result.mood,
     action: result.action,
     allowQueue: true,
+    voiceGrant: turnVoiceGrant,
     onTiming: recordVoiceStage,
     onStarted: recordFirstVoice
   });
 }
 
-async function fetchVoice(text, mood = 'happy', signal) {
-  const response = await fetchVoiceResponse(text, mood, signal);
+async function fetchVoice(text, mood = 'happy', signal, voiceGrant = '') {
+  const response = await fetchVoiceResponse(text, mood, signal, voiceGrant);
   return response.blob();
 }
 
-async function fetchVoiceResponse(text, mood = 'happy', signal) {
+async function fetchVoiceResponse(text, mood = 'happy', signal, voiceGrant = '') {
   const body = JSON.stringify({
     text,
     persona: personaFromStarter(),
@@ -1333,12 +1349,26 @@ async function fetchVoiceResponse(text, mood = 'happy', signal) {
     archetype: voiceArchetype(),
     starter: state.profile?.starter || state.birthSelections.starter
   });
+  const grant = String(voiceGrant || '').slice(0, 1200);
+  const attempts = grant
+    ? [
+        { path: '/api/voice/stream', grant },
+        { path: '/api/voice/speak', grant: '' }
+      ]
+    : [
+        { path: '/api/voice/speak', grant: '' },
+        { path: '/api/voice/speak', grant: '' }
+      ];
   let lastError;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < attempts.length; attempt += 1) {
+    const target = attempts[attempt];
     try {
-      const response = await fetch('/api/voice/speak', {
+      const response = await fetch(target.path, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(target.grant ? { 'X-Nexora-Voice-Grant': target.grant } : {})
+        },
         body,
         signal
       });
@@ -1350,14 +1380,14 @@ async function fetchVoiceResponse(text, mood = 'happy', signal) {
       lastError = error;
     }
     if (attempt === 0) {
-      await new Promise((resolve) => window.setTimeout(resolve, 320));
+      await new Promise((resolve) => window.setTimeout(resolve, target.grant ? 80 : 320));
       if (signal?.aborted) throw new DOMException('Voice request aborted', 'AbortError');
     }
   }
   throw lastError || new Error('voice unavailable');
 }
 
-async function prepareVoiceBlob(text, mood = 'happy') {
+async function prepareVoiceBlob(text, mood = 'happy', voiceGrant = '') {
   if (!text) return null;
   if (state.continuationVoiceController) state.continuationVoiceController.abort();
   const requestId = state.continuationVoiceId + 1;
@@ -1365,7 +1395,7 @@ async function prepareVoiceBlob(text, mood = 'happy') {
   state.continuationVoiceId = requestId;
   state.continuationVoiceController = controller;
   try {
-    const blob = await fetchVoice(text, mood, controller.signal);
+    const blob = await fetchVoice(text, mood, controller.signal, voiceGrant);
     if (controller.signal.aborted || requestId !== state.continuationVoiceId) return null;
     return blob;
   } catch (error) {
@@ -1726,6 +1756,7 @@ async function speakText(text, {
   mood = 'happy',
   action = '',
   allowQueue = false,
+  voiceGrant = '',
   onTiming = null,
   onStarted = null,
   onEnded = null
@@ -1738,7 +1769,7 @@ async function speakText(text, {
   state.voiceRequestController = controller;
   setPhase('thinking', action);
   try {
-    const response = await fetchVoiceResponse(text, mood, controller.signal);
+    const response = await fetchVoiceResponse(text, mood, controller.signal, voiceGrant);
     onTiming?.('headers_ms');
     if (controller.signal.aborted || requestId !== state.voiceRequestId) return false;
     const streamed = await playStreamingVoiceResponse(response, allowQueue, {
@@ -1751,7 +1782,7 @@ async function speakText(text, {
       return true;
     }
     if (controller.signal.aborted || requestId !== state.voiceRequestId) return false;
-    const blob = await fetchVoice(text, mood, controller.signal);
+    const blob = await fetchVoice(text, mood, controller.signal, voiceGrant);
     if (controller.signal.aborted || requestId !== state.voiceRequestId) return false;
     if (state.voiceRequestController === controller) state.voiceRequestController = null;
     return await playAudioBlob(blob, allowQueue, { onStarted, onEnded });

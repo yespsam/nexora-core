@@ -8,6 +8,10 @@ import {
   interactionScenes
 } from '../../shared/companion-data.mjs';
 import { inferSceneId } from '../../shared/fallback-dialogue.mjs';
+import {
+  cleanVoiceGrantScope,
+  createVoiceGrant
+} from './_shared/voice-grant.mjs';
 
 const sceneLibrary = Object.fromEntries(interactionScenes.map((scene) => [scene.id, {
   mood: scene.mood,
@@ -428,6 +432,7 @@ async function callKimiStream(text, kind, history, {
   soulmate,
   diagnostics,
   responseMeta,
+  voiceGrant,
   clientRelease,
   probe
 }) {
@@ -488,7 +493,8 @@ async function callKimiStream(text, kind, history, {
       controller.enqueue(encoder.encode(sseEvent('start', {
         mode: 'cloud_llm',
         provider: 'kimi',
-        model
+        model,
+        ...(voiceGrant ? { voice_grant: voiceGrant } : {})
       })));
       try {
         while (!canceled) {
@@ -671,6 +677,13 @@ export default async function handler(request) {
     || creatureKind(soulmate?.starter)
     || creatureKind(soulmate?.species);
   const kind = creatureId || personaKind(payload.persona || payload.persona_short);
+  const voiceScope = cleanVoiceGrantScope(payload.voice_context);
+  const expectedCreaturePersona = creatureId ? `creature:${creatureId}` : '';
+  const allowedVoiceScope = voiceScope
+    && (!expectedCreaturePersona || voiceScope.persona === expectedCreaturePersona)
+    && (!creatureId || voiceScope.starter === creatureId)
+      ? voiceScope
+      : null;
 
   const kimiModel = sanitizeLlmModel(payload.llm_model);
   const kimiDiagnostics = {};
@@ -692,6 +705,7 @@ export default async function handler(request) {
       soulmate,
       diagnostics: kimiDiagnostics,
       responseMeta,
+      voiceGrant: createVoiceGrant(allowedVoiceScope, serverKey),
       clientRelease,
       probe: payload.probe === true
     });

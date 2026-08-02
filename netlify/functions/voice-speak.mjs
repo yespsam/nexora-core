@@ -117,18 +117,7 @@ function responseHeaders(cast) {
   };
 }
 
-export default async function voiceSpeak(request) {
-  if (request.method !== 'POST') {
-    return Response.json({ error: 'method not allowed' }, { status: 405 });
-  }
-
-  let payload;
-  try {
-    payload = await request.json();
-  } catch (error) {
-    return Response.json({ error: 'invalid json' }, { status: 400 });
-  }
-
+export async function createVoiceResponse(payload) {
   const text = prepareSpeechText(payload.text);
   if (!text) {
     return Response.json({ error: 'missing text' }, { status: 400 });
@@ -169,4 +158,18 @@ export default async function voiceSpeak(request) {
     status: 200,
     headers: responseHeaders(cast)
   });
+}
+
+export default async function voiceSpeak(request) {
+  if (request.method !== 'POST') {
+    return Response.json({ error: 'method not allowed' }, { status: 405 });
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch (error) {
+    return Response.json({ error: 'invalid json' }, { status: 400 });
+  }
+  return createVoiceResponse(payload);
 }

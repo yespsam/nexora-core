@@ -8,6 +8,7 @@ import handler, {
   extractStreamedPlainReply,
   extractStreamedReply
 } from '../netlify/functions/chat.mjs';
+import { verifyVoiceGrant } from '../netlify/functions/_shared/voice-grant.mjs';
 
 function chatRequest(method, body) {
   return new Request('http://localhost/api/chat', {
@@ -100,6 +101,11 @@ test('managed Kimi streams plain reply text without protocol tokens', async (t) 
       species: '绒云兽',
       traits: { warmth: 72, curiosity: 66 }
     },
+    voice_context: {
+      persona: 'creature:cute',
+      archetype: 'sprout',
+      starter: 'cute'
+    },
     client_release: 'streaming-dialogue-test',
     stream: true
   }));
@@ -116,6 +122,14 @@ test('managed Kimi streams plain reply text without protocol tokens', async (t) 
   assert.ok(streamed.indexOf('event: delta') < streamed.indexOf('event: done'));
   assert.match(streamed, /data: \{"text":"你"\}/);
   assert.match(streamed, /data: \{"text":"好，今天"\}/);
+  const startBlock = streamed.split('\n\n').find((block) => block.startsWith('event: start'));
+  const start = JSON.parse(startBlock.split('\ndata: ')[1]);
+  assert.equal(verifyVoiceGrant(start.voice_grant, {
+    persona: 'creature:cute',
+    archetype: 'sprout',
+    starter: 'cute'
+  }, 'sk-stream-test-key'), true);
+  assert.doesNotMatch(streamed, /sk-stream-test-key/);
   const doneBlock = streamed.split('\n\n').find((block) => block.startsWith('event: done'));
   const done = JSON.parse(doneBlock.split('\ndata: ')[1]);
   assert.equal(done.text, '你好，今天一起走走。');

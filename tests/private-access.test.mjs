@@ -80,12 +80,13 @@ test('authenticated responses pass through with private no-store headers', async
   assert.match(response.headers.get('vary'), /Cookie/);
 });
 
-test('access and Identity callback routes are the only edge exclusions', () => {
+test('access, signed voice, and Identity callback routes are the only edge exclusions', () => {
   assert.equal(gateConfig.path, '/*');
   assert.deepEqual(gateConfig.excludedPath, [
     '/access',
     '/access/*',
     '/api/access/*',
+    '/api/voice/stream',
     '/.netlify/identity',
     '/.netlify/identity/*'
   ]);
