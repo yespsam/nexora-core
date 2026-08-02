@@ -139,6 +139,7 @@ export class Creature3DViewer {
   }
 
   bindPointer() {
+    if (this.options.interactiveRotation === false) return;
     this.host.addEventListener('pointerdown', (event) => {
       this.dragStart = { x: event.clientX, yaw: this.targetYaw };
       this.didDrag = false;

@@ -24,6 +24,7 @@ build_architecture() {
     -target "${architecture}-apple-macos13.0" \
     -framework AppKit \
     -framework Security \
+    -framework WebKit \
     "$SOURCE" \
     -o "$ARCH_BUILD/NexoraBridge-$architecture"
 }
@@ -67,9 +68,31 @@ done
 iconutil -c icns "$ICONSET" -o "$RESOURCES_DIR/AppIcon.icns"
 rm -rf "$ICONSET" "$ARCH_BUILD"
 
+WEB_DIR="$RESOURCES_DIR/Web"
+mkdir -p "$WEB_DIR/desktop-pet" "$WEB_DIR/shared" "$WEB_DIR/desktop-wallpaper/vendor"
+cp "$ROOT/desktop-pet/index.html" "$ROOT/desktop-pet/style.css" "$ROOT/desktop-pet/app.mjs" "$WEB_DIR/desktop-pet/"
+cp "$ROOT/shared/creature-3d-viewer.mjs" "$ROOT/shared/creature-3d-data.mjs" "$WEB_DIR/shared/"
+cp \
+  "$ROOT/desktop-wallpaper/vendor/three.module.js" \
+  "$ROOT/desktop-wallpaper/vendor/GLTFLoader.js" \
+  "$ROOT/desktop-wallpaper/vendor/BufferGeometryUtils.js" \
+  "$ROOT/desktop-wallpaper/vendor/meshopt_decoder.module.js" \
+  "$WEB_DIR/desktop-wallpaper/vendor/"
+
+for creature in CUTE_LUMO COOL_VEYR BEAUTIFUL_AERA; do
+  source_dir="$ROOT/NEXORA_3D_CREATURES/$creature"
+  target_dir="$WEB_DIR/NEXORA_3D_CREATURES/$creature"
+  mkdir -p "$target_dir/model" "$target_dir/animations" "$target_dir/evolution/young" "$target_dir/evolution/resonance"
+  cp "$source_dir/model/rigged.glb" "$target_dir/model/rigged.glb"
+  cp "$source_dir/animations/"*.glb "$target_dir/animations/"
+  cp "$source_dir/evolution/young/rigged.glb" "$target_dir/evolution/young/rigged.glb"
+  cp "$source_dir/evolution/resonance/rigged.glb" "$target_dir/evolution/resonance/rigged.glb"
+done
+
 codesign --force --deep --sign - "$APP"
 codesign --verify --deep --strict "$APP"
 "$MACOS_DIR/NexoraBridge" --self-test
+"$MACOS_DIR/NexoraBridge" --self-test-pet
 
 ZIP="$ROOT/dist/NEXORA-Bridge-macOS.zip"
 DMG="$ROOT/dist/NEXORA-Bridge-macOS.dmg"

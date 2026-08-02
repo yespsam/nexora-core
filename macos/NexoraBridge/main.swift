@@ -2,6 +2,7 @@ import AppKit
 import CryptoKit
 import Foundation
 import Security
+import WebKit
 
 private let productSite = "https://product-private-cloud-staging--nexora-core-staging.netlify.app"
 private let keychainService = "com.nexora.core.bridge"
@@ -469,10 +470,332 @@ private final class BridgePoller {
   }
 }
 
+private final class BundleSchemeHandler: NSObject, WKURLSchemeHandler {
+  private let rootURL: URL
+
+  init(rootURL: URL) {
+    self.rootURL = rootURL.standardizedFileURL
+    super.init()
+  }
+
+  func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
+    guard let requestURL = urlSchemeTask.request.url,
+          requestURL.scheme == "nexora-pet",
+          requestURL.host == "app" else {
+      urlSchemeTask.didFailWithError(SchemeError.invalidURL)
+      return
+    }
+    let relativePath = requestURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    let fileURL = rootURL.appendingPathComponent(relativePath).standardizedFileURL
+    let allowedPrefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+    guard fileURL.path.hasPrefix(allowedPrefix),
+          let data = try? Data(contentsOf: fileURL) else {
+      urlSchemeTask.didFailWithError(SchemeError.missingResource)
+      return
+    }
+    let response = URLResponse(
+      url: requestURL,
+      mimeType: Self.mimeType(for: fileURL.pathExtension),
+      expectedContentLength: data.count,
+      textEncodingName: Self.isText(fileURL.pathExtension) ? "utf-8" : nil
+    )
+    urlSchemeTask.didReceive(response)
+    urlSchemeTask.didReceive(data)
+    urlSchemeTask.didFinish()
+  }
+
+  func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
+
+  private static func isText(_ fileExtension: String) -> Bool {
+    ["html", "css", "js", "mjs", "json", "txt"].contains(fileExtension.lowercased())
+  }
+
+  private static func mimeType(for fileExtension: String) -> String {
+    switch fileExtension.lowercased() {
+    case "html": return "text/html"
+    case "css": return "text/css"
+    case "js", "mjs": return "text/javascript"
+    case "json": return "application/json"
+    case "glb": return "model/gltf-binary"
+    case "png": return "image/png"
+    case "webp": return "image/webp"
+    case "wasm": return "application/wasm"
+    default: return "application/octet-stream"
+    }
+  }
+
+  private enum SchemeError: Error {
+    case invalidURL
+    case missingResource
+  }
+}
+
+private final class DesktopPetPanel: NSPanel {
+  override var canBecomeKey: Bool { false }
+  override var canBecomeMain: Bool { false }
+}
+
+private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+  private static let frameKey = "desktopPet.frame.v1"
+  private static let visibleKey = "desktopPet.visible.v1"
+  private static let clickThroughKey = "desktopPet.clickThrough.v1"
+  private static let starterKey = "desktopPet.starter.v1"
+  private static let stageKey = "desktopPet.stage.v1"
+  private static let starters = Set(["cute", "cool", "beautiful"])
+  private static let stages = Set(["seed", "young", "resonance"])
+  private static let actions = Set(["idle", "listening", "nod", "affection", "wave", "speaking", "walk", "run"])
+
+  private let defaults = UserDefaults.standard
+  private let schemeHandler: BundleSchemeHandler
+  private var panel: DesktopPetPanel!
+  private var webView: WKWebView!
+  private var eventMonitor: Any?
+  private var dragStart: (mouse: NSPoint, origin: NSPoint)?
+  private(set) var modelReady = false
+  private(set) var modelError: String?
+  private(set) var starter: String
+  private(set) var stage: String
+  private(set) var isClickThrough: Bool
+
+  var isVisible: Bool { panel.isVisible }
+
+  override init() {
+    let savedStarter = UserDefaults.standard.string(forKey: Self.starterKey) ?? "cute"
+    let savedStage = UserDefaults.standard.string(forKey: Self.stageKey) ?? "seed"
+    starter = Self.starters.contains(savedStarter) ? savedStarter : "cute"
+    stage = Self.stages.contains(savedStage) ? savedStage : "seed"
+    isClickThrough = UserDefaults.standard.bool(forKey: Self.clickThroughKey)
+    let webRoot = Bundle.main.resourceURL?.appendingPathComponent("Web")
+      ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+    schemeHandler = BundleSchemeHandler(rootURL: webRoot)
+    super.init()
+    configureWindow()
+    installDragMonitor()
+  }
+
+  deinit {
+    stop()
+  }
+
+  func start() {
+    let hasSavedVisibility = defaults.object(forKey: Self.visibleKey) != nil
+    if !hasSavedVisibility || defaults.bool(forKey: Self.visibleKey) {
+      show()
+    }
+  }
+
+  func stop() {
+    panel?.orderOut(nil)
+    webView?.stopLoading()
+    webView?.configuration.userContentController.removeScriptMessageHandler(forName: "desktopPet")
+    if let eventMonitor {
+      NSEvent.removeMonitor(eventMonitor)
+      self.eventMonitor = nil
+    }
+  }
+
+  func inspectRuntime(completion: @escaping (Bool) -> Void) {
+    let transparent = panel.styleMask.contains(.borderless)
+      && !panel.isOpaque
+      && panel.backgroundColor.alphaComponent == 0
+      && webView.underPageBackgroundColor.alphaComponent == 0
+    webView.evaluateJavaScript("window.__NEXORA_DESKTOP_PET_QA__?.sampleModel()") { value, error in
+      let result = value as? [String: Any]
+      let opaquePixels = (result?["opaque"] as? NSNumber)?.intValue ?? 0
+      completion(error == nil && transparent && opaquePixels > 100)
+    }
+  }
+
+  func show() {
+    panel.orderFrontRegardless()
+    defaults.set(true, forKey: Self.visibleKey)
+  }
+
+  func hide() {
+    panel.orderOut(nil)
+    defaults.set(false, forKey: Self.visibleKey)
+  }
+
+  func toggleVisibility() {
+    isVisible ? hide() : show()
+  }
+
+  func setClickThrough(_ enabled: Bool) {
+    isClickThrough = enabled
+    panel.ignoresMouseEvents = enabled
+    defaults.set(enabled, forKey: Self.clickThroughKey)
+  }
+
+  func setStarter(_ value: String) {
+    guard Self.starters.contains(value) else { return }
+    starter = value
+    defaults.set(value, forKey: Self.starterKey)
+    applyConfiguration()
+    show()
+  }
+
+  func setStage(_ value: String) {
+    guard Self.stages.contains(value) else { return }
+    stage = value
+    defaults.set(value, forKey: Self.stageKey)
+    applyConfiguration()
+    show()
+  }
+
+  func play(_ action: String) {
+    guard Self.actions.contains(action) else { return }
+    evaluate(function: "play", payload: ["action": action])
+    show()
+  }
+
+  func resetPosition() {
+    let visibleFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+    let origin = NSPoint(
+      x: visibleFrame.maxX - panel.frame.width - 24,
+      y: visibleFrame.minY + 24
+    )
+    panel.setFrameOrigin(origin)
+    saveFrame()
+    show()
+  }
+
+  func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+    guard message.name == "desktopPet",
+          let body = message.body as? [String: Any],
+          let type = body["type"] as? String else { return }
+    if type == "ready" {
+      modelReady = true
+      applyConfiguration()
+    } else if type == "open-chat" {
+      guard let url = URL(string: productSite + "/soulmate/") else { return }
+      NSWorkspace.shared.open(url)
+    } else if type == "model-error" {
+      modelError = String(describing: body["message"] ?? "unknown model error")
+      NSLog("NEXORA desktop pet: %@", modelError ?? "unknown model error")
+    }
+  }
+
+  func webView(
+    _ webView: WKWebView,
+    decidePolicyFor navigationAction: WKNavigationAction,
+    decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+  ) {
+    guard let url = navigationAction.request.url else {
+      decisionHandler(.cancel)
+      return
+    }
+    if url.scheme == "nexora-pet" {
+      decisionHandler(.allow)
+      return
+    }
+    if url.scheme == "https" {
+      NSWorkspace.shared.open(url)
+    }
+    decisionHandler(.cancel)
+  }
+
+  private func configureWindow() {
+    let size = NSSize(width: 340, height: 430)
+    let savedFrame = defaults.string(forKey: Self.frameKey).map(NSRectFromString)
+    let initialFrame = savedFrame.flatMap { frame in
+      NSScreen.screens.contains(where: { $0.visibleFrame.intersects(frame) }) ? frame : nil
+    } ?? NSRect(origin: .zero, size: size)
+
+    panel = DesktopPetPanel(
+      contentRect: initialFrame,
+      styleMask: [.borderless, .nonactivatingPanel],
+      backing: .buffered,
+      defer: false
+    )
+    panel.level = .floating
+    panel.backgroundColor = .clear
+    panel.isOpaque = false
+    panel.hasShadow = false
+    panel.hidesOnDeactivate = false
+    panel.isReleasedWhenClosed = false
+    panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+    panel.animationBehavior = .utilityWindow
+    panel.ignoresMouseEvents = isClickThrough
+
+    let configuration = WKWebViewConfiguration()
+    configuration.websiteDataStore = .nonPersistent()
+    configuration.setURLSchemeHandler(schemeHandler, forURLScheme: "nexora-pet")
+    configuration.userContentController.add(self, name: "desktopPet")
+    webView = WKWebView(frame: panel.contentView?.bounds ?? NSRect(origin: .zero, size: size), configuration: configuration)
+    webView.navigationDelegate = self
+    webView.autoresizingMask = [.width, .height]
+    webView.underPageBackgroundColor = .clear
+    panel.contentView = webView
+
+    if savedFrame == nil { resetPosition() }
+    if let url = URL(string: "nexora-pet://app/desktop-pet/index.html") {
+      webView.load(URLRequest(url: url))
+    }
+  }
+
+  private func installDragMonitor() {
+    eventMonitor = NSEvent.addLocalMonitorForEvents(
+      matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
+    ) { [weak self] event in
+      self?.handleDragEvent(event)
+      return event
+    }
+  }
+
+  private func handleDragEvent(_ event: NSEvent) {
+    guard !isClickThrough, event.window === panel else { return }
+    if event.type == .leftMouseDown {
+      dragStart = (NSEvent.mouseLocation, panel.frame.origin)
+      return
+    }
+    if event.type == .leftMouseUp {
+      if dragStart != nil { saveFrame() }
+      dragStart = nil
+      return
+    }
+    guard event.type == .leftMouseDragged, let dragStart else { return }
+    let mouse = NSEvent.mouseLocation
+    let proposed = NSPoint(
+      x: dragStart.origin.x + mouse.x - dragStart.mouse.x,
+      y: dragStart.origin.y + mouse.y - dragStart.mouse.y
+    )
+    let visibleFrame = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
+    guard let visibleFrame else {
+      panel.setFrameOrigin(proposed)
+      return
+    }
+    panel.setFrameOrigin(NSPoint(
+      x: min(max(proposed.x, visibleFrame.minX), visibleFrame.maxX - panel.frame.width),
+      y: min(max(proposed.y, visibleFrame.minY), visibleFrame.maxY - panel.frame.height)
+    ))
+  }
+
+  private func saveFrame() {
+    defaults.set(NSStringFromRect(panel.frame), forKey: Self.frameKey)
+  }
+
+  private func applyConfiguration() {
+    guard modelReady else { return }
+    evaluate(function: "configure", payload: ["starter": starter, "stage": stage, "action": "idle"])
+  }
+
+  private func evaluate(function: String, payload: [String: String]) {
+    guard JSONSerialization.isValidJSONObject(payload),
+          let data = try? JSONSerialization.data(withJSONObject: payload),
+          let json = String(data: data, encoding: .utf8) else { return }
+    webView.evaluateJavaScript("window.NexoraDesktopPet?.\(function)(\(json));")
+  }
+}
+
 private final class AppDelegate: NSObject, NSApplicationDelegate {
   private let poller = BridgePoller()
+  private var desktopPet: DesktopPetController!
   private var statusItem: NSStatusItem!
   private var statusMenuItem: NSMenuItem!
+  private var petVisibilityMenuItem: NSMenuItem!
+  private var petClickThroughMenuItem: NSMenuItem!
+  private var petStarterMenuItems: [NSMenuItem] = []
+  private var petStageMenuItems: [NSMenuItem] = []
   private var pairMenuItem: NSMenuItem!
   private var pauseMenuItem: NSMenuItem!
   private var removeMenuItem: NSMenuItem!
@@ -481,7 +804,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
+    desktopPet = DesktopPetController()
     configureMenu()
+    desktopPet.start()
+    refreshPetMenu()
     configuration = KeychainStore.load() ?? LegacyPairing.importIfPresent()
     if let configuration {
       start(configuration)
@@ -493,6 +819,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationWillTerminate(_ notification: Notification) {
     poller.stop()
+    desktopPet = nil
   }
 
   private func configureMenu() {
@@ -510,6 +837,55 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     let openProduct = NSMenuItem(title: "打开 NEXORA CORE", action: #selector(openProductPage), keyEquivalent: "o")
     openProduct.target = self
     menu.addItem(openProduct)
+
+    petVisibilityMenuItem = NSMenuItem(title: "显示桌面宠物", action: #selector(toggleDesktopPet), keyEquivalent: "d")
+    petVisibilityMenuItem.target = self
+    menu.addItem(petVisibilityMenuItem)
+
+    let starterRoot = NSMenuItem(title: "桌面伙伴", action: nil, keyEquivalent: "")
+    let starterMenu = NSMenu(title: "桌面伙伴")
+    for (title, value) in [("LUMO · 绒云兽", "cute"), ("VEYR · 曜影兽", "cool"), ("AERA · 月羽灵", "beautiful")] {
+      let item = NSMenuItem(title: title, action: #selector(selectPetStarter(_:)), keyEquivalent: "")
+      item.target = self
+      item.representedObject = value
+      starterMenu.addItem(item)
+      petStarterMenuItems.append(item)
+    }
+    starterRoot.submenu = starterMenu
+    menu.addItem(starterRoot)
+
+    let stageRoot = NSMenuItem(title: "进化形态", action: nil, keyEquivalent: "")
+    let stageMenu = NSMenu(title: "进化形态")
+    for (title, value) in [("初始体", "seed"), ("成长体", "young"), ("共鸣体", "resonance")] {
+      let item = NSMenuItem(title: title, action: #selector(selectPetStage(_:)), keyEquivalent: "")
+      item.target = self
+      item.representedObject = value
+      stageMenu.addItem(item)
+      petStageMenuItems.append(item)
+    }
+    stageRoot.submenu = stageMenu
+    menu.addItem(stageRoot)
+
+    let actionRoot = NSMenuItem(title: "互动动作", action: nil, keyEquivalent: "")
+    let actionMenu = NSMenu(title: "互动动作")
+    for (title, value) in [("招手", "wave"), ("点头", "nod"), ("靠近", "affection"), ("行走", "walk"), ("奔跑", "run"), ("待机", "idle")] {
+      let item = NSMenuItem(title: title, action: #selector(playPetAction(_:)), keyEquivalent: "")
+      item.target = self
+      item.representedObject = value
+      actionMenu.addItem(item)
+    }
+    actionRoot.submenu = actionMenu
+    menu.addItem(actionRoot)
+
+    petClickThroughMenuItem = NSMenuItem(title: "鼠标穿透", action: #selector(togglePetClickThrough), keyEquivalent: "")
+    petClickThroughMenuItem.target = self
+    menu.addItem(petClickThroughMenuItem)
+
+    let resetPetPosition = NSMenuItem(title: "重置宠物位置", action: #selector(resetPetPosition), keyEquivalent: "")
+    resetPetPosition.target = self
+    menu.addItem(resetPetPosition)
+
+    menu.addItem(.separator())
 
     pairMenuItem = NSMenuItem(title: "配对电脑...", action: #selector(showPairingWindow), keyEquivalent: "p")
     pairMenuItem.target = self
@@ -557,6 +933,50 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
   @objc private func openProductPage() {
     guard let url = URL(string: productSite + "/soulmate/") else { return }
     NSWorkspace.shared.open(url)
+  }
+
+  @objc private func toggleDesktopPet() {
+    desktopPet.toggleVisibility()
+    refreshPetMenu()
+  }
+
+  @objc private func togglePetClickThrough() {
+    desktopPet.setClickThrough(!desktopPet.isClickThrough)
+    refreshPetMenu()
+  }
+
+  @objc private func selectPetStarter(_ sender: NSMenuItem) {
+    guard let value = sender.representedObject as? String else { return }
+    desktopPet.setStarter(value)
+    refreshPetMenu()
+  }
+
+  @objc private func selectPetStage(_ sender: NSMenuItem) {
+    guard let value = sender.representedObject as? String else { return }
+    desktopPet.setStage(value)
+    refreshPetMenu()
+  }
+
+  @objc private func playPetAction(_ sender: NSMenuItem) {
+    guard let value = sender.representedObject as? String else { return }
+    desktopPet.play(value)
+    refreshPetMenu()
+  }
+
+  @objc private func resetPetPosition() {
+    desktopPet.resetPosition()
+    refreshPetMenu()
+  }
+
+  private func refreshPetMenu() {
+    petVisibilityMenuItem.state = desktopPet.isVisible ? .on : .off
+    petClickThroughMenuItem.state = desktopPet.isClickThrough ? .on : .off
+    for item in petStarterMenuItems {
+      item.state = item.representedObject as? String == desktopPet.starter ? .on : .off
+    }
+    for item in petStageMenuItems {
+      item.state = item.representedObject as? String == desktopPet.stage ? .on : .off
+    }
   }
 
   @objc private func showPairingWindow() {
@@ -686,8 +1106,44 @@ private enum SelfTest {
     print("NEXORA Bridge self-test passed")
   }
 
+  static func runDesktopPet() throws {
+    NSApplication.shared.setActivationPolicy(.accessory)
+    let controller = DesktopPetController()
+    controller.start()
+    defer { controller.stop() }
+
+    let loadDeadline = Date().addingTimeInterval(20)
+    while !controller.modelReady && controller.modelError == nil && Date() < loadDeadline {
+      _ = RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+    }
+    guard controller.modelReady, controller.modelError == nil else {
+      throw TestError.failed("desktop pet model load")
+    }
+
+    var runtimePassed: Bool?
+    controller.inspectRuntime { runtimePassed = $0 }
+    let inspectDeadline = Date().addingTimeInterval(5)
+    while runtimePassed == nil && Date() < inspectDeadline {
+      _ = RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+    }
+    guard runtimePassed == true else {
+      throw TestError.failed("desktop pet transparency or WebGL pixels")
+    }
+    print("NEXORA desktop pet native self-test passed")
+  }
+
   private enum TestError: Error {
     case failed(String)
+  }
+}
+
+if CommandLine.arguments.contains("--self-test-pet") {
+  do {
+    try SelfTest.runDesktopPet()
+    exit(EXIT_SUCCESS)
+  } catch {
+    fputs("NEXORA desktop pet native self-test failed\n", stderr)
+    exit(EXIT_FAILURE)
   }
 }
 

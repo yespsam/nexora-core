@@ -1,0 +1,93 @@
+:root {
+  color-scheme: dark;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+  background: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+body {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.pet-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  outline: none;
+  cursor: grab;
+  background: transparent;
+  touch-action: none;
+}
+
+.pet-stage:active {
+  cursor: grabbing;
+}
+
+.creature-3d-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: transparent;
+  pointer-events: none;
+}
+
+.speech-bubble {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  left: 50%;
+  max-width: calc(100% - 36px);
+  padding: 8px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  color: #f8fbfa;
+  background: rgba(14, 20, 21, 0.84);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2);
+  font-size: 13px;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-align: center;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: bubble-in 180ms ease-out both;
+}
+
+.speech-bubble[hidden] {
+  display: none;
+}
+
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speech-bubble {
+    animation: none;
+  }
+}

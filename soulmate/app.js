@@ -81,7 +81,7 @@ import {
   DESKTOP_BRIDGE_DOWNLOADS,
   desktopBridgeDownloadView,
   detectDesktopBridgePlatform
-} from '../shared/desktop-bridge-download.mjs?v=1';
+} from '../shared/desktop-bridge-download.mjs?v=2';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -169,7 +169,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   ? requestedDiagnosticLlmModel
   : '';
 const REALTIME_LLM_MODEL = 'moonshot-v1-8k';
-const APP_RELEASE = 'desktop-install-v110';
+const APP_RELEASE = 'desktop-pet-v111';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',

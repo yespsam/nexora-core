@@ -36,3 +36,12 @@ test('macOS bundle is a menu bar app and packages distributable artifacts', () =
   assert.match(build, /NEXORA-Bridge-macOS\.zip/);
   assert.match(build, /NEXORA-Bridge-macOS\.dmg/);
 });
+
+test('macOS bridge exposes the desktop pet from its menu without a second app', () => {
+  assert.match(source, /DesktopPetController/);
+  assert.match(source, /显示桌面宠物/);
+  assert.match(source, /桌面伙伴/);
+  assert.match(source, /进化形态/);
+  assert.match(source, /互动动作/);
+  assert.match(source, /鼠标穿透/);
+});
