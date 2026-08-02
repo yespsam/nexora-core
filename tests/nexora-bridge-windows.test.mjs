@@ -38,6 +38,15 @@ test('Windows actions use native fixed APIs without a command shell', () => {
   assert.doesNotMatch(source, /ProcessStartInfo[^}]*Arguments/s);
 });
 
+test('Windows native self-test launches an allowlisted app and probes audio without changing state', () => {
+  assert.match(source, /LaunchNotesForSelfTest/);
+  assert.match(source, /process\.WaitForInputIdle\(3000\)/);
+  assert.match(source, /ProbeWithoutChangingState/);
+  assert.match(source, /SetMasterVolumeLevelScalar\(volume/);
+  assert.match(source, /SetMute\(muted/);
+  assert.match(build, /--self-test-native/);
+});
+
 test('Windows app packages self-contained x64 and ARM64 executables', () => {
   assert.match(project, /<UseWindowsForms>true<\/UseWindowsForms>/);
   assert.match(project, /<PublishSingleFile>true<\/PublishSingleFile>/);

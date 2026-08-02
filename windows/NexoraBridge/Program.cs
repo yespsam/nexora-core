@@ -408,13 +408,20 @@ internal static class WindowsCommandExecutor
 
     private static bool Start(string fileName)
     {
-        Process.Start(new ProcessStartInfo
+        using Process? process = StartProcess(fileName);
+        return process is not null;
+    }
+
+    internal static Process? LaunchNotesForSelfTest() => StartProcess("notepad.exe");
+
+    private static Process? StartProcess(string fileName)
+    {
+        return Process.Start(new ProcessStartInfo
         {
             FileName = fileName,
             UseShellExecute = true,
             ErrorDialog = false
         });
-        return true;
     }
 }
 
@@ -453,6 +460,27 @@ internal static class WindowsAudio
         Guid eventContext = Guid.Empty;
         Marshal.ThrowExceptionForHR(endpoint.SetMute(value, ref eventContext));
     });
+
+    internal static bool ProbeWithoutChangingState()
+    {
+        try
+        {
+            return WithEndpoint(endpoint =>
+            {
+                Marshal.ThrowExceptionForHR(endpoint.GetMasterVolumeLevelScalar(out float volume));
+                Marshal.ThrowExceptionForHR(endpoint.GetMute(out bool muted));
+
+                Guid eventContext = Guid.Empty;
+                Marshal.ThrowExceptionForHR(endpoint.SetMasterVolumeLevelScalar(volume, ref eventContext));
+                eventContext = Guid.Empty;
+                Marshal.ThrowExceptionForHR(endpoint.SetMute(muted, ref eventContext));
+            });
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private static bool WithEndpoint(Action<IAudioEndpointVolume> action)
     {
@@ -895,7 +923,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
 internal static class SelfTest
 {
-    internal static void Run()
+    internal static void Run(bool includeNativeActions = false)
     {
         string secret = Base64Url.Encode(Enumerable.Repeat((byte)7, 32).ToArray());
         string agentId = "038641cf-d9ff-491a-a199-bd9f0a07a48c";
@@ -929,7 +957,43 @@ internal static class SelfTest
         {
             throw new InvalidOperationException("Pairing window initialization failed.");
         }
+        if (includeNativeActions) VerifyNativeActions();
         Console.WriteLine("NEXORA Bridge Windows self-test passed");
+    }
+
+    private static void VerifyNativeActions()
+    {
+        using Process process = WindowsCommandExecutor.LaunchNotesForSelfTest()
+            ?? throw new InvalidOperationException("Allowlisted application launch failed.");
+        try
+        {
+            try
+            {
+                process.WaitForInputIdle(3000);
+            }
+            catch (InvalidOperationException)
+            {
+                // Some packaged Windows apps hand off to another process immediately.
+            }
+
+            if (process.HasExited && process.ExitCode != 0)
+            {
+                throw new InvalidOperationException($"Allowlisted application exited with code {process.ExitCode}.");
+            }
+        }
+        finally
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+                process.WaitForExit(5000);
+            }
+        }
+
+        Console.WriteLine("NEXORA Bridge Windows allowlisted application launch passed");
+        Console.WriteLine(WindowsAudio.ProbeWithoutChangingState()
+            ? "NEXORA Bridge Windows audio endpoint probe passed"
+            : "NEXORA Bridge Windows audio endpoint probe skipped: no endpoint");
     }
 
     private static void VerifyCredentialManager(BridgeConfiguration configuration)
@@ -961,11 +1025,12 @@ internal static class Program
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
-        if (args.Contains("--self-test", StringComparer.Ordinal))
+        bool nativeSelfTest = args.Contains("--self-test-native", StringComparer.Ordinal);
+        if (nativeSelfTest || args.Contains("--self-test", StringComparer.Ordinal))
         {
             try
             {
-                SelfTest.Run();
+                SelfTest.Run(nativeSelfTest);
                 return 0;
             }
             catch (Exception error)

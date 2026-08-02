@@ -36,7 +36,7 @@ if (-not (Test-Path $Executable)) { throw "Windows executable was not produced" 
 $CanRun = ($Runtime -eq "win-x64" -and $env:PROCESSOR_ARCHITECTURE -eq "AMD64") -or
   ($Runtime -eq "win-arm64" -and $env:PROCESSOR_ARCHITECTURE -eq "ARM64")
 if ($CanRun) {
-  & $Executable --self-test
+  & $Executable --self-test-native
   if ($LASTEXITCODE -ne 0) { throw "Windows self-test failed for $Runtime" }
 }
 
