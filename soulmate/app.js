@@ -145,7 +145,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   ? requestedDiagnosticLlmModel
   : '';
 const REALTIME_LLM_MODEL = 'moonshot-v1-8k';
-const APP_RELEASE = 'voice-command-reliability-v101';
+const APP_RELEASE = 'safari-wake-start-v102';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -228,6 +228,7 @@ const state = {
   lastRecognitionText: '',
   lastRecognitionCommand: '',
   lastRecognitionCandidateCount: 0,
+  lastRecognitionError: '',
   listeningTimer: 0,
   recognitionTimeout: 0,
   wakeEnabled: false,
@@ -1861,6 +1862,9 @@ function beginRecognition(mode) {
     state.recognitionMode = mode;
     state.recognitionAccepting = true;
     state.recognitionResultReceived = false;
+    state.lastRecognitionError = '';
+    companionView.dataset.voiceRecognitionState = 'starting';
+    companionView.dataset.voiceRecognitionError = '';
     state.recognition.start();
     if (mode === 'manual') {
       window.clearTimeout(state.recognitionTimeout);
@@ -1932,6 +1936,18 @@ function setupRecognition() {
       recognition.grammars = grammars;
     } catch (error) {}
   }
+  recognition.onstart = () => {
+    companionView.dataset.voiceRecognitionState = 'listening';
+  };
+  recognition.onspeechstart = () => {
+    companionView.dataset.voiceRecognitionState = 'speech';
+  };
+  recognition.onspeechend = () => {
+    companionView.dataset.voiceRecognitionState = 'processing';
+  };
+  recognition.onnomatch = () => {
+    companionView.dataset.voiceRecognitionState = 'no-match';
+  };
   recognition.onresult = (event) => {
     const mode = state.recognitionMode;
     const resolved = resolveVoiceRecognition(event.results, {
@@ -1949,6 +1965,7 @@ function setupRecognition() {
     companionView.dataset.voiceRecognitionText = text;
     companionView.dataset.voiceRecognitionCommand = state.lastRecognitionCommand;
     companionView.dataset.voiceRecognitionCandidates = String(resolved.candidates.length);
+    companionView.dataset.voiceRecognitionState = 'result';
     finishRecognitionSession();
     if (!text) {
       if (mode === 'manual') presenceLine.textContent = recognitionFailureMessage('no-speech');
@@ -1966,6 +1983,9 @@ function setupRecognition() {
     const mode = state.recognitionMode;
     const code = String(event?.error || '');
     const message = recognitionFailureMessage(code);
+    state.lastRecognitionError = code;
+    companionView.dataset.voiceRecognitionState = 'error';
+    companionView.dataset.voiceRecognitionError = code;
     finishRecognitionSession();
     if (mode === 'wake' && ['not-allowed', 'service-not-allowed', 'audio-capture'].includes(code)) {
       state.wakeEnabled = false;
@@ -2052,9 +2072,11 @@ function toggleWakeRecognition() {
   state.wakeEnabled = !state.wakeEnabled;
   state.wakeCommandUntil = 0;
   if (state.wakeEnabled) {
-    stopListening({ resumeWake: false });
+    if (state.recognitionAccepting || state.recognitionMode) {
+      stopListening({ resumeWake: false });
+    }
     presenceLine.textContent = `语音唤醒已开启。可以说“${state.profile?.name || '伙伴'}，招招手”。`;
-    scheduleWakeRecognition(0);
+    if (!beginRecognition('wake')) scheduleWakeRecognition(300);
   } else {
     window.clearTimeout(state.wakeRestartTimer);
     state.wakeRestartTimer = 0;
