@@ -27,6 +27,8 @@ const publicFiles = [
   'shared/soulmate-resilience.mjs',
   'shared/chat-stream.mjs',
   'shared/device-command.mjs',
+  'shared/device-command-cloud.mjs',
+  'shared/soulmate-command-agent.mjs',
   'shared/soulmate-sync.mjs',
   'shared/soulmate-cloud-sync.mjs',
   'shared/soulmate-device-cloud.mjs',

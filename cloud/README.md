@@ -19,6 +19,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f netlify/database/migrations/202607300
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f netlify/database/migrations/202607300002_event_maintenance_policy.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f netlify/database/migrations/202607300003_device_cloud_runtime_roles.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f netlify/database/migrations/202607300004_device_cloud_data_lifecycle.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f netlify/database/migrations/202608020001_device_command_agents.sql
 ```
 
 The migration revokes access from `PUBLIC`. A provider-specific follow-up migration must create narrowly scoped runtime and maintenance roles before an API is connected.
@@ -88,6 +89,7 @@ This command runs the Identity-to-Function-to-RLS chain against local PostgreSQL
 - `../netlify/database/migrations/202607300002_event_maintenance_policy.sql`: owner-scoped event deletion for the maintenance role.
 - `../netlify/database/migrations/202607300003_device_cloud_runtime_roles.sql`: managed-runtime guard that verifies forced RLS and public revocation without altering Netlify-owned roles.
 - `../netlify/database/migrations/202607300004_device_cloud_data_lifecycle.sql`: pending-delete uniqueness, cancellation, and narrow due-job discovery.
+- `../netlify/database/migrations/202608020001_device_command_agents.sql`: hashed desktop-agent credentials and encrypted short-lived command delivery.
 - `setup-local.mjs`: repeatable local database and role setup.
 - `local-server.mjs`: localhost-only API harness.
 - `simulate-devices.mjs`: three-device encrypted integration test.

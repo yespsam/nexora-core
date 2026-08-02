@@ -5,6 +5,12 @@ import {
   canonicalDeviceCloudEvent
 } from '../shared/device-cloud-protocol.mjs';
 import {
+  createDeviceCommandAgentCredential,
+  decryptDeviceCommandForAgent,
+  encryptDeviceCommandForAgent
+} from '../shared/device-command-cloud.mjs';
+import { parseDeviceCommand } from '../shared/device-command.mjs';
+import {
   createDeviceCloudKeys,
   createRecoveryEnvelope,
   createVaultKey,
@@ -195,6 +201,28 @@ async function main() {
       });
       assert.equal(registered.status, 201, JSON.stringify(registered.body));
     }
+
+    const commandAgent = await createDeviceCommandAgentCredential(vaultId);
+    await activeStore.registerCommandAgent(ownerId, commandAgent.registration);
+    const encryptedCommand = await encryptDeviceCommandForAgent(
+      parseDeviceCommand('把电脑音量调到35'),
+      commandAgent.credential
+    );
+    const queuedCommand = await activeStore.queueCommand(ownerId, encryptedCommand);
+    const authenticatedAgent = await activeStore.authenticateCommandAgent(
+      commandAgent.credential.agentId,
+      commandAgent.credential.secret
+    );
+    const claimedCommand = await activeStore.claimCommand(authenticatedAgent);
+    assert.equal(claimedCommand.command.commandId, queuedCommand.commandId);
+    const decryptedCommand = await decryptDeviceCommandForAgent(
+      claimedCommand.command,
+      commandAgent.credential
+    );
+    assert.equal(decryptedCommand.action, 'volume.set');
+    await activeStore.acknowledgeCommand(authenticatedAgent, queuedCommand.commandId, 'acknowledged');
+    const commandStatus = await activeStore.commandStatus(ownerId, queuedCommand.commandId);
+    assert.equal(commandStatus.status, 'acknowledged');
 
     const firstEvent = await append(phone, 0);
     const counts = [Math.ceil(totalEvents / 3), Math.floor(totalEvents / 3), Math.floor(totalEvents / 3)];
@@ -410,6 +438,7 @@ async function main() {
       database: (await (runtime?.store || store).health()).database,
       transport,
       virtualDevices: devices.length,
+      encryptedDesktopCommand: 'acknowledged',
       encryptedEvents: totalEvents,
       duplicateDelivery: 'idempotent',
       tenantIsolation: 'passed',

@@ -17,6 +17,8 @@ import { externalSubjectHash, ownerIdForExternalSubject } from './device-cloud-i
 import {
   DeviceCloudError,
   normalizeDevice,
+  normalizeDeviceCommandAgent,
+  normalizeDeviceCommandSubmission,
   normalizeEncryptedSnapshot,
   normalizeRecoveryEnvelope,
   requiredUuid,
@@ -72,6 +74,23 @@ async function withOwner(pool, ownerId, operation, runtimeRole = '') {
 }
 
 async function withMaintenance(pool, operation, runtimeRole = '') {
+  if (runtimeRole && !runtimeRoles.has(runtimeRole)) throw new Error('invalid database runtime role');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    if (runtimeRole) await client.query(`SET LOCAL ROLE ${runtimeRole}`);
+    const result = await operation(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function withRuntimeRole(pool, operation, runtimeRole = '') {
   if (runtimeRole && !runtimeRoles.has(runtimeRole)) throw new Error('invalid database runtime role');
   const client = await pool.connect();
   try {
@@ -221,6 +240,192 @@ export class DeviceCloudStore {
       if (vault.status !== 'active') throw new DeviceCloudError('vault is not active', 409, 'vault_locked');
       const device = await insertDevice(client, owner, vault, value?.device, vault.active_key_version);
       return { deviceId: device.id, vaultId: vault.public_id, keyVersion: vault.active_key_version };
+    }, this.apiRole);
+  }
+
+  async registerCommandAgent(ownerId, value) {
+    const agent = normalizeDeviceCommandAgent(value);
+    return withOwner(this.apiPool, ownerId, async (client, owner) => {
+      const vault = await vaultForOwner(client, owner, agent.vaultId);
+      if (vault.status !== 'active') throw new DeviceCloudError('vault is not active', 409, 'vault_locked');
+      const inserted = await client.query(`
+        INSERT INTO nexora_cloud.device_command_agents (
+          id, owner_id, vault_id, display_name, credential_hash
+        ) VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, display_name, status, created_at
+      `, [agent.id, owner, vault.id, agent.displayName, agent.credentialHash]);
+      return {
+        agentId: inserted.rows[0].id,
+        vaultId: vault.public_id,
+        displayName: inserted.rows[0].display_name,
+        status: inserted.rows[0].status,
+        createdAt: inserted.rows[0].created_at.toISOString()
+      };
+    }, this.apiRole);
+  }
+
+  async commandAgentStatus(ownerId, value) {
+    const agentId = requiredUuid(value?.agentId, 'command agent id');
+    const publicId = requiredVaultId(value?.vaultId);
+    return withOwner(this.apiPool, ownerId, async (client, owner) => {
+      const vault = await vaultForOwner(client, owner, publicId);
+      const result = await client.query(`
+        SELECT id, display_name, status, created_at, last_seen_at
+        FROM nexora_cloud.device_command_agents
+        WHERE id = $1 AND vault_id = $2 AND owner_id = $3
+      `, [agentId, vault.id, owner]);
+      if (!result.rowCount) throw new DeviceCloudError('command agent not found', 404, 'not_found');
+      const row = result.rows[0];
+      return {
+        agentId: row.id,
+        vaultId: publicId,
+        displayName: row.display_name,
+        status: row.status,
+        createdAt: row.created_at.toISOString(),
+        lastSeenAt: row.last_seen_at?.toISOString() || null
+      };
+    }, this.apiRole);
+  }
+
+  async queueCommand(ownerId, value) {
+    const command = normalizeDeviceCommandSubmission(value);
+    return withOwner(this.apiPool, ownerId, async (client, owner) => {
+      const vault = await vaultForOwner(client, owner, command.vaultId);
+      if (vault.status !== 'active') throw new DeviceCloudError('vault is not active', 409, 'vault_locked');
+      const agent = await client.query(`
+        SELECT 1 FROM nexora_cloud.device_command_agents
+        WHERE id = $1 AND vault_id = $2 AND owner_id = $3
+          AND status = 'active' AND revoked_at IS NULL
+      `, [command.agentId, vault.id, owner]);
+      if (!agent.rowCount) throw new DeviceCloudError('command agent not found', 404, 'not_found');
+      const expiresAt = new Date(Date.now() + command.expiresInSeconds * 1000);
+      const inserted = await client.query(`
+        INSERT INTO nexora_cloud.device_commands (
+          owner_id, vault_id, target_device_id, target_agent_id, key_version,
+          encryption_algorithm, iv, ciphertext, expires_at
+        ) VALUES ($1, $2, NULL, $3, $4, 'A256GCM', $5, $6, $7)
+        RETURNING id, status, created_at, expires_at
+      `, [owner, vault.id, command.agentId, command.keyVersion, command.iv, command.ciphertext, expiresAt]);
+      const row = inserted.rows[0];
+      return {
+        commandId: row.id,
+        agentId: command.agentId,
+        status: row.status,
+        createdAt: row.created_at.toISOString(),
+        expiresAt: row.expires_at.toISOString()
+      };
+    }, this.apiRole);
+  }
+
+  async commandStatus(ownerId, commandIdValue) {
+    const commandId = requiredUuid(commandIdValue, 'command id');
+    return withOwner(this.apiPool, ownerId, async (client, owner) => {
+      const result = await client.query(`
+        SELECT id, target_agent_id, status, created_at, expires_at, delivered_at, acknowledged_at
+        FROM nexora_cloud.device_commands
+        WHERE id = $1 AND owner_id = $2 AND target_agent_id IS NOT NULL
+      `, [commandId, owner]);
+      if (!result.rowCount) throw new DeviceCloudError('command not found', 404, 'not_found');
+      const row = result.rows[0];
+      return {
+        commandId: row.id,
+        agentId: row.target_agent_id,
+        status: row.status,
+        createdAt: row.created_at.toISOString(),
+        expiresAt: row.expires_at.toISOString(),
+        deliveredAt: row.delivered_at?.toISOString() || null,
+        acknowledgedAt: row.acknowledged_at?.toISOString() || null
+      };
+    }, this.apiRole);
+  }
+
+  async authenticateCommandAgent(agentIdValue, secretValue) {
+    const agentId = requiredUuid(agentIdValue, 'command agent id');
+    let secret;
+    try {
+      secret = Buffer.from(fromBase64Url(secretValue, 32, 32));
+    } catch (error) {
+      throw new DeviceCloudError('invalid command agent credential', 401, 'unauthorized');
+    }
+    const credentialHash = createHash('sha256').update(secret).digest();
+    const result = await withRuntimeRole(this.apiPool, (client) => client.query(`
+        SELECT agent_id, owner_id, vault_id, public_vault_id
+        FROM nexora_cloud.authenticate_device_command_agent($1, $2)
+      `, [agentId, credentialHash]), this.apiRole);
+    if (!result.rowCount) throw new DeviceCloudError('unauthorized', 401, 'unauthorized');
+    return {
+      agentId: result.rows[0].agent_id,
+      ownerId: result.rows[0].owner_id,
+      vaultUuid: result.rows[0].vault_id,
+      vaultId: result.rows[0].public_vault_id
+    };
+  }
+
+  async claimCommand(agentAuth) {
+    return withOwner(this.apiPool, agentAuth.ownerId, async (client, owner) => {
+      await client.query(`
+        UPDATE nexora_cloud.device_commands
+        SET status = 'expired'
+        WHERE owner_id = $1 AND target_agent_id = $2
+          AND status IN ('queued', 'delivered') AND expires_at <= now()
+      `, [owner, agentAuth.agentId]);
+      const result = await client.query(`
+        WITH next_command AS (
+          SELECT id
+          FROM nexora_cloud.device_commands
+          WHERE owner_id = $1 AND vault_id = $2 AND target_agent_id = $3
+            AND status = 'queued' AND expires_at > now()
+          ORDER BY created_at ASC, id ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT 1
+        )
+        UPDATE nexora_cloud.device_commands AS command
+        SET status = 'delivered', delivered_at = now()
+        FROM next_command
+        WHERE command.id = next_command.id AND command.owner_id = $1
+        RETURNING command.id, command.key_version, command.iv, command.ciphertext,
+          command.created_at, command.expires_at, command.delivered_at
+      `, [owner, agentAuth.vaultUuid, agentAuth.agentId]);
+      if (!result.rowCount) return { command: null };
+      const row = result.rows[0];
+      return {
+        command: {
+          commandId: row.id,
+          version: 1,
+          agentId: agentAuth.agentId,
+          vaultId: agentAuth.vaultId,
+          keyVersion: row.key_version,
+          expiresInSeconds: Math.max(30, Math.min(300, Math.ceil((row.expires_at.getTime() - row.created_at.getTime()) / 1000))),
+          createdAt: row.created_at.toISOString(),
+          expiresAt: row.expires_at.toISOString(),
+          deliveredAt: row.delivered_at.toISOString(),
+          payload: {
+            algorithm: 'A256GCM',
+            iv: toBase64Url(row.iv),
+            ciphertext: toBase64Url(row.ciphertext)
+          }
+        }
+      };
+    }, this.apiRole);
+  }
+
+  async acknowledgeCommand(agentAuth, commandIdValue, outcomeValue) {
+    const commandId = requiredUuid(commandIdValue, 'command id');
+    const outcome = outcomeValue === 'failed' ? 'failed' : 'acknowledged';
+    return withOwner(this.apiPool, agentAuth.ownerId, async (client, owner) => {
+      const result = await client.query(`
+        UPDATE nexora_cloud.device_commands
+        SET status = $1, acknowledged_at = now()
+        WHERE id = $2 AND owner_id = $3 AND vault_id = $4 AND target_agent_id = $5
+          AND status = 'delivered' AND expires_at > now()
+        RETURNING id, status, acknowledged_at
+      `, [outcome, commandId, owner, agentAuth.vaultUuid, agentAuth.agentId]);
+      if (!result.rowCount) throw new DeviceCloudError('command is no longer claimable', 409, 'command_state');
+      return {
+        commandId: result.rows[0].id,
+        status: result.rows[0].status,
+        acknowledgedAt: result.rows[0].acknowledged_at.toISOString()
+      };
     }, this.apiRole);
   }
 

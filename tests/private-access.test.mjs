@@ -86,6 +86,7 @@ test('access, signed model routes, and Identity callbacks are the only edge excl
     '/access',
     '/access/*',
     '/api/access/*',
+    '/api/device-bridge/*',
     '/api/chat/stream',
     '/api/voice/stream',
     '/.netlify/identity',

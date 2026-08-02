@@ -16,6 +16,10 @@ function fakeStore(calls) {
   return {
     bootstrap: invoke('bootstrap'),
     registerDevice: invoke('registerDevice'),
+    registerCommandAgent: invoke('registerCommandAgent'),
+    commandAgentStatus: invoke('commandAgentStatus'),
+    queueCommand: invoke('queueCommand'),
+    commandStatus: invoke('commandStatus'),
     appendEvent: invoke('appendEvent'),
     listEvents: invoke('listEvents'),
     createSnapshot: invoke('createSnapshot'),
@@ -121,6 +125,24 @@ test('event reads require server-derived ownership and an explicit requester dev
   assert.equal(harness.calls[0].args[1].after, 9);
   assert.equal(harness.calls[0].args[1].limit, 25);
   assert.notEqual(harness.calls[0].args[0], '00000000-0000-0000-0000-000000000000');
+});
+
+test('authenticated command routes stay owner-derived and return accepted work', async () => {
+  const harness = functionHarness();
+  const queued = await harness.handler(new Request('https://example.test/api/device-cloud/commands', {
+    method: 'POST',
+    headers: { Origin: 'https://example.test', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ encrypted: true })
+  }));
+  assert.equal(queued.status, 202);
+  assert.equal(harness.calls[0].method, 'queueCommand');
+  assert.equal(harness.calls[0].args[0], ownerIdForExternalSubject(`netlify-identity:${userId}`, pepper));
+
+  const commandId = 'ef53f13f-b1a5-47ff-a759-171557c32e13';
+  const status = await harness.handler(new Request(`https://example.test/api/device-cloud/commands/${commandId}`));
+  assert.equal(status.status, 200);
+  assert.equal(harness.calls[1].method, 'commandStatus');
+  assert.equal(harness.calls[1].args[1], commandId);
 });
 
 test('cloud deletion endpoint always enforces the retention window', async () => {

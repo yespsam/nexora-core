@@ -69,6 +69,14 @@ import {
   parseChatStreamEvent
 } from '../shared/chat-stream.mjs?v=2';
 import { parseDeviceCommand } from '../shared/device-command.mjs?v=1';
+import {
+  getSoulmateCommandAgentStatus,
+  getSoulmateDeviceCommandStatus,
+  loadSoulmateCommandAgent,
+  queueSoulmateDeviceCommand,
+  registerSoulmateCommandAgent,
+  soulmateCommandAgentPairingCode
+} from '../shared/soulmate-command-agent.mjs?v=1';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -118,6 +126,10 @@ const bluetoothButton = $('#bluetooth-button');
 const bluetoothStatus = $('#bluetooth-status');
 const bridgeButton = $('#bridge-button');
 const bridgeStatus = $('#bridge-status');
+const bridgePairButton = $('#bridge-pair-button');
+const bridgePairing = $('#bridge-pairing');
+const bridgePairCode = $('#bridge-pair-code');
+const bridgeCopyButton = $('#bridge-copy-button');
 const voiceSettingStatus = $('#voice-setting-status');
 const llmProviderLabel = $('#llm-provider-label');
 const llmApiStatus = $('#llm-api-status');
@@ -148,7 +160,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   ? requestedDiagnosticLlmModel
   : '';
 const REALTIME_LLM_MODEL = 'moonshot-v1-8k';
-const APP_RELEASE = 'device-control-fallback-v108';
+const APP_RELEASE = 'encrypted-command-queue-v109';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -279,7 +291,9 @@ const state = {
   cloudDiagnostic: null,
   bridgeConnected: false,
   bridgeMode: '',
-  bridgeCapabilities: []
+  bridgeCapabilities: [],
+  commandAgent: null,
+  commandAgentStatus: null
 };
 
 let creatureViewer = null;
@@ -900,6 +914,7 @@ async function initializeCloudSync() {
     state.cloudAvailable = false;
     setCloudSyncMessage('当前浏览器不支持安全设备存储');
   } finally {
+    await refreshCommandAgent({ quiet: true });
     state.cloudReady = true;
     renderCloudSync();
     queueCloudSync();
@@ -925,6 +940,7 @@ async function enableCloudSync() {
   renderCloudSync();
   setCloudSyncMessage('请立即保存恢复码。服务器无法替你找回它。');
   await pushCloudState({ manual: true });
+  await refreshCommandAgent({ quiet: true });
 }
 
 async function restoreCloudSyncFrom(input, setMessage) {
@@ -949,6 +965,7 @@ async function restoreCloudSyncFrom(input, setMessage) {
     applyCloudBundle(remote.bundle, `${remote.bundle.profile.name}已在这台设备醒来。`);
     input.value = '';
     setMessage('恢复成功，之后会自动加密同步');
+    await refreshCommandAgent({ quiet: true });
   } catch (error) {
     setMessage(error.status === 404 ? '没有找到对应的云端伙伴' : '恢复失败，请检查恢复码或网络');
   } finally {
@@ -975,6 +992,9 @@ async function stopCloudSync() {
     state.cloudIdentity = null;
     state.cloudRevision = 0;
     state.cloudDiagnostic = null;
+    state.commandAgent = null;
+    state.commandAgentStatus = null;
+    bridgePairing.hidden = true;
     renderCloudSync();
     setCloudSyncMessage('已停止本机同步，云端加密副本仍保留');
   } catch (error) {
@@ -997,6 +1017,9 @@ async function removeCloudSync() {
     state.cloudIdentity = null;
     state.cloudRevision = 0;
     state.cloudDiagnostic = null;
+    state.commandAgent = null;
+    state.commandAgentStatus = null;
+    bridgePairing.hidden = true;
     cloudSyncCode.hidden = true;
     setCloudSyncMessage('云端加密副本已删除，本机伙伴仍保留');
   } catch (error) {
@@ -1232,9 +1255,97 @@ async function requestReply(text, {
   return replyResultFromBody(response, responseBody);
 }
 
+function activateCloudCommandAgent() {
+  if (!state.commandAgent) return false;
+  state.bridgeConnected = true;
+  state.bridgeMode = 'cloud-queue';
+  state.bridgeCapabilities = ['computer', 'virtual-ble-home'];
+  const lastSeen = Date.parse(state.commandAgentStatus?.lastSeenAt || '');
+  const online = Number.isFinite(lastSeen) && Date.now() - lastSeen < 45000;
+  bridgeStatus.textContent = online ? '云端桌面客户端在线' : '云端已配对，等待桌面客户端';
+  bridgeButton.textContent = online ? '在线' : '检测';
+  bridgePairButton.textContent = '显示配对码';
+  bluetoothStatus.textContent = online ? '家庭网关通道在线' : '家庭网关等待电脑客户端';
+  bluetoothButton.textContent = online ? '在线' : '等待中';
+  return true;
+}
+
+async function refreshCommandAgent({ quiet = false } = {}) {
+  if (!state.cloudIdentity) {
+    state.commandAgent = null;
+    state.commandAgentStatus = null;
+    bridgePairButton.textContent = '配对电脑';
+    bridgePairing.hidden = true;
+    return false;
+  }
+  try {
+    state.commandAgent = await loadSoulmateCommandAgent(state.cloudIdentity);
+    if (!state.commandAgent) {
+      state.commandAgentStatus = null;
+      bridgePairButton.textContent = '配对电脑';
+      bridgePairing.hidden = true;
+      return false;
+    }
+    state.commandAgentStatus = await getSoulmateCommandAgentStatus(
+      state.cloudIdentity,
+      state.commandAgent
+    );
+    return activateCloudCommandAgent();
+  } catch (error) {
+    state.commandAgentStatus = null;
+    if (!quiet) bridgeStatus.textContent = '云端配对状态暂时不可用';
+    return state.commandAgent ? activateCloudCommandAgent() : false;
+  }
+}
+
+async function waitForCloudCommand(commandId) {
+  let status = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await new Promise((resolve) => window.setTimeout(resolve, 700));
+    try {
+      status = await getSoulmateDeviceCommandStatus(commandId);
+    } catch (error) {
+      break;
+    }
+    if (['acknowledged', 'failed', 'expired'].includes(status.status)) break;
+  }
+  return status;
+}
+
+async function sendCloudCommand(command) {
+  try {
+    const queued = await queueSoulmateDeviceCommand(
+      command,
+      state.cloudIdentity,
+      state.commandAgent
+    );
+    const final = await waitForCloudCommand(queued.commandId);
+    if (final?.status === 'acknowledged') {
+      const summary = `${String(command.label).replace(/[。！]+$/g, '')}，电脑客户端已确认。`;
+      bridgeStatus.textContent = summary;
+      state.commandAgentStatus = { ...(state.commandAgentStatus || {}), lastSeenAt: final.acknowledgedAt };
+      return { ok: true, summary };
+    }
+    if (final?.status === 'failed') {
+      return { ok: false, summary: '电脑客户端收到指令，但执行没有成功。' };
+    }
+    if (final?.status === 'expired') {
+      return { ok: false, summary: '电脑客户端未及时上线，这条指令已经过期。' };
+    }
+    const summary = '指令已端到端加密排队，正在等待电脑客户端。';
+    bridgeStatus.textContent = summary;
+    return { ok: true, summary };
+  } catch (error) {
+    return { ok: false, summary: '云端电脑控制暂时不可用，请检查配对状态。' };
+  }
+}
+
 async function sendBridgeCommand(command) {
   if (!state.bridgeConnected && !await detectBridge({ quiet: true })) {
     return { ok: false, summary: '电脑控制服务尚未连接，请先启动 NEXORA Bridge。' };
+  }
+  if (state.bridgeMode === 'cloud-queue' && state.commandAgent) {
+    return sendCloudCommand(command);
   }
   if (state.bridgeMode === 'browser-simulation') {
     const event = {
@@ -2320,6 +2431,49 @@ function activateBrowserDeviceSimulation() {
   return true;
 }
 
+async function pairCommandAgent() {
+  if (!state.cloudIdentity) {
+    bridgeStatus.textContent = '请先在设置中开启加密云同步';
+    return;
+  }
+  if (state.commandAgent) {
+    bridgePairCode.textContent = soulmateCommandAgentPairingCode(state.commandAgent);
+    bridgePairing.hidden = !bridgePairing.hidden;
+    return;
+  }
+  if (!window.confirm('配对码会授予这台电脑领取加密控制指令的持续权限。只在你信任的电脑上使用，确定创建吗？')) {
+    return;
+  }
+  bridgePairButton.disabled = true;
+  bridgeStatus.textContent = '正在创建加密配对';
+  try {
+    const paired = await registerSoulmateCommandAgent(state.cloudIdentity);
+    state.commandAgent = paired.credential;
+    state.commandAgentStatus = { status: 'active', lastSeenAt: null };
+    bridgePairCode.textContent = paired.pairingCode;
+    bridgePairing.hidden = false;
+    activateCloudCommandAgent();
+  } catch (error) {
+    bridgeStatus.textContent = error.status === 404
+      ? '云端指令服务尚未部署完成'
+      : '无法创建电脑配对，请稍后重试';
+  } finally {
+    bridgePairButton.disabled = false;
+  }
+}
+
+async function copyCommandAgentPairingCode() {
+  const code = bridgePairCode.textContent;
+  if (!code) return;
+  try {
+    await navigator.clipboard.writeText(code);
+    bridgeCopyButton.textContent = '已复制';
+    window.setTimeout(() => { bridgeCopyButton.textContent = '复制'; }, 1600);
+  } catch (error) {
+    bridgeCopyButton.textContent = '复制失败';
+  }
+}
+
 async function detectBridge({ quiet = false, allowSimulation = true } = {}) {
   if (!quiet) bridgeStatus.textContent = '正在检测 127.0.0.1:8765';
   const controller = new AbortController();
@@ -2345,6 +2499,7 @@ async function detectBridge({ quiet = false, allowSimulation = true } = {}) {
     }
     return true;
   } catch (error) {
+    if (state.commandAgent) return activateCloudCommandAgent();
     if (allowSimulation) return activateBrowserDeviceSimulation();
     state.bridgeConnected = false;
     state.bridgeMode = '';
@@ -2498,6 +2653,8 @@ $$('[data-device-tab]').forEach((button) => {
 bluetoothButton.addEventListener('click', pairBluetooth);
 pendantButton.addEventListener('click', connectPendant);
 bridgeButton.addEventListener('click', detectBridge);
+bridgePairButton.addEventListener('click', pairCommandAgent);
+bridgeCopyButton.addEventListener('click', copyCommandAgentPairingCode);
 cloudSyncEnable.addEventListener('click', enableCloudSync);
 cloudSyncNow.addEventListener('click', () => pushCloudState({ manual: true }));
 cloudSyncShowCode.addEventListener('click', async () => {

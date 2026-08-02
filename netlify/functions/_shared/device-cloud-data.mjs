@@ -78,6 +78,23 @@ export function createDeviceCloudFunction(options) {
       if (request.method === 'POST' && path === '/api/device-cloud/devices') {
         return json(await store.registerDevice(ownerId, await readJson(request)), 201);
       }
+      if (request.method === 'POST' && path === '/api/device-cloud/command-agents') {
+        return json(await store.registerCommandAgent(ownerId, await readJson(request)), 201);
+      }
+      const commandAgentMatch = path.match(/^\/api\/device-cloud\/command-agents\/([0-9a-f-]+)$/i);
+      if (request.method === 'GET' && commandAgentMatch) {
+        return json(await store.commandAgentStatus(ownerId, {
+          agentId: commandAgentMatch[1],
+          vaultId: url.searchParams.get('vaultId')
+        }));
+      }
+      if (request.method === 'POST' && path === '/api/device-cloud/commands') {
+        return json(await store.queueCommand(ownerId, await readJson(request)), 202);
+      }
+      const commandMatch = path.match(/^\/api\/device-cloud\/commands\/([0-9a-f-]+)$/i);
+      if (request.method === 'GET' && commandMatch) {
+        return json(await store.commandStatus(ownerId, commandMatch[1]));
+      }
       if (request.method === 'POST' && path === '/api/device-cloud/events') {
         return json(await store.appendEvent(ownerId, await readJson(request)), 201);
       }

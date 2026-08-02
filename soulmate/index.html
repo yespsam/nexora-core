@@ -227,11 +227,18 @@
       <section class="device-panel" data-device-panel="computer" hidden>
         <div class="connection-row">
           <div><strong>NEXORA Bridge</strong><span id="bridge-status">本机服务未连接</span></div>
-          <button class="small-command" id="bridge-button" type="button">检测</button>
+          <div class="connection-actions">
+            <button class="small-command" id="bridge-button" type="button">检测</button>
+            <button class="small-command" id="bridge-pair-button" type="button">配对电脑</button>
+          </div>
+        </div>
+        <div class="bridge-pairing" id="bridge-pairing" hidden>
+          <code id="bridge-pair-code"></code>
+          <button class="small-command" id="bridge-copy-button" type="button">复制</button>
         </div>
         <p class="device-note">NEXORA 本机能力层仅开放白名单指令。高风险操作不会由网页执行。</p>
         <div class="capability-list">
-          <span>音量</span><span>应用</span><span>音乐</span><span>文件</span>
+          <span>音量</span><span>应用</span><span>音乐</span><span>安全确认</span>
         </div>
       </section>
     </dialog>
@@ -288,6 +295,6 @@
       <button class="wide-command danger" id="reset-button" type="button">重新诞生</button>
     </dialog>
   </main>
-  <script type="module" src="./app.js?v=0.9.50"></script>
+  <script type="module" src="./app.js?v=0.9.51"></script>
 </body>
 </html>

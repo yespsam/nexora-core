@@ -67,6 +67,16 @@ async function applyFoundation() {
       ), 'utf8');
       await connection.query(migration);
     }
+    const commandAgents = await connection.query(
+      "SELECT to_regclass('nexora_cloud.device_command_agents') AS table_name"
+    );
+    if (!commandAgents.rows[0].table_name) {
+      const migration = await readFile(new URL(
+        '../netlify/database/migrations/202608020001_device_command_agents.sql',
+        import.meta.url
+      ), 'utf8');
+      await connection.query(migration);
+    }
     const roles = await readFile(new URL('./local/runtime-roles.sql', import.meta.url), 'utf8');
     const roleSql = databaseName === 'nexora_core_dev'
       ? roles

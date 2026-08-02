@@ -1,4 +1,5 @@
 import { fromBase64Url } from '../shared/device-cloud-crypto.mjs';
+import { normalizeEncryptedDeviceCommand } from '../shared/device-command-cloud.mjs';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const publicVaultIdPattern = /^[A-Za-z0-9_-]{22}$/;
@@ -90,6 +91,36 @@ export function normalizeRecoveryEnvelope(value) {
   return {
     recoveryKeyId: Buffer.from(recoveryKeyId),
     wrappedVaultKey: wrappedKey(value.wrappedVaultKey, 'recovery wrapped vault key')
+  };
+}
+
+export function normalizeDeviceCommandAgent(value) {
+  if (!value || typeof value !== 'object' || value.version !== 1) {
+    throw new DeviceCloudError('invalid command agent');
+  }
+  const displayName = String(value.displayName || '').trim();
+  let credentialHash;
+  try {
+    credentialHash = Buffer.from(fromBase64Url(value.credentialHash, 32, 32));
+  } catch (error) {
+    throw new DeviceCloudError('invalid command agent credential');
+  }
+  if (!displayName || displayName.length > 80) throw new DeviceCloudError('invalid command agent name');
+  return {
+    id: requiredUuid(value.agentId, 'command agent id'),
+    vaultId: requiredVaultId(value.vaultId),
+    displayName,
+    credentialHash
+  };
+}
+
+export function normalizeDeviceCommandSubmission(value) {
+  const command = normalizeEncryptedDeviceCommand(value);
+  if (!command) throw new DeviceCloudError('invalid encrypted device command');
+  return {
+    ...command,
+    iv: Buffer.from(fromBase64Url(command.payload.iv, 12, 12)),
+    ciphertext: Buffer.from(fromBase64Url(command.payload.ciphertext, 17, 16384))
   };
 }
 

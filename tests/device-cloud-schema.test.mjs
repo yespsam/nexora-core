@@ -19,6 +19,10 @@ const lifecycleMigration = await readFile(
   new URL('../netlify/database/migrations/202607300004_device_cloud_data_lifecycle.sql', import.meta.url),
   'utf8'
 );
+const commandAgentMigration = await readFile(
+  new URL('../netlify/database/migrations/202608020001_device_command_agents.sql', import.meta.url),
+  'utf8'
+);
 
 const userTables = [
   'accounts',
@@ -79,7 +83,7 @@ test('Netlify runtime validates forced RLS without altering platform-owned roles
 });
 
 test('Netlify owns the migration transaction boundary', () => {
-  for (const migration of [sql, maintenanceMigration, netlifyRuntimeGuard, lifecycleMigration]) {
+  for (const migration of [sql, maintenanceMigration, netlifyRuntimeGuard, lifecycleMigration, commandAgentMigration]) {
     assert.doesNotMatch(migration, /^\s*(BEGIN|COMMIT)\s*;/im);
   }
 });
@@ -90,4 +94,15 @@ test('data lifecycle migration exposes only narrow deletion operations', () => {
   assert.match(lifecycleMigration, /list_due_deletion_requests/);
   assert.match(lifecycleMigration, /execute_after <= now\(\)/);
   assert.match(lifecycleMigration, /REVOKE ALL ON FUNCTION/);
+});
+
+test('desktop command agents authenticate by hash and receive one encrypted target at a time', () => {
+  assert.match(commandAgentMigration, /CREATE TABLE nexora_cloud\.device_command_agents/);
+  assert.match(commandAgentMigration, /credential_hash bytea NOT NULL/);
+  assert.match(commandAgentMigration, /FORCE ROW LEVEL SECURITY/);
+  assert.match(commandAgentMigration, /authenticate_device_command_agent/);
+  assert.match(commandAgentMigration, /SECURITY DEFINER/);
+  assert.match(commandAgentMigration, /num_nonnulls\(target_device_id, target_agent_id\) = 1/);
+  assert.match(commandAgentMigration, /device_commands_agent_pending_idx/);
+  assert.doesNotMatch(commandAgentMigration, /credential_secret|plaintext|command_text/i);
 });

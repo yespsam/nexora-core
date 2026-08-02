@@ -947,6 +947,36 @@ input:focus-visible {
   display: block;
 }
 
+.connection-actions {
+  display: flex !important;
+  gap: 8px;
+  margin-left: 12px;
+}
+
+.bridge-pairing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.bridge-pairing[hidden] {
+  display: none;
+}
+
+.bridge-pairing code {
+  min-width: 0;
+  padding: 10px 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-soft);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .connection-row span {
   margin-top: 5px;
   color: var(--ink-soft);
@@ -1250,6 +1280,20 @@ input:focus-visible {
     width: calc(100vw - 16px);
     max-height: calc(100svh - 16px);
     padding: 18px;
+  }
+
+  .connection-row {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .connection-actions {
+    flex-direction: column;
+    margin: 8px 0;
+  }
+
+  .connection-actions .small-command {
+    width: 92px;
   }
 
   .evolution-item {

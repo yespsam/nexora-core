@@ -1,7 +1,15 @@
 import { createServer } from 'node:http';
+import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 
 import { normalizeDeviceCommand } from '../shared/device-command.mjs';
+import {
+  createNexoraBridgeCloudConfig,
+  createNexoraCloudCommandPoller,
+  loadNexoraBridgeCloudConfig,
+  saveNexoraBridgeCloudConfig
+} from './nexora-bridge-cloud.mjs';
+import { executeNexoraCommand } from './nexora-command-executor.mjs';
 
 const maximumBodyBytes = 8192;
 const productionOrigin = /^https:\/\/(?:[a-z0-9-]+--)?nexora-core-staging\.netlify\.app$/i;
@@ -44,7 +52,7 @@ async function readJson(request) {
   }
 }
 
-export async function startNexoraBridge({ host = '127.0.0.1', port = 8765 } = {}) {
+export async function startNexoraBridge({ host = '127.0.0.1', port = 8765, mode = 'simulation' } = {}) {
   const events = [];
   const server = createServer(async (request, response) => {
     const origin = String(request.headers.origin || '');
@@ -62,7 +70,7 @@ export async function startNexoraBridge({ host = '127.0.0.1', port = 8765 } = {}
       sendJson(request, response, 200, {
         product: 'NEXORA Bridge',
         version: 1,
-        mode: 'simulation',
+        mode: mode === 'native' ? 'native' : 'simulation',
         capabilities: ['computer', 'virtual-ble-home']
       });
       return;
@@ -79,9 +87,10 @@ export async function startNexoraBridge({ host = '127.0.0.1', port = 8765 } = {}
           sendJson(request, response, 400, { error: 'invalid_command' });
           return;
         }
+        const execution = await executeNexoraCommand(command, { mode });
         const event = {
           id: `bridge-${Date.now().toString(36)}-${String(events.length + 1).padStart(3, '0')}`,
-          status: 'simulated',
+          status: execution.status,
           target: command.target,
           action: command.action,
           parameters: command.parameters,
@@ -89,7 +98,7 @@ export async function startNexoraBridge({ host = '127.0.0.1', port = 8765 } = {}
           createdAt: new Date().toISOString()
         };
         events.push(event);
-        sendJson(request, response, 200, { ok: true, ...event });
+        sendJson(request, response, execution.ok ? 200 : 422, { ok: execution.ok, ...event });
       } catch (error) {
         sendJson(request, response, error.message === 'payload_too_large' ? 413 : 400, {
           error: error.message === 'payload_too_large' ? 'payload_too_large' : 'invalid_json'
@@ -112,7 +121,58 @@ export async function startNexoraBridge({ host = '127.0.0.1', port = 8765 } = {}
   };
 }
 
+async function main() {
+  const args = process.argv.slice(2);
+  const pairingIndex = args.indexOf('--pair');
+  if (pairingIndex >= 0) {
+    let pairingCode = args[pairingIndex + 1];
+    if (!pairingCode && process.stdin.isTTY) {
+      const input = createInterface({ input: process.stdin, output: process.stdout });
+      try {
+        pairingCode = await input.question('Paste the NEXORA pairing code: ');
+      } finally {
+        input.close();
+      }
+    }
+    if (!pairingCode) throw new Error('usage: npm run bridge:pair -- <pairing-code>');
+    const config = createNexoraBridgeCloudConfig(pairingCode, {
+      siteUrl: process.env.NEXORA_CLOUD_URL
+    });
+    const saved = await saveNexoraBridgeCloudConfig(config);
+    console.log(`NEXORA Bridge paired at ${saved.path}`);
+    console.log(`Agent ${config.credential.agentId} is ready for encrypted commands.`);
+    return;
+  }
+
+  const mode = args.includes('--native') ? 'native' : 'simulation';
+  const bridge = await startNexoraBridge({ mode });
+  let poller = null;
+  if (args.includes('--cloud')) {
+    const config = await loadNexoraBridgeCloudConfig();
+    poller = createNexoraCloudCommandPoller({
+      config,
+      mode,
+      onError(error) {
+        console.error(`NEXORA cloud poll failed: ${String(error?.message || error).slice(0, 120)}`);
+      }
+    });
+    void poller.run();
+    console.log(`NEXORA encrypted cloud channel enabled for agent ${config.credential.agentId}`);
+  }
+  console.log(`NEXORA Bridge ${mode} listening at ${bridge.url}`);
+
+  const shutdown = async () => {
+    poller?.stop();
+    await bridge.close();
+    process.exit(0);
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const bridge = await startNexoraBridge();
-  console.log(`NEXORA Bridge simulation listening at ${bridge.url}`);
+  main().catch((error) => {
+    console.error(String(error?.message || error));
+    process.exitCode = 1;
+  });
 }
