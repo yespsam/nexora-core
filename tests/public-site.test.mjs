@@ -69,6 +69,10 @@ test('public build contains only the product runtime allowlist', async () => {
   assert.match(desktopHtml, /surface.*desktop/);
   assert.doesNotMatch(desktopHtml, /小栖|栖安|app\.js/);
 
+  const soulmateApp = await readFile(path.join(publicRoot, 'soulmate/app.js'), 'utf8');
+  assert.match(soulmateApp, /function ensureBirthViewer/);
+  assert.doesNotMatch(soulmateApp, /new Creature3DViewer\(birthVisualModel[^;]+;\s*birthViewer\.load/);
+
   const pendantHtml = await readFile(path.join(publicRoot, 'pendant-display/index.html'), 'utf8');
   assert.doesNotMatch(pendantHtml, /device-lab/);
 });

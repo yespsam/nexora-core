@@ -280,11 +280,21 @@ let creatureViewer = null;
 let birthViewer = null;
 try {
   creatureViewer = new Creature3DViewer(companionModel, { frustumHeight: 2.78 });
-  birthViewer = new Creature3DViewer(birthVisualModel, { frustumHeight: 3.05 });
-  birthViewer.load('cute', 'idle', 'seed');
 } catch (error) {
   companionModel.dataset.modelState = 'error';
-  birthVisualModel.dataset.modelState = 'error';
+}
+
+function ensureBirthViewer(starter = state.birthSelections.starter) {
+  if (!birthViewer) {
+    try {
+      birthViewer = new Creature3DViewer(birthVisualModel, { frustumHeight: 3.05 });
+    } catch (error) {
+      birthVisualModel.dataset.modelState = 'error';
+      return null;
+    }
+  }
+  birthViewer.load(starter, 'idle', 'seed');
+  return birthViewer;
 }
 
 function safeRead(key) {
@@ -512,7 +522,7 @@ function selectChoice(group, value) {
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
-    birthViewer?.load(value, 'idle', 'seed');
+    ensureBirthViewer(value);
     birthVisualCaption.textContent = `${starter.species}正在等你的选择`;
   }
 }
@@ -2444,6 +2454,7 @@ birthDate.value = new Date().toISOString().slice(0, 10);
 setupRecognition();
 state.profile = loadProfile();
 state.history = state.profile ? loadHistory() : [];
+if (!state.profile) ensureBirthViewer();
 if (state.profile && !state.history.length) {
   state.history = [cleanMessage({
     role: 'assistant',
