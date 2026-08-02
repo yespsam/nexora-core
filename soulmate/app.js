@@ -145,7 +145,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   ? requestedDiagnosticLlmModel
   : '';
 const REALTIME_LLM_MODEL = 'moonshot-v1-8k';
-const APP_RELEASE = 'safari-wake-start-v102';
+const APP_RELEASE = 'safari-audio-session-v103';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -241,6 +241,9 @@ const state = {
   continuationVoiceId: 0,
   playbackId: 0,
   audioContext: null,
+  audioKeepAliveSource: null,
+  audioKeepAliveGain: null,
+  audioKeepAliveTimer: 0,
   currentAudioSource: null,
   currentAudio: null,
   currentAudioUrl: '',
@@ -1437,6 +1440,36 @@ function clearQueuedAudio() {
   queuedAudioButton.hidden = true;
 }
 
+function releaseAudioKeepAlive() {
+  window.clearTimeout(state.audioKeepAliveTimer);
+  state.audioKeepAliveTimer = 0;
+  const source = state.audioKeepAliveSource;
+  const gain = state.audioKeepAliveGain;
+  state.audioKeepAliveSource = null;
+  state.audioKeepAliveGain = null;
+  if (source) {
+    try { source.stop(0); } catch (error) {}
+    try { source.disconnect(); } catch (error) {}
+  }
+  if (gain) {
+    try { gain.disconnect(); } catch (error) {}
+  }
+}
+
+function keepAudioPlaybackUnlocked(context) {
+  releaseAudioKeepAlive();
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  gain.gain.value = 0;
+  oscillator.frequency.value = 24;
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start(0);
+  state.audioKeepAliveSource = oscillator;
+  state.audioKeepAliveGain = gain;
+  state.audioKeepAliveTimer = window.setTimeout(releaseAudioKeepAlive, 20000);
+}
+
 function unlockAudioPlayback() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) return false;
@@ -1444,13 +1477,10 @@ function unlockAudioPlayback() {
     if (!state.audioContext) state.audioContext = new AudioContextClass();
     const context = state.audioContext;
     if (context.state === 'suspended') context.resume().catch(() => {});
-    const source = context.createBufferSource();
-    source.buffer = context.createBuffer(1, 1, context.sampleRate);
-    source.connect(context.destination);
-    source.start(0);
-    source.onended = () => source.disconnect();
+    keepAudioPlaybackUnlocked(context);
     return true;
   } catch (error) {
+    releaseAudioKeepAlive();
     return false;
   }
 }
@@ -1520,15 +1550,18 @@ async function playUnlockedAudioBlob(blob, playbackId, { onStarted, onEnded } = 
     if (context.state !== 'running') return false;
     const buffer = await context.decodeAudioData(await blob.arrayBuffer());
     if (playbackId !== state.playbackId) return false;
+    releaseAudioKeepAlive();
     const source = context.createBufferSource();
     source.buffer = buffer;
     source.connect(context.destination);
     state.currentAudioSource = source;
     state.echoGuardUntil = Number.MAX_SAFE_INTEGER;
+    companionView.dataset.voicePlaybackState = 'playing';
     source.onended = () => {
       if (playbackId !== state.playbackId || state.currentAudioSource !== source) return;
       state.currentAudioSource = null;
       source.disconnect();
+      companionView.dataset.voicePlaybackState = 'ended';
       stopAudio({ guardMs: 1800, preserveContinuationVoice: true });
       setPhase(state.busy ? 'thinking' : 'idle');
       onEnded?.();
@@ -1538,6 +1571,7 @@ async function playUnlockedAudioBlob(blob, playbackId, { onStarted, onEnded } = 
     onStarted?.();
     return true;
   } catch (error) {
+    companionView.dataset.voicePlaybackState = 'error';
     return false;
   }
 }
@@ -1612,6 +1646,7 @@ async function playStreamingVoiceResponse(response, allowQueue = true, callbacks
 
   stopListening();
   stopAudio({ clearQueue: true, guardMs: 0, preserveVoiceRequest: true });
+  releaseAudioKeepAlive();
   const playbackId = state.playbackId + 1;
   state.playbackId = playbackId;
   const mediaSource = new MediaSource();
@@ -1736,6 +1771,7 @@ async function playAudioBlob(blob, allowQueue = true, callbacks = {}, {
   state.playbackId = playbackId;
   if (await playUnlockedAudioBlob(blob, playbackId, callbacks)) return true;
   const url = URL.createObjectURL(blob);
+  releaseAudioKeepAlive();
   const audio = new Audio(url);
   audio.playsInline = true;
   state.currentAudio = audio;
@@ -2471,6 +2507,7 @@ window.addEventListener('pagehide', (event) => {
   window.clearTimeout(state.cloudSyncTimer);
   window.clearTimeout(state.cloudRetryTimer);
   window.clearTimeout(state.wakeRestartTimer);
+  releaseAudioKeepAlive();
   if (state.recognitionMode === 'wake') stopListening({ resumeWake: false });
   if (!event.persisted) state.continuity?.close();
 });
