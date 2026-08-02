@@ -144,7 +144,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   && diagnosticLlmModels.has(requestedDiagnosticLlmModel)
   ? requestedDiagnosticLlmModel
   : '';
-const APP_RELEASE = 'direct-dialogue-v96';
+const APP_RELEASE = 'safari-voice-unlock-v97';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -1524,10 +1524,36 @@ function appendMediaChunk(sourceBuffer, chunk) {
   });
 }
 
-async function playStreamingVoiceResponse(response, allowQueue = true, callbacks = {}) {
-  if (!supportsProgressiveVoicePlayback() || !response.body) {
+async function bufferedVoiceResponse(response, onTiming) {
+  if (!response.body) {
     const blob = await response.blob();
-    callbacks.onTiming?.('first_chunk_ms');
+    onTiming?.('first_chunk_ms');
+    return blob;
+  }
+  const reader = response.body.getReader();
+  const chunks = [];
+  let firstChunkSeen = false;
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      if (!chunk.value?.byteLength) continue;
+      if (!firstChunkSeen) {
+        firstChunkSeen = true;
+        onTiming?.('first_chunk_ms');
+      }
+      chunks.push(chunk.value.slice());
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return new Blob(chunks, { type: 'audio/mpeg' });
+}
+
+async function playStreamingVoiceResponse(response, allowQueue = true, callbacks = {}) {
+  const unlockedAudioContext = state.audioContext?.state === 'running';
+  if (unlockedAudioContext || !supportsProgressiveVoicePlayback() || !response.body) {
+    const blob = await bufferedVoiceResponse(response, callbacks.onTiming);
     return playAudioBlob(blob, allowQueue, callbacks, {
       preserveVoiceRequest: true
     });
