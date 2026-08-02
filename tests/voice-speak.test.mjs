@@ -2,10 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import voiceSpeak, {
+  config,
   createVoiceReadableStream,
   prepareSpeechText,
   voiceProsody
 } from '../netlify/functions/voice-speak.mjs';
+
+test('voice fallback owns its direct API route', () => {
+  assert.equal(config.path, '/api/voice/speak');
+  assert.deepEqual(config.method, ['POST']);
+  assert.equal(config.rateLimit.windowLimit, 40);
+  assert.deepEqual(config.rateLimit.aggregateBy, ['ip', 'domain']);
+});
 
 test('voice prosody keeps mood changes subtle and route-specific', () => {
   const cast = { rate: '-2%', pitch: '+0Hz' };

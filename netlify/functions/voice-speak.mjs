@@ -173,3 +173,13 @@ export default async function voiceSpeak(request) {
   }
   return createVoiceResponse(payload);
 }
+
+export const config = {
+  path: '/api/voice/speak',
+  method: ['POST'],
+  rateLimit: {
+    windowLimit: 40,
+    windowSize: 60,
+    aggregateBy: ['ip', 'domain']
+  }
+};

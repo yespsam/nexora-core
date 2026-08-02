@@ -9,7 +9,7 @@ import {
 import { creatureVoiceResources } from '../shared/companion-data.mjs';
 import { PENDANT_DISPLAY_SIZE } from '../shared/pendant-display.mjs';
 
-const RELEASE_ID = 'motion-orientation-v84';
+const RELEASE_ID = 'full-acceptance-v114';
 const FRAME_READY_TIMEOUT_MS = 30000;
 const MOTION_SOAK_MS = 30000;
 const STARTERS = Object.freeze(['cute', 'cool', 'beautiful']);
@@ -28,6 +28,7 @@ const MODEL_ACTIONS = Object.freeze([
   'sleep'
 ]);
 let frameRun = 0;
+let activeRunId = '';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const phoneFrame = $('#phone-frame');
@@ -66,9 +67,16 @@ function seedDemoProfile(force = false) {
 
 function loadFrames() {
   const runId = `${Date.now()}-${frameRun += 1}`;
+  activeRunId = runId;
   phoneFrame.src = `../soulmate/?lab=1&surface=phone&release=${RELEASE_ID}&run=${runId}`;
   desktopFrame.src = `../soulmate/?lab=1&surface=desktop&release=${RELEASE_ID}&run=${runId}`;
   pendantFrame.src = `../pendant-display/?lab=1&state=idle&release=${RELEASE_ID}&run=${runId}`;
+}
+
+function frameLab(frame, property) {
+  const frameUrl = new URL(frame.contentWindow?.location.href || 'about:blank');
+  if (frameUrl.searchParams.get('run') !== activeRunId) return null;
+  return frame.contentWindow?.[property] || null;
 }
 
 function delay(ms) {
@@ -205,9 +213,9 @@ async function runAllTests() {
   const results = [];
   results.push(await check('views', '三端界面加载', async () => {
     [phone, desktop, pendant] = await Promise.all([
-      waitFor(() => phoneFrame.contentWindow?.__NEXORA_LAB__),
-      waitFor(() => desktopFrame.contentWindow?.__NEXORA_LAB__),
-      waitFor(() => pendantFrame.contentWindow?.__NEXORA_PENDANT_LAB__)
+      waitFor(() => frameLab(phoneFrame, '__NEXORA_LAB__')),
+      waitFor(() => frameLab(desktopFrame, '__NEXORA_LAB__')),
+      waitFor(() => frameLab(pendantFrame, '__NEXORA_PENDANT_LAB__'))
     ]);
     assert(phone.getState().profile, '手机端没有伴侣资料');
     assert(desktop.getState().profile, '电脑端没有伴侣资料');
@@ -452,7 +460,10 @@ async function runAllTests() {
       assert(type.includes('audio'), `${cast.name}没有返回音频`);
       assert(response.headers.get('x-nexora-archetype') === cast.archetype, `${cast.name}路由错误`);
       assert(response.headers.get('x-nexora-voice') === cast.voice, `${cast.name}声线错误`);
-      assert(response.headers.get('x-nexora-voice-profile') === 'natural-v2', `${cast.name}不是自然声线`);
+      assert(
+        response.headers.get('x-nexora-voice-profile') === 'natural-v3-stream',
+        `${cast.name}不是当前自然流式声线`
+      );
       const audio = await response.blob();
       assert(audio.size > 1000, `${cast.name}音频内容为空`);
       totalBytes += audio.size;
