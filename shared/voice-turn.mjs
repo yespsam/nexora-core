@@ -6,7 +6,10 @@ export const VOICE_LISTEN_TIMEOUT_MS = 12000;
 export const VOICE_WAKE_COMMAND_WINDOW_MS = 8000;
 
 const VOICE_ACTIONS = Object.freeze([
-  Object.freeze({ action: 'wave', phrases: Object.freeze(['招手', '挥手', '打招呼', 'wave']) }),
+  Object.freeze({
+    action: 'wave',
+    phrases: Object.freeze(['招手', '招招手', '张手', '招收', '挥手', '挥挥手', '摆摆手', '打招呼', 'wave'])
+  }),
   Object.freeze({ action: 'nod', phrases: Object.freeze(['点头', '点点头', 'nod']) }),
   Object.freeze({ action: 'affection', phrases: Object.freeze(['靠近', '过来', '贴近', '抱抱']) }),
   Object.freeze({ action: 'walk', phrases: Object.freeze(['走路', '走一走', '散步', '向前走', 'walk']) }),
@@ -20,7 +23,17 @@ export function voiceWakeWords(name = '', starter = 'cute') {
     cool: '维尔',
     beautiful: '艾拉'
   }[starter] || '露莫';
-  return [...new Set([name, routeName, '奈索拉', 'nexora', 'soulmate', '伙伴']
+  return [...new Set([
+    name,
+    routeName,
+    '奈索拉',
+    '耐索拉',
+    '内索拉',
+    '尼索拉',
+    'nexora',
+    'soulmate',
+    '伙伴'
+  ]
     .map(normalizeSpeech)
     .filter((word) => word.length >= 2))];
 }
@@ -58,15 +71,85 @@ export function parseVoiceControlCommand(text, {
   };
 }
 
-export function recognitionTranscript(results) {
-  return Array.from(results || [])
-    .filter((result) => result?.isFinal !== false)
-    .map((result) => String(result?.[0]?.transcript || '').trim())
-    .filter(Boolean)
-    .join(' ')
-    .replace(/\s+/g, ' ')
+function boundedRecognitionText(value) {
+  return String(value || '')
     .trim()
+    .replace(/\s+/g, ' ')
     .slice(0, 160);
+}
+
+export function recognitionCandidates(results, limit = 5) {
+  const finalResults = Array.from(results || [])
+    .filter((result) => result?.isFinal !== false && Number(result?.length) > 0);
+  if (!finalResults.length) return [];
+  const alternativeCount = Math.min(
+    Math.max(1, Number(limit) || 1),
+    Math.max(...finalResults.map((result) => Number(result.length) || 1))
+  );
+  const candidates = [];
+  const seen = new Set();
+  for (let index = 0; index < alternativeCount; index += 1) {
+    const alternatives = finalResults.map((result) => result[index] || result[0]);
+    const text = boundedRecognitionText(alternatives
+      .map((alternative) => alternative?.transcript)
+      .filter(Boolean)
+      .join(' '));
+    const key = normalizeSpeech(text);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const confidences = alternatives
+      .map((alternative) => Number(alternative?.confidence) || 0)
+      .filter((confidence) => confidence > 0);
+    candidates.push({
+      text,
+      confidence: confidences.length
+        ? confidences.reduce((total, confidence) => total + confidence, 0) / confidences.length
+        : 0
+    });
+  }
+  return candidates;
+}
+
+function voiceCommandPriority(command) {
+  if (command?.type === 'action') return 4;
+  if (command?.wakeWord && command.type === 'message') return 3;
+  if (command?.type === 'wake') return 2;
+  if (command?.type === 'message') return 1;
+  return 0;
+}
+
+export function resolveVoiceRecognition(results, {
+  wakeWords = [],
+  wakeActive = false
+} = {}) {
+  const candidates = recognitionCandidates(results);
+  if (!candidates.length) {
+    return { text: '', confidence: 0, command: null, candidates: [] };
+  }
+  const ranked = candidates.map((candidate, index) => {
+    const command = parseVoiceControlCommand(candidate.text, { wakeWords, wakeActive });
+    return {
+      ...candidate,
+      command,
+      index,
+      priority: voiceCommandPriority(command)
+    };
+  }).sort((left, right) => (
+    right.priority - left.priority
+    || right.confidence - left.confidence
+    || left.index - right.index
+  ));
+  const selected = ranked[0];
+  return {
+    text: selected.text,
+    confidence: selected.confidence,
+    command: selected.command,
+    candidates
+  };
+}
+
+export function recognitionTranscript(results) {
+  return recognitionCandidates(results, 1)[0]?.text || '';
 }
 
 export function recognitionFailureMessage(code) {

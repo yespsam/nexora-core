@@ -3,8 +3,10 @@ import test from 'node:test';
 
 import {
   recognitionFailureMessage,
+  recognitionCandidates,
   recognitionTranscript,
   parseVoiceControlCommand,
+  resolveVoiceRecognition,
   shouldBlockRecognizedSpeech,
   speechOverlapRatio,
   VOICE_LISTEN_TIMEOUT_MS,
@@ -28,10 +30,61 @@ test('recognition combines final speech segments and bounds the message', () => 
   assert.equal(VOICE_WAKE_COMMAND_WINDOW_MS, 8000);
 });
 
+test('recognition keeps alternate Safari transcripts with confidence', () => {
+  const results = [Object.assign([
+    { transcript: '你这个人物是巴萨阿尔法大兄弟', confidence: 0.52 },
+    { transcript: '招手', confidence: 0.41 }
+  ], { isFinal: true })];
+  assert.deepEqual(recognitionCandidates(results), [
+    { text: '你这个人物是巴萨阿尔法大兄弟', confidence: 0.52 },
+    { text: '招手', confidence: 0.41 }
+  ]);
+});
+
+test('valid actions outrank an incorrect first recognition alternative', () => {
+  const results = [Object.assign([
+    { transcript: '你这个人物是巴萨阿尔法大兄弟', confidence: 0.52 },
+    { transcript: '招手', confidence: 0.41 }
+  ], { isFinal: true })];
+  const resolved = resolveVoiceRecognition(results, {
+    wakeWords: voiceWakeWords('星澜', 'cute'),
+    wakeActive: true
+  });
+  assert.equal(resolved.text, '招手');
+  assert.equal(resolved.command.type, 'action');
+  assert.equal(resolved.command.action, 'wave');
+});
+
+test('wake mode ignores alternatives without a wake word', () => {
+  const results = [Object.assign([
+    { transcript: '今天想吃火锅', confidence: 0.76 },
+    { transcript: '今天想吃苹果', confidence: 0.24 }
+  ], { isFinal: true })];
+  const resolved = resolveVoiceRecognition(results, {
+    wakeWords: voiceWakeWords('星澜', 'cute')
+  });
+  assert.equal(resolved.text, '今天想吃火锅');
+  assert.equal(resolved.command, null);
+});
+
+test('wake commands can be recovered from a lower recognition alternative', () => {
+  const results = [Object.assign([
+    { transcript: '来找我招手', confidence: 0.61 },
+    { transcript: '奈索拉招手', confidence: 0.39 }
+  ], { isFinal: true })];
+  const resolved = resolveVoiceRecognition(results, {
+    wakeWords: voiceWakeWords('星澜', 'cute')
+  });
+  assert.equal(resolved.text, '奈索拉招手');
+  assert.equal(resolved.command.type, 'action');
+  assert.equal(resolved.command.action, 'wave');
+});
+
 test('wake words resolve custom names and route names', () => {
   assert.deepEqual(voiceWakeWords('星澜', 'cute').slice(0, 2), ['星澜', '露莫']);
   assert.ok(voiceWakeWords('', 'cool').includes('维尔'));
   assert.ok(voiceWakeWords('', 'beautiful').includes('艾拉'));
+  assert.ok(voiceWakeWords('', 'cute').includes('耐索拉'));
 });
 
 test('voice commands require a wake word unless a manual command window is active', () => {
@@ -45,6 +98,8 @@ test('voice commands require a wake word unless a manual command window is activ
   });
   assert.equal(parseVoiceControlCommand('跑起来', { wakeWords, wakeActive: true }).action, 'run');
   assert.equal(parseVoiceControlCommand('停下', { wakeWords, wakeActive: true }).action, 'idle');
+  assert.equal(parseVoiceControlCommand('张手', { wakeWords, wakeActive: true }).action, 'wave');
+  assert.equal(parseVoiceControlCommand('招收', { wakeWords, wakeActive: true }).action, 'wave');
 });
 
 test('wake-only and wake-plus-message phrases stay distinct', () => {

@@ -48,14 +48,14 @@ import {
 } from '../shared/creature-3d-data.mjs?v=16';
 import {
   recognitionFailureMessage,
-  recognitionTranscript,
   parseVoiceControlCommand,
+  resolveVoiceRecognition,
   shouldBlockRecognizedSpeech,
   VOICE_LISTEN_TIMEOUT_MS,
   VOICE_WAKE_COMMAND_WINDOW_MS,
   voiceWakeWords,
   voiceControlState
-} from '../shared/voice-turn.mjs?v=4';
+} from '../shared/voice-turn.mjs?v=5';
 import {
   canResumeSoulmateCloudSync,
   isPrivateAccessExpired,
@@ -145,7 +145,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   ? requestedDiagnosticLlmModel
   : '';
 const REALTIME_LLM_MODEL = 'moonshot-v1-8k';
-const APP_RELEASE = 'realtime-dialogue-v100';
+const APP_RELEASE = 'voice-command-reliability-v101';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -225,6 +225,9 @@ const state = {
   recognitionAccepting: false,
   recognitionResultReceived: false,
   recognitionMode: '',
+  lastRecognitionText: '',
+  lastRecognitionCommand: '',
+  lastRecognitionCandidateCount: 0,
   listeningTimer: 0,
   recognitionTimeout: 0,
   wakeEnabled: false,
@@ -1878,8 +1881,8 @@ function beginRecognition(mode) {
   }
 }
 
-function handleRecognizedVoice(text, mode) {
-  const command = parseVoiceControlCommand(text, {
+function handleRecognizedVoice(text, mode, resolvedCommand = null) {
+  const command = resolvedCommand || parseVoiceControlCommand(text, {
     wakeWords: voiceWakeWords(state.profile?.name, state.profile?.starter),
     wakeActive: mode === 'manual' || Date.now() < state.wakeCommandUntil
   });
@@ -1896,7 +1899,7 @@ function handleRecognizedVoice(text, mode) {
   }
   if (command?.type === 'message') {
     state.wakeCommandUntil = 0;
-    sendMessage(command.remainder, { source: 'voice' });
+    sendMessage(command.wakeWord ? command.remainder : text, { source: 'voice' });
     return;
   }
   if (mode === 'manual') sendMessage(text, { source: 'voice' });
@@ -1917,11 +1920,35 @@ function setupRecognition() {
   recognition.lang = 'zh-CN';
   recognition.continuous = false;
   recognition.interimResults = false;
+  recognition.maxAlternatives = 5;
+  const GrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
+  if (GrammarList) {
+    try {
+      const grammars = new GrammarList();
+      grammars.addFromString(
+        '#JSGF V1.0; grammar nexora; public <command> = NEXORA | 奈索拉 | 伙伴 | 招手 | 挥手 | 点头 | 靠近 | 抱抱 | 走路 | 散步 | 跑步 | 停下;',
+        1
+      );
+      recognition.grammars = grammars;
+    } catch (error) {}
+  }
   recognition.onresult = (event) => {
     const mode = state.recognitionMode;
-    const text = recognitionTranscript(event.results);
+    const resolved = resolveVoiceRecognition(event.results, {
+      wakeWords: voiceWakeWords(state.profile?.name, state.profile?.starter),
+      wakeActive: mode === 'manual' || Date.now() < state.wakeCommandUntil
+    });
+    const text = resolved.text;
     const accepting = state.recognitionAccepting && Date.now() >= state.echoGuardUntil;
     state.recognitionResultReceived = Boolean(text);
+    state.lastRecognitionText = text;
+    state.lastRecognitionCommand = resolved.command?.type === 'action'
+      ? resolved.command.action
+      : resolved.command?.type || '';
+    state.lastRecognitionCandidateCount = resolved.candidates.length;
+    companionView.dataset.voiceRecognitionText = text;
+    companionView.dataset.voiceRecognitionCommand = state.lastRecognitionCommand;
+    companionView.dataset.voiceRecognitionCandidates = String(resolved.candidates.length);
     finishRecognitionSession();
     if (!text) {
       if (mode === 'manual') presenceLine.textContent = recognitionFailureMessage('no-speech');
@@ -1933,7 +1960,7 @@ function setupRecognition() {
       scheduleWakeRecognition(900);
       return;
     }
-    handleRecognizedVoice(text, mode);
+    handleRecognizedVoice(text, mode, resolved.command);
   };
   recognition.onerror = (event) => {
     const mode = state.recognitionMode;
