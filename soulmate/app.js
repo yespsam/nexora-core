@@ -140,6 +140,7 @@ const pageParams = new URLSearchParams(location.search);
 const resetRequested = pageParams.get('reset') === '1';
 const pendantSimulationMode = pageParams.get('lab') === '1' || pageParams.get('simulator') === '1';
 const BRIDGE_URL = 'http://127.0.0.1:8765';
+const DEVICE_SIMULATION_STORAGE_KEY = 'nexora_device_simulation_events_v1';
 const diagnosticLlmModels = new Set(['kimi-k2.6', 'moonshot-v1-8k']);
 const requestedDiagnosticLlmModel = pageParams.get('chat_model') || '';
 const diagnosticLlmModel = pageParams.get('probe') === '1'
@@ -147,7 +148,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   ? requestedDiagnosticLlmModel
   : '';
 const REALTIME_LLM_MODEL = 'moonshot-v1-8k';
-const APP_RELEASE = 'device-control-v107';
+const APP_RELEASE = 'device-control-fallback-v108';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -1235,6 +1236,26 @@ async function sendBridgeCommand(command) {
   if (!state.bridgeConnected && !await detectBridge({ quiet: true })) {
     return { ok: false, summary: '电脑控制服务尚未连接，请先启动 NEXORA Bridge。' };
   }
+  if (state.bridgeMode === 'browser-simulation') {
+    const event = {
+      id: `browser-${Date.now().toString(36)}`,
+      status: 'simulated',
+      target: command.target,
+      action: command.action,
+      parameters: command.parameters,
+      summary: command.label,
+      createdAt: new Date().toISOString()
+    };
+    const events = safeRead(DEVICE_SIMULATION_STORAGE_KEY);
+    safeWrite(DEVICE_SIMULATION_STORAGE_KEY, [
+      ...(Array.isArray(events) ? events.slice(-49) : []),
+      event
+    ]);
+    const summary = `${String(command.label).replace(/[。！]+$/g, '')}，当前由浏览器安全模拟器执行。`;
+    if (command.target === 'home') bluetoothStatus.textContent = summary;
+    else bridgeStatus.textContent = summary;
+    return { ok: true, summary };
+  }
   try {
     const response = await fetch(`${BRIDGE_URL}/commands`, {
       method: 'POST',
@@ -1251,9 +1272,8 @@ async function sendBridgeCommand(command) {
     else bridgeStatus.textContent = summary;
     return { ok: true, summary };
   } catch (error) {
-    state.bridgeConnected = false;
-    bridgeStatus.textContent = 'NEXORA Bridge 连接已中断';
-    return { ok: false, summary: '电脑控制服务连接中断，请重新检测。' };
+    activateBrowserDeviceSimulation();
+    return sendBridgeCommand(command);
   }
 }
 
@@ -2289,7 +2309,18 @@ async function connectPendant() {
   }
 }
 
-async function detectBridge({ quiet = false } = {}) {
+function activateBrowserDeviceSimulation() {
+  state.bridgeConnected = true;
+  state.bridgeMode = 'browser-simulation';
+  state.bridgeCapabilities = ['computer', 'virtual-ble-home'];
+  bridgeStatus.textContent = '浏览器安全模拟器已启用';
+  bridgeButton.textContent = '模拟中';
+  bluetoothStatus.textContent = '虚拟蓝牙家庭网关已启用';
+  bluetoothButton.textContent = '模拟中';
+  return true;
+}
+
+async function detectBridge({ quiet = false, allowSimulation = true } = {}) {
   if (!quiet) bridgeStatus.textContent = '正在检测 127.0.0.1:8765';
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 2200);
@@ -2314,6 +2345,7 @@ async function detectBridge({ quiet = false } = {}) {
     }
     return true;
   } catch (error) {
+    if (allowSimulation) return activateBrowserDeviceSimulation();
     state.bridgeConnected = false;
     state.bridgeMode = '';
     state.bridgeCapabilities = [];
