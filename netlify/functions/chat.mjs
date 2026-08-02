@@ -171,10 +171,13 @@ function personaIdForKind(kind) {
   return creatureId ? creatureProfiles[creatureId].id : companionProfiles[personaKind(kind)].id;
 }
 
-export function buildLLMMessages(text, kind, history = [], soulmateValue = null) {
+export function buildLLMMessages(text, kind, history = [], soulmateValue = null, {
+  output = 'json'
+} = {}) {
   const creatureId = creatureKind(kind);
   const p = profileForKind(kind);
   const soulmate = cleanSoulmateProfile(soulmateValue);
+  const plainOutput = output === 'plain';
   const traitLabels = {
     warmth: '温柔',
     curiosity: '好奇',
@@ -206,12 +209,16 @@ export function buildLLMMessages(text, kind, history = [], soulmateValue = null)
     soulmate ? `身份：诞生日 ${soulmate.birthday || '未设定'}，${soulmate.species || soulmate.starter || '数字生命'}，${soulmate.stage || '初生形态'}，已陪伴 ${soulmate.daysTogether} 天。` : '',
     soulmate ? `关系：${relationshipStage}，累计互动 ${soulmate.interactions} 次；人格倾向：${traitSummary}。亲密程度与阶段一致，不虚构共同经历。` : '',
     soulmate?.memories.length ? `共同记忆：${soulmate.memories.join('；')}` : '',
-    '只输出 JSON，不要代码块、thinking 或分析；reply 必须是第一个字段：',
-    '{"reply":"...","mood":"happy|calm|sad|sleepy","action":"idle|nod|heart|wave|voice|walk|run"}',
+    plainOutput
+      ? '只输出用户会听到的回复正文，不要 JSON、标签、代码块、thinking 或分析。'
+      : '只输出 JSON，不要代码块、thinking 或分析；reply 必须是第一个字段：',
+    plainOutput
+      ? '为了实时语音自然衔接，开头先用 3~8 个汉字给出贴合当下的自然反应，并以逗号或句号形成第一个停顿；不要使用固定开场。'
+      : '{"reply":"...","mood":"happy|calm|sad|sleepy","action":"idle|nod|heart|wave|voice|walk|run"}',
     'reply 默认用自然的简体中文，短、口语、1~3 句，像熟悉的真实伙伴。直接承接当前具体细节，结合前文理解省略、代词和追问，不重新开场；需要追问时最多一个自然问题。',
     '区分提问、闲聊、玩笑、分享和明显情绪；只在确有情绪时安慰。不复述用户原话，不用模板或客服腔，不反复强调陪伴；避免重复最近回答，可表达偏好、玩笑、轻微撒娇或不同意见。',
     '共同记忆只在当前话题相关时自然使用；冲突时以最新说法为准并承认变化。',
-    'action：安慰或亲密=heart，认同=nod，打招呼=wave，聊天=voice，散步=walk，其他=idle。',
+    plainOutput ? '' : 'action：安慰或亲密=heart，认同=nod，打招呼=wave，聊天=voice，散步=walk，其他=idle。',
     '不得声称看到、听到或已经控制现实设备，除非请求中明确包含成功的工具结果。',
     creatureId ? '你是原创生物伙伴，不冒充人类恋人，也不是男友、女友或旧版人类角色；不自称小栖、栖安，不称呼用户为主人，但可真诚表达想念、依恋和关心。' : ''
   ].filter(Boolean).join('\n');
@@ -284,14 +291,56 @@ export function extractStreamedReply(raw) {
   return output.slice(0, 300);
 }
 
+export function extractStreamedPlainReply(raw) {
+  return String(raw || '')
+    .replace(/^\s+/, '')
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
+    .slice(0, 300);
+}
+
+function plainReplyPresentation(text, reply, sceneId) {
+  const inferredSceneId = inferSceneId(`${text} ${reply}`, sceneId);
+  const scene = sceneLibrary[inferredSceneId] || sceneLibrary[sceneId] || sceneLibrary.daily;
+  return {
+    mood: scene.mood || 'calm',
+    action: scene.action || 'voice'
+  };
+}
+
+function parsePlainLLMReply(raw, text, sceneId) {
+  let reply = String(raw || '')
+    .replace(/^```(?:text|markdown)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (
+    reply.length >= 2
+    && ((reply.startsWith('"') && reply.endsWith('"'))
+      || (reply.startsWith('“') && reply.endsWith('”')))
+  ) {
+    reply = reply.slice(1, -1).trim();
+  }
+  reply = reply.replace(/[<>&]/g, '').slice(0, 300);
+  if (!reply) return null;
+  return {
+    reply,
+    thinking: '',
+    ...plainReplyPresentation(text, reply, sceneId)
+  };
+}
+
 function kimiRequestPayload(text, kind, history, soulmate, model, overrides = {}) {
+  const { output_mode: outputMode, ...requestOverrides } = overrides;
+  const plainOutput = outputMode === 'plain';
   return {
     model,
-    messages: buildLLMMessages(text, kind, history, soulmate),
+    messages: buildLLMMessages(text, kind, history, soulmate, {
+      output: plainOutput ? 'plain' : 'json'
+    }),
     max_completion_tokens: LLM_COMPLETION_TOKEN_LIMIT,
     ...(model === 'kimi-k2.6' ? { thinking: { type: 'disabled' } } : {}),
-    response_format: { type: 'json_object' },
-    ...overrides
+    ...(plainOutput ? {} : { response_format: { type: 'json_object' } }),
+    ...requestOverrides
   };
 }
 
@@ -400,7 +449,11 @@ async function callKimiStream(text, kind, history, {
         history,
         soulmate,
         model,
-        { stream: true, stream_options: { include_usage: true } }
+        {
+          output_mode: 'plain',
+          stream: true,
+          stream_options: { include_usage: true }
+        }
       )),
       signal: abortController.signal
     });
@@ -430,6 +483,7 @@ async function callKimiStream(text, kind, history, {
       let rawReply = '';
       let emittedReply = '';
       let firstTokenAt = 0;
+      let firstVisibleAt = 0;
       let upstreamModel = model;
       controller.enqueue(encoder.encode(sseEvent('start', {
         mode: 'cloud_llm',
@@ -458,21 +512,23 @@ async function callKimiStream(text, kind, history, {
             if (!content) continue;
             if (!firstTokenAt) firstTokenAt = Date.now();
             rawReply += content;
-            const visibleReply = extractStreamedReply(rawReply);
+            const visibleReply = extractStreamedPlainReply(rawReply);
             if (visibleReply.startsWith(emittedReply) && visibleReply.length > emittedReply.length) {
               const delta = visibleReply.slice(emittedReply.length);
               emittedReply = visibleReply;
+              if (!firstVisibleAt) firstVisibleAt = Date.now();
               controller.enqueue(encoder.encode(sseEvent('delta', { text: delta })));
             }
           }
         }
         if (canceled) return;
         upstreamBuffer += decoder.decode();
-        const parsed = parseLLMReply(rawReply);
+        const parsed = parsePlainLLMReply(rawReply, text, responseMeta.sceneId);
         if (!parsed) throw new Error('invalid_response');
         const finishedAt = Date.now();
         const latency = {
           first_token_ms: firstTokenAt ? firstTokenAt - startedAt : finishedAt - startedAt,
+          first_visible_ms: firstVisibleAt ? firstVisibleAt - startedAt : finishedAt - startedAt,
           total_ms: finishedAt - startedAt
         };
         const llm = { ...parsed, provider: 'kimi', model: upstreamModel };
@@ -488,6 +544,7 @@ async function callKimiStream(text, kind, history, {
           managed: true,
           streamed: true,
           first_token_ms: latency.first_token_ms,
+          first_visible_ms: latency.first_visible_ms,
           total_ms: latency.total_ms,
           client_release: clientRelease || null,
           probe,

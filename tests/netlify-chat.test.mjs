@@ -5,6 +5,7 @@ import handler, {
   buildLLMMessages,
   cleanHistory,
   cleanSoulmateProfile,
+  extractStreamedPlainReply,
   extractStreamedReply
 } from '../netlify/functions/chat.mjs';
 
@@ -54,7 +55,13 @@ test('streamed JSON exposes only the complete visible portion of reply', () => {
   assert.equal(extractStreamedReply('{"reply":"一个\\u4f'), '一个');
 });
 
-test('managed Kimi streams reply deltas before the structured response completes', async (t) => {
+test('streamed plain text removes leading whitespace and unsafe controls', () => {
+  assert.equal(extractStreamedPlainReply('  你好，今天'), '你好，今天');
+  assert.equal(extractStreamedPlainReply('\u0000你好\n今天'), '你好\n今天');
+  assert.equal(extractStreamedPlainReply('你好'), '你好');
+});
+
+test('managed Kimi streams plain reply text without protocol tokens', async (t) => {
   const originalFetch = globalThis.fetch;
   const originalServerKey = process.env.LLM_API_KEY;
   const originalBaseUrl = process.env.LLM_BASE_URL;
@@ -70,9 +77,9 @@ test('managed Kimi streams reply deltas before the structured response completes
   process.env.LLM_BASE_URL = 'https://api.moonshot.cn/v1';
   const upstreamEvents = [
     { model: 'kimi-k2.6', choices: [{ delta: { role: 'assistant', content: '' } }] },
-    { model: 'kimi-k2.6', choices: [{ delta: { content: '{"reply":"你' } }] },
+    { model: 'kimi-k2.6', choices: [{ delta: { content: '你' } }] },
     { model: 'kimi-k2.6', choices: [{ delta: { content: '好，今天' } }] },
-    { model: 'kimi-k2.6', choices: [{ delta: { content: '一起走走。","mood":"happy","action":"walk"}' } }] }
+    { model: 'kimi-k2.6', choices: [{ delta: { content: '一起走走。' } }] }
   ];
   globalThis.fetch = async (url, options) => {
     forwarded = JSON.parse(options.body);
@@ -102,19 +109,22 @@ test('managed Kimi streams reply deltas before the structured response completes
   assert.equal(forwarded.stream, true);
   assert.equal(forwarded.max_completion_tokens, 96);
   assert.deepEqual(forwarded.thinking, { type: 'disabled' });
-  assert.match(forwarded.messages[0].content, /\{"reply":"\.\.\."/);
-  assert.doesNotMatch(forwarded.messages[0].content, /\{"thinking":"\.\.\."/);
+  assert.equal(forwarded.response_format, undefined);
+  assert.match(forwarded.messages[0].content, /只输出用户会听到的回复正文/);
+  assert.match(forwarded.messages[0].content, /3~8 个汉字/);
+  assert.doesNotMatch(forwarded.messages[0].content, /\{"reply":"\.\.\."/);
   assert.ok(streamed.indexOf('event: delta') < streamed.indexOf('event: done'));
   assert.match(streamed, /data: \{"text":"你"\}/);
   assert.match(streamed, /data: \{"text":"好，今天"\}/);
   const doneBlock = streamed.split('\n\n').find((block) => block.startsWith('event: done'));
   const done = JSON.parse(doneBlock.split('\ndata: ')[1]);
   assert.equal(done.text, '你好，今天一起走走。');
-  assert.equal(done.emotion.mood, 'happy');
+  assert.equal(done.emotion.mood, 'calm');
   assert.equal(done.actions[0].action, 'walk');
   assert.equal(done.mode, 'cloud_llm');
   assert.equal(done.llm.provider, 'kimi');
   assert.ok(done.llm.latency.first_token_ms >= 0);
+  assert.ok(done.llm.latency.first_visible_ms >= done.llm.latency.first_token_ms);
   assert.ok(done.llm.latency.total_ms >= done.llm.latency.first_token_ms);
 });
 

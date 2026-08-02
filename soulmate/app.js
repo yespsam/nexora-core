@@ -144,7 +144,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   && diagnosticLlmModels.has(requestedDiagnosticLlmModel)
   ? requestedDiagnosticLlmModel
   : '';
-const APP_RELEASE = 'progressive-voice-v95';
+const APP_RELEASE = 'direct-dialogue-v96';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -306,7 +306,8 @@ function renderLlmConnection({
   failure = '',
   available = false,
   latency = null,
-  voiceLatencyMs = 0
+  voiceLatencyMs = 0,
+  voiceTiming = null
 } = {}) {
   if (mode === 'cloud_llm' || available) {
     const labels = {
@@ -320,15 +321,22 @@ function renderLlmConnection({
     const timing = firstTokenMs
       ? ` 本次首字 ${(firstTokenMs / 1000).toFixed(1)} 秒，完整 ${(totalMs / 1000).toFixed(1)} 秒。`
       : '';
-    const voiceTiming = voiceLatencyMs
-      ? ` 首声 ${(voiceLatencyMs / 1000).toFixed(1)} 秒。`
+    const segmentMs = Math.max(0, Number(voiceTiming?.segment_ms) || 0);
+    const headersMs = Math.max(segmentMs, Number(voiceTiming?.headers_ms) || 0);
+    const firstChunkMs = Math.max(headersMs, Number(voiceTiming?.first_chunk_ms) || 0);
+    const playbackMs = Math.max(firstChunkMs, Number(voiceTiming?.playback_ms) || voiceLatencyMs || 0);
+    const voiceStages = playbackMs
+      ? ` 语音：首句 ${(segmentMs / 1000).toFixed(1)} 秒，响应头 ${(headersMs / 1000).toFixed(1)} 秒，音频首块 ${(firstChunkMs / 1000).toFixed(1)} 秒，首声 ${(playbackMs / 1000).toFixed(1)} 秒。`
       : '';
     llmApiStatus.textContent = mode === 'cloud_llm'
-      ? `真实模型正在结合前文与长期记忆回答。${timing}${voiceTiming}`
+      ? `真实模型正在结合前文与长期记忆回答。${timing}${voiceStages}`
       : '服务器凭据已就绪，设备端无需填写 API Key。';
     llmApiStatus.dataset.firstTokenMs = firstTokenMs ? String(Math.round(firstTokenMs)) : '';
     llmApiStatus.dataset.totalMs = totalMs ? String(Math.round(totalMs)) : '';
-    llmApiStatus.dataset.voiceLatencyMs = voiceLatencyMs ? String(Math.round(voiceLatencyMs)) : '';
+    llmApiStatus.dataset.voiceSegmentMs = segmentMs ? String(Math.round(segmentMs)) : '';
+    llmApiStatus.dataset.voiceHeadersMs = headersMs ? String(Math.round(headersMs)) : '';
+    llmApiStatus.dataset.voiceFirstChunkMs = firstChunkMs ? String(Math.round(firstChunkMs)) : '';
+    llmApiStatus.dataset.voiceLatencyMs = playbackMs ? String(Math.round(playbackMs)) : '';
     return;
   }
   if (failure && failure !== 'not_configured') {
@@ -1181,19 +1189,29 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   if (!text || state.busy || (source === 'voice' && looksLikeEcho(text))) return;
   const turnStartedAt = Date.now();
   let firstVoiceMs = 0;
+  const voiceTiming = {};
   let connectionResult = null;
   let earlySpeechText = '';
   let earlySpeechStarted = null;
   let resolveEarlyContinuation = null;
+  const recordVoiceStage = (stage) => {
+    if (!stage || voiceTiming[stage]) return;
+    voiceTiming[stage] = Math.max(1, Date.now() - turnStartedAt);
+    if (connectionResult) {
+      renderLlmConnection({ ...connectionResult, voiceLatencyMs: firstVoiceMs, voiceTiming });
+    }
+  };
   const recordFirstVoice = () => {
     if (firstVoiceMs) return;
     firstVoiceMs = Math.max(1, Date.now() - turnStartedAt);
+    voiceTiming.playback_ms = firstVoiceMs;
     if (connectionResult) {
-      renderLlmConnection({ ...connectionResult, voiceLatencyMs: firstVoiceMs });
+      renderLlmConnection({ ...connectionResult, voiceLatencyMs: firstVoiceMs, voiceTiming });
     }
   };
   const startEarlySpeech = (segment) => {
     if (!segment || earlySpeechStarted) return;
+    recordVoiceStage('segment_ms');
     earlySpeechText = segment;
     const continuation = new Promise((resolve) => {
       resolveEarlyContinuation = resolve;
@@ -1202,6 +1220,7 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
       mood: 'calm',
       action: 'voice',
       allowQueue: true,
+      onTiming: recordVoiceStage,
       onStarted: recordFirstVoice,
       onEnded: async () => {
         const next = await continuation;
@@ -1247,7 +1266,7 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   }
   state.streamingReply = '';
   connectionResult = result;
-  renderLlmConnection({ ...result, voiceLatencyMs: firstVoiceMs });
+  renderLlmConnection({ ...result, voiceLatencyMs: firstVoiceMs, voiceTiming });
   if (result.reauthenticate) {
     resolveEarlyContinuation?.(null);
     stopAudio({ clearQueue: true, guardMs: 0 });
@@ -1290,10 +1309,12 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
     stopAudio({ clearQueue: true, guardMs: 0 });
   }
   state.busy = false;
+  recordVoiceStage('segment_ms');
   await speakText(result.reply, {
     mood: result.mood,
     action: result.action,
     allowQueue: true,
+    onTiming: recordVoiceStage,
     onStarted: recordFirstVoice
   });
 }
@@ -1505,7 +1526,9 @@ function appendMediaChunk(sourceBuffer, chunk) {
 
 async function playStreamingVoiceResponse(response, allowQueue = true, callbacks = {}) {
   if (!supportsProgressiveVoicePlayback() || !response.body) {
-    return playAudioBlob(await response.blob(), allowQueue, callbacks, {
+    const blob = await response.blob();
+    callbacks.onTiming?.('first_chunk_ms');
+    return playAudioBlob(blob, allowQueue, callbacks, {
       preserveVoiceRequest: true
     });
   }
@@ -1597,6 +1620,7 @@ async function playStreamingVoiceResponse(response, allowQueue = true, callbacks
               return;
             }
             if (!chunk.value?.byteLength) continue;
+            callbacks.onTiming?.('first_chunk_ms');
             const bytes = chunk.value.slice();
             chunks.push(bytes);
             await appendMediaChunk(sourceBuffer, bytes);
@@ -1676,6 +1700,7 @@ async function speakText(text, {
   mood = 'happy',
   action = '',
   allowQueue = false,
+  onTiming = null,
   onStarted = null,
   onEnded = null
 } = {}) {
@@ -1688,8 +1713,13 @@ async function speakText(text, {
   setPhase('thinking', action);
   try {
     const response = await fetchVoiceResponse(text, mood, controller.signal);
+    onTiming?.('headers_ms');
     if (controller.signal.aborted || requestId !== state.voiceRequestId) return false;
-    const streamed = await playStreamingVoiceResponse(response, allowQueue, { onStarted, onEnded });
+    const streamed = await playStreamingVoiceResponse(response, allowQueue, {
+      onTiming,
+      onStarted,
+      onEnded
+    });
     if (streamed) {
       if (state.voiceRequestController === controller) state.voiceRequestController = null;
       return true;
