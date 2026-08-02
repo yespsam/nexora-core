@@ -23,5 +23,6 @@ test('every device cloud lookup and mutation is explicitly owner-scoped', () => 
   assert.match(source, /WHERE public_id = \$1 AND owner_id = \$2/);
   assert.match(source, /WHERE d\.id = \$1 AND d\.owner_id = \$3/);
   assert.match(source, /WHERE id = \$1 AND owner_id = \$2/);
+  assert.match(source, /UPDATE nexora_cloud\.device_command_agents\s+SET last_seen_at = now\(\)\s+WHERE id = \$1 AND owner_id = \$2 AND vault_id = \$3/);
   assert.doesNotMatch(source, /vaultForOwner\(client,\s*(?:publicId|value\?\.vaultId)/);
 });

@@ -68,15 +68,16 @@ import {
   remainingSpeechText,
   parseChatStreamEvent
 } from '../shared/chat-stream.mjs?v=2';
-import { parseDeviceCommand } from '../shared/device-command.mjs?v=1';
+import { parseDeviceCommand } from '../shared/device-command.mjs?v=2';
 import {
   getSoulmateCommandAgentStatus,
   getSoulmateDeviceCommandStatus,
   loadSoulmateCommandAgent,
+  mergeSoulmateCommandAgentStatus,
   queueSoulmateDeviceCommand,
   registerSoulmateCommandAgent,
   soulmateCommandAgentPairingCode
-} from '../shared/soulmate-command-agent.mjs?v=1';
+} from '../shared/soulmate-command-agent.mjs?v=2';
 import {
   DESKTOP_BRIDGE_DOWNLOADS,
   desktopBridgeDownloadView,
@@ -1295,9 +1296,13 @@ async function refreshCommandAgent({ quiet = false } = {}) {
       bridgePairing.hidden = true;
       return false;
     }
-    state.commandAgentStatus = await getSoulmateCommandAgentStatus(
+    const remoteStatus = await getSoulmateCommandAgentStatus(
       state.cloudIdentity,
       state.commandAgent
+    );
+    state.commandAgentStatus = mergeSoulmateCommandAgentStatus(
+      state.commandAgentStatus,
+      remoteStatus
     );
     return activateCloudCommandAgent();
   } catch (error) {
@@ -1332,7 +1337,13 @@ async function sendCloudCommand(command) {
     if (final?.status === 'acknowledged') {
       const summary = `${String(command.label).replace(/[。！]+$/g, '')}，电脑客户端已确认。`;
       bridgeStatus.textContent = summary;
-      state.commandAgentStatus = { ...(state.commandAgentStatus || {}), lastSeenAt: final.acknowledgedAt };
+      const acknowledgedAt = Number.isFinite(Date.parse(String(final.acknowledgedAt || '')))
+        ? final.acknowledgedAt
+        : new Date().toISOString();
+      state.commandAgentStatus = mergeSoulmateCommandAgentStatus(state.commandAgentStatus, {
+        ...(state.commandAgentStatus || {}),
+        lastSeenAt: acknowledgedAt
+      });
       return { ok: true, summary };
     }
     if (final?.status === 'failed') {

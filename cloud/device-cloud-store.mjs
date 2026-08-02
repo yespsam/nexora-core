@@ -421,6 +421,12 @@ export class DeviceCloudStore {
         RETURNING id, status, acknowledged_at
       `, [outcome, commandId, owner, agentAuth.vaultUuid, agentAuth.agentId]);
       if (!result.rowCount) throw new DeviceCloudError('command is no longer claimable', 409, 'command_state');
+      await client.query(`
+        UPDATE nexora_cloud.device_command_agents
+        SET last_seen_at = now()
+        WHERE id = $1 AND owner_id = $2 AND vault_id = $3
+          AND status = 'active' AND revoked_at IS NULL
+      `, [agentAuth.agentId, owner, agentAuth.vaultUuid]);
       return {
         commandId: result.rows[0].id,
         status: result.rows[0].status,

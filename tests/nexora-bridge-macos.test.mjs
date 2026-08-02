@@ -13,6 +13,7 @@ test('native macOS bridge keeps credentials in the device-only Keychain', () => 
   assert.match(source, /SecItemCopyMatching/);
   assert.match(source, /SecItemUpdate/);
   assert.doesNotMatch(source, /print\([^\n]*(?:secret|pairing)/i);
+  assert.match(source, /CommandLine\.arguments\.contains\("--pair"\)/);
 });
 
 test('native macOS bridge implements the same encrypted command boundary', () => {

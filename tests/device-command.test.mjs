@@ -32,3 +32,15 @@ test('media and home phrases produce bounded structured commands', () => {
   });
   assert.equal(parseDeviceCommand('把空调温度调到 99 度')?.parameters.degrees, 30);
 });
+
+test('desktop app commands accept concise English voice transcripts', () => {
+  assert.deepEqual(parseDeviceCommand('open calendar'), {
+    version: 1,
+    target: 'computer',
+    action: 'app.open',
+    parameters: { app: 'calendar' },
+    label: '正在打开日历'
+  });
+  assert.equal(parseDeviceCommand('please open notes')?.parameters.app, 'notes');
+  assert.equal(parseDeviceCommand('open terminal'), null);
+});

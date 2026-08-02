@@ -2,11 +2,16 @@ export const DEVICE_COMMAND_VERSION = 1;
 
 const applicationNames = Object.freeze({
   safari: Object.freeze({ id: 'safari', label: 'Safari' }),
+  browser: Object.freeze({ id: 'safari', label: 'Safari' }),
   '浏览器': Object.freeze({ id: 'safari', label: 'Safari' }),
   '音乐': Object.freeze({ id: 'music', label: '音乐' }),
+  music: Object.freeze({ id: 'music', label: '音乐' }),
   '日历': Object.freeze({ id: 'calendar', label: '日历' }),
+  calendar: Object.freeze({ id: 'calendar', label: '日历' }),
   '备忘录': Object.freeze({ id: 'notes', label: '备忘录' }),
-  '计算器': Object.freeze({ id: 'calculator', label: '计算器' })
+  notes: Object.freeze({ id: 'notes', label: '备忘录' }),
+  '计算器': Object.freeze({ id: 'calculator', label: '计算器' }),
+  calculator: Object.freeze({ id: 'calculator', label: '计算器' })
 });
 
 function compact(value) {
@@ -61,7 +66,8 @@ function mediaCommand(text) {
 }
 
 function applicationCommand(text) {
-  const requested = text.match(/^(?:请|帮我|麻烦)?打开(.+)$/)?.[1];
+  const requested = text.match(/^(?:请|帮我|麻烦)?打开(.+)$/)?.[1]
+    || text.match(/^(?:please)?open(.+)$/)?.[1];
   const app = requested ? applicationNames[requested] : null;
   return app
     ? command('computer', 'app.open', { app: app.id }, `正在打开${app.label}`)

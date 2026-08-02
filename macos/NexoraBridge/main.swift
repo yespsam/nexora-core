@@ -1204,9 +1204,13 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     configureMenu()
     desktopPet.start()
     refreshPetMenu()
+    let shouldShowPairing = CommandLine.arguments.contains("--pair")
     configuration = KeychainStore.load() ?? LegacyPairing.importIfPresent()
     if let configuration {
       start(configuration)
+      if shouldShowPairing {
+        DispatchQueue.main.async { self.showPairingWindow() }
+      }
     } else {
       updateStatus("尚未配对", online: false)
       DispatchQueue.main.async { self.showPairingWindow() }

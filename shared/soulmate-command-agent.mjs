@@ -11,6 +11,17 @@ import { normalizeSoulmateCloudIdentity } from './soulmate-cloud-sync.mjs';
 const stateVersion = 1;
 const storagePrefix = 'command-agent:';
 
+export function mergeSoulmateCommandAgentStatus(previousValue, nextValue) {
+  const previous = previousValue && typeof previousValue === 'object' ? previousValue : {};
+  const next = nextValue && typeof nextValue === 'object' ? { ...nextValue } : {};
+  const previousSeen = Date.parse(String(previous.lastSeenAt || ''));
+  const nextSeen = Date.parse(String(next.lastSeenAt || ''));
+  if (Number.isFinite(previousSeen) && (!Number.isFinite(nextSeen) || previousSeen > nextSeen)) {
+    next.lastSeenAt = previous.lastSeenAt;
+  }
+  return next;
+}
+
 function cryptoApi(value = globalThis.crypto) {
   if (!value?.getRandomValues || !value?.subtle) throw new Error('secure crypto unavailable');
   return value;

@@ -5,6 +5,7 @@ import { createSoulmateCloudIdentity } from '../shared/soulmate-cloud-sync.mjs';
 import {
   getSoulmateCommandAgentStatus,
   loadSoulmateCommandAgent,
+  mergeSoulmateCommandAgentStatus,
   queueSoulmateDeviceCommand,
   registerSoulmateCommandAgent
 } from '../shared/soulmate-command-agent.mjs';
@@ -59,4 +60,22 @@ test('browser queues ciphertext and reads agent status without sending its secre
   assert.equal(JSON.stringify(requests[0]).includes(paired.credential.secret), false);
   const status = await getSoulmateCommandAgentStatus(identity, paired.credential, { fetchImpl });
   assert.equal(status.status, 'active');
+});
+
+test('a recent command acknowledgement survives a stale agent status response', () => {
+  const acknowledgedAt = '2026-08-02T12:00:00.000Z';
+  assert.deepEqual(
+    mergeSoulmateCommandAgentStatus(
+      { status: 'active', lastSeenAt: acknowledgedAt },
+      { status: 'active', lastSeenAt: null }
+    ),
+    { status: 'active', lastSeenAt: acknowledgedAt }
+  );
+  assert.equal(
+    mergeSoulmateCommandAgentStatus(
+      { lastSeenAt: acknowledgedAt },
+      { lastSeenAt: '2026-08-02T12:01:00.000Z' }
+    ).lastSeenAt,
+    '2026-08-02T12:01:00.000Z'
+  );
 });
