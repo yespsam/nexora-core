@@ -144,7 +144,8 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   && diagnosticLlmModels.has(requestedDiagnosticLlmModel)
   ? requestedDiagnosticLlmModel
   : '';
-const APP_RELEASE = 'signed-chat-route-v99';
+const REALTIME_LLM_MODEL = 'moonshot-v1-8k';
+const APP_RELEASE = 'realtime-dialogue-v100';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -1180,7 +1181,7 @@ async function requestReply(text, {
     },
     client_release: APP_RELEASE,
     probe: probe || Boolean(diagnosticLlmModel),
-    ...(diagnosticLlmModel ? { llm_model: diagnosticLlmModel } : {}),
+    llm_model: diagnosticLlmModel || REALTIME_LLM_MODEL,
     stream: true
   });
   const requestChat = (path, grant = '') => fetch(path, {

@@ -172,6 +172,7 @@ test('Soulmate profile customizes identity and keeps memory context compact', ()
   assert.match(messages[0].content, /曜影兽/);
   assert.match(messages[0].content, /不得声称看到/);
   assert.match(messages[0].content, /默认用自然的简体中文/);
+  assert.match(messages[0].content, /不超过 45 个汉字/);
   assert.match(messages[0].content, /以最新说法为准/);
   assert.match(messages[0].content, /避免重复最近回答/);
   assert.ok(messages[0].content.length < 850);
