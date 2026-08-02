@@ -1,4 +1,4 @@
-export const DESKTOP_BRIDGE_RELEASE_TAG = 'bridge-v0.2.1-internal';
+export const DESKTOP_BRIDGE_RELEASE_TAG = 'bridge-v0.3.0-internal';
 
 const releaseBase = `https://github.com/yespsam/nexora-core/releases/download/${DESKTOP_BRIDGE_RELEASE_TAG}`;
 const releasePage = `https://github.com/yespsam/nexora-core/releases/tag/${DESKTOP_BRIDGE_RELEASE_TAG}`;

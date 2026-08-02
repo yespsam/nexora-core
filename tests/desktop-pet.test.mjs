@@ -22,11 +22,16 @@ test('desktop pet surface contains only the native 3D companion', () => {
   assert.doesNotMatch(css, /color-scheme/);
 });
 
-test('desktop pet supports bounded click interactions and full-chat handoff', () => {
+test('desktop pet supports bounded click interactions and an on-demand compact conversation', () => {
   assert.match(app, /const clickActions = \['wave', 'nod', 'affection'\]/);
   assert.match(app, /stage\.addEventListener\('click'/);
   assert.match(app, /stage\.addEventListener\('dblclick'/);
-  assert.match(app, /type: 'open-chat'/);
+  assert.match(app, /setConversationOpen\(!state\.conversationOpen\)/);
+  assert.match(app, /type: 'chat-submit'/);
+  assert.match(app, /receiveReply/);
+  assert.match(html, /id="conversation-input"/);
+  assert.match(html, /maxlength="160"/);
+  assert.match(css, /\.conversation\[hidden\]/);
   assert.match(app, /window\.NexoraDesktopPet = Object\.freeze/);
 });
 
@@ -52,12 +57,17 @@ test('macOS shell uses a transparent persistent panel with drag and click-throug
   assert.match(native, /CGWindowListCreateImage/);
   assert.match(native, /cornerAlpha/);
   assert.match(native, /resizeForSelfTest/);
+  assert.match(native, /\/api\/device-bridge\/chat/);
+  assert.match(native, /\/api\/device-bridge\/voice/);
+  assert.match(native, /Authorization/);
+  assert.match(native, /AVAudioPlayer/);
 });
 
 test('macOS package embeds the private 3D runtime for offline rendering', () => {
   assert.match(native, /nexora-pet:\/\/app\/desktop-pet\/index\.html/);
   assert.match(native, /WKURLSchemeHandler/);
   assert.match(build, /-framework WebKit/);
+  assert.match(build, /-framework AVFoundation/);
   assert.match(build, /WEB_DIR=.*Contents\/Resources\/Web|WEB_DIR="\$RESOURCES_DIR\/Web"/);
   assert.match(build, /NEXORA_3D_CREATURES/);
   assert.match(build, /rigged\.glb/);

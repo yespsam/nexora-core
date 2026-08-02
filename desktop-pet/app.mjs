@@ -2,6 +2,12 @@ import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=27';
 
 const stage = document.querySelector('#pet-stage');
 const bubble = document.querySelector('#speech-bubble');
+const conversation = document.querySelector('#conversation');
+const conversationStatus = document.querySelector('#conversation-status');
+const conversationForm = document.querySelector('#conversation-form');
+const conversationInput = document.querySelector('#conversation-input');
+const conversationSend = document.querySelector('#conversation-send');
+const conversationClose = document.querySelector('#conversation-close');
 const params = new URLSearchParams(location.search);
 const starters = new Set(['cute', 'cool', 'beautiful']);
 const stages = new Set(['seed', 'young', 'resonance']);
@@ -25,7 +31,9 @@ const state = {
   bubbleTimer: 0,
   clickTimer: 0,
   pointerStart: null,
-  dragged: false
+  dragged: false,
+  conversationOpen: false,
+  conversationBusy: false
 };
 
 const postNative = (message) => {
@@ -72,6 +80,47 @@ function showBubble(text, duration = 2100) {
   state.bubbleTimer = window.setTimeout(() => {
     bubble.hidden = true;
   }, duration);
+}
+
+function setConversationOpen(open, status = '') {
+  state.conversationOpen = Boolean(open);
+  conversation.hidden = !state.conversationOpen;
+  if (status) conversationStatus.textContent = String(status).trim().slice(0, 80);
+  postNative({ type: 'conversation-state', open: state.conversationOpen });
+  if (state.conversationOpen) {
+    window.setTimeout(() => conversationInput.focus(), 0);
+  } else {
+    state.conversationBusy = false;
+    conversationInput.disabled = false;
+    conversationSend.disabled = false;
+    conversationInput.blur();
+  }
+}
+
+function setConversationState(input = {}) {
+  const phase = String(input.phase || 'idle');
+  const status = String(input.status || '').trim().slice(0, 80);
+  state.conversationBusy = ['thinking', 'speaking'].includes(phase);
+  conversationInput.disabled = state.conversationBusy;
+  conversationSend.disabled = state.conversationBusy;
+  if (status) conversationStatus.textContent = status;
+  if (phase === 'thinking') play('listening', { line: '', duration: 0 });
+  if (phase === 'speaking') play('speaking', { line: status, duration: 0 });
+  if (phase === 'error') play('idle', { line: '', duration: 0 });
+  if (phase === 'idle') play('idle', { line: '', duration: 0 });
+}
+
+function receiveReply(input = {}) {
+  const text = String(input.text || '').trim().slice(0, 300);
+  const requestedAction = input.action === 'voice' ? 'speaking' : String(input.action || 'speaking');
+  const action = actions.has(requestedAction) ? requestedAction : 'speaking';
+  if (!text) return;
+  state.conversationBusy = false;
+  conversationInput.disabled = false;
+  conversationSend.disabled = false;
+  conversationStatus.textContent = text;
+  play(action || 'speaking', { line: text, duration: Math.max(3200, Math.min(9000, text.length * 170)) });
+  window.setTimeout(() => conversationInput.focus(), 0);
 }
 
 async function play(action, options = {}) {
@@ -125,6 +174,7 @@ stage.addEventListener('pointerup', releasePointer);
 stage.addEventListener('pointercancel', releasePointer);
 
 stage.addEventListener('click', () => {
+  if (state.conversationOpen) return;
   if (state.dragged) {
     state.dragged = false;
     return;
@@ -139,7 +189,7 @@ stage.addEventListener('click', () => {
 
 stage.addEventListener('dblclick', () => {
   window.clearTimeout(state.clickTimer);
-  postNative({ type: 'open-chat' });
+  setConversationOpen(!state.conversationOpen);
 });
 
 stage.addEventListener('keydown', (event) => {
@@ -152,10 +202,37 @@ stage.addEventListener('keydown', (event) => {
 
 stage.addEventListener('contextmenu', (event) => event.preventDefault());
 
+conversation.addEventListener('pointerdown', (event) => event.stopPropagation());
+conversation.addEventListener('pointermove', (event) => event.stopPropagation());
+conversation.addEventListener('pointerup', (event) => event.stopPropagation());
+conversation.addEventListener('click', (event) => event.stopPropagation());
+conversation.addEventListener('dblclick', (event) => event.stopPropagation());
+conversation.addEventListener('keydown', (event) => event.stopPropagation());
+
+conversationForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const text = conversationInput.value.replace(/\s+/g, ' ').trim().slice(0, 160);
+  if (!text || state.conversationBusy) return;
+  conversationInput.value = '';
+  setConversationState({ phase: 'thinking', status: `${state.name || '伙伴'}正在理解……` });
+  postNative({ type: 'chat-submit', text });
+});
+
+conversationClose.addEventListener('click', () => setConversationOpen(false));
+
+conversationInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  event.preventDefault();
+  setConversationOpen(false);
+});
+
 window.NexoraDesktopPet = Object.freeze({
   configure,
   play,
   showBubble,
+  setConversationOpen,
+  setConversationState,
+  receiveReply,
   getState: () => ({ ...state, viewer: viewer.getState() })
 });
 

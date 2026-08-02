@@ -2,6 +2,8 @@ import { getDatabase } from '@netlify/database';
 
 import { DeviceCloudStore } from '../../cloud/device-cloud-store.mjs';
 import { createDeviceBridgeFunction } from './_shared/device-bridge-data.mjs';
+import chatHandler from './chat.mjs';
+import { createVoiceResponse } from './voice-speak.mjs';
 
 let store;
 
@@ -24,6 +26,8 @@ function getStore() {
 export default createDeviceBridgeFunction({
   enabled: environment('NEXORA_DEVICE_CLOUD_ENABLED') === 'true',
   getStore,
+  handleChat: chatHandler,
+  handleVoice: createVoiceResponse,
   onError(error) {
     console.error('[device-bridge-function]', {
       name: String(error?.name || 'Error').slice(0, 80),

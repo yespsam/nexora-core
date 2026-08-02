@@ -45,4 +45,10 @@ test('macOS bridge exposes the desktop pet from its menu without a second app', 
   assert.match(source, /互动动作/);
   assert.match(source, /鼠标穿透/);
   assert.match(source, /恢复默认大小/);
+  assert.match(source, /和桌面伙伴对话/);
+  assert.match(source, /设置伙伴名字/);
+  assert.match(source, /desktopPet\.chatHistory\.v1/);
+  assert.match(source, /creature:\\\(starter\)/);
+  assert.match(source, /--self-test-cloud-pet/);
+  assert.match(source, /desktop pet cloud self-test passed/);
 });

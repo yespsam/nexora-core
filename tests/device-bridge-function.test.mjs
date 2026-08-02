@@ -68,6 +68,46 @@ test('bridge acknowledgements are bound to the authenticated agent', async () =>
   assert.equal(app.calls[1].args[2], 'acknowledged');
 });
 
+test('paired desktop companion can reach chat without browser cookies', async () => {
+  let forwarded;
+  const app = harness({
+    async handleChat(request) {
+      forwarded = request;
+      return Response.json({ text: '我在。', actions: [{ target: 'companion', action: 'voice' }] });
+    }
+  });
+  const response = await app.handler(request('/api/device-bridge/chat', {
+    method: 'POST',
+    body: JSON.stringify({ text: '你好', persona: 'creature:cute', history: [] })
+  }));
+  assert.equal(response.status, 200);
+  assert.equal(forwarded.headers.get('authorization'), null);
+  assert.equal(forwarded.headers.get('x-nexora-client-release'), 'desktop-pet-native-v1');
+  assert.equal((await forwarded.json()).text, '你好');
+  assert.equal((await response.json()).text, '我在。');
+  assert.deepEqual(app.calls.map((call) => call.method), ['authenticateCommandAgent']);
+});
+
+test('paired desktop companion can request its matching voice', async () => {
+  let voicePayload;
+  const app = harness({
+    async handleVoice(payload) {
+      voicePayload = payload;
+      return new Response(new Uint8Array([1, 2, 3]), {
+        headers: { 'Content-Type': 'audio/mpeg' }
+      });
+    }
+  });
+  const response = await app.handler(request('/api/device-bridge/voice', {
+    method: 'POST',
+    body: JSON.stringify({ text: '我在。', persona: 'creature:cool', starter: 'cool' })
+  }));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'audio/mpeg');
+  assert.equal(voicePayload.starter, 'cool');
+  assert.deepEqual(app.calls.map((call) => call.method), ['authenticateCommandAgent']);
+});
+
 test('bridge rejects missing bearer credentials before polling', async () => {
   const app = harness();
   const response = await app.handler(new Request(

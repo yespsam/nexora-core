@@ -23,6 +23,7 @@ build_architecture() {
     -whole-module-optimization \
     -target "${architecture}-apple-macos13.0" \
     -framework AppKit \
+    -framework AVFoundation \
     -framework Security \
     -framework WebKit \
     "$SOURCE" \

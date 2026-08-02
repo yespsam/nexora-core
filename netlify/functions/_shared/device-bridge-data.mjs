@@ -1,6 +1,6 @@
 import { DeviceCloudError } from '../../../cloud/device-cloud-validation.mjs';
 
-const maximumBodyBytes = 4096;
+const maximumBodyBytes = 24000;
 const secretPattern = /^[A-Za-z0-9_-]{43}$/;
 
 function json(body, status = 200) {
@@ -37,10 +37,24 @@ function publicError(error) {
   return new DeviceCloudError('device bridge unavailable', 503, 'unavailable');
 }
 
+function forwardedJsonRequest(request, path, body) {
+  return new Request(new URL(path, request.url), {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'X-Nexora-Client-Release': 'desktop-pet-native-v1'
+    },
+    body: JSON.stringify(body)
+  });
+}
+
 export function createDeviceBridgeFunction(options) {
   const enabled = options.enabled === true;
   const getStore = options.getStore;
   const onError = options.onError || (() => {});
+  const handleChat = options.handleChat;
+  const handleVoice = options.handleVoice;
 
   return async function deviceBridgeHandler(request) {
     if (!enabled) return json({ error: 'not_found' }, 404);
@@ -59,6 +73,18 @@ export function createDeviceBridgeFunction(options) {
       }
       if (request.method === 'GET' && url.pathname === '/api/device-bridge/commands') {
         return json(await store.claimCommand(auth));
+      }
+      if (request.method === 'POST' && url.pathname === '/api/device-bridge/chat') {
+        if (typeof handleChat !== 'function') {
+          throw new DeviceCloudError('desktop chat unavailable', 503, 'chat_unavailable');
+        }
+        return handleChat(forwardedJsonRequest(request, '/api/chat', await readJson(request)));
+      }
+      if (request.method === 'POST' && url.pathname === '/api/device-bridge/voice') {
+        if (typeof handleVoice !== 'function') {
+          throw new DeviceCloudError('desktop voice unavailable', 503, 'voice_unavailable');
+        }
+        return handleVoice(await readJson(request));
       }
       const acknowledgement = url.pathname.match(/^\/api\/device-bridge\/commands\/([0-9a-f-]+)\/ack$/i);
       if (request.method === 'POST' && acknowledgement) {

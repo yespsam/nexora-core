@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import CryptoKit
 import Foundation
 import Security
@@ -170,6 +171,26 @@ private struct CloudCommand: Codable {
 
 private struct ClaimResponse: Decodable {
   let command: CloudCommand?
+}
+
+private struct DesktopChatMessage: Codable {
+  let role: String
+  let content: String
+}
+
+private struct DesktopChatResponse: Decodable {
+  struct Emotion: Decodable {
+    let mood: String?
+  }
+
+  struct Action: Decodable {
+    let target: String?
+    let action: String?
+  }
+
+  let text: String
+  let emotion: Emotion?
+  let actions: [Action]?
 }
 
 private struct CommandParameters: Codable {
@@ -531,7 +552,7 @@ private final class BundleSchemeHandler: NSObject, WKURLSchemeHandler {
 }
 
 private final class DesktopPetPanel: NSPanel {
-  override var canBecomeKey: Bool { false }
+  override var canBecomeKey: Bool { true }
   override var canBecomeMain: Bool { false }
 }
 
@@ -539,31 +560,50 @@ private final class TransparentPetWebView: WKWebView {
   override var isOpaque: Bool { false }
 }
 
-private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNavigationDelegate, AVAudioPlayerDelegate {
   private static let frameKey = "desktopPet.frame.v1"
   private static let visibleKey = "desktopPet.visible.v1"
   private static let clickThroughKey = "desktopPet.clickThrough.v1"
   private static let starterKey = "desktopPet.starter.v1"
   private static let stageKey = "desktopPet.stage.v1"
+  private static let nameKey = "desktopPet.name.v1"
+  private static let chatHistoryKey = "desktopPet.chatHistory.v1"
   private static let starters = Set(["cute", "cool", "beautiful"])
   private static let stages = Set(["seed", "young", "resonance"])
   private static let actions = Set(["idle", "listening", "nod", "affection", "wave", "speaking", "walk", "run"])
 
   private let defaults: UserDefaults
   private let schemeHandler: BundleSchemeHandler
+  private let conversationSession: URLSession
   private var panel: DesktopPetPanel!
   private var webView: WKWebView!
   private var eventMonitor: Any?
   private var dragStart: (mouse: NSPoint, origin: NSPoint)?
   private var frameSaveWorkItem: DispatchWorkItem?
+  private var bridgeConfiguration: BridgeConfiguration?
+  private var chatTask: URLSessionDataTask?
+  private var voiceTask: URLSessionDataTask?
+  private var audioPlayer: AVAudioPlayer?
+  private var chatHistory: [DesktopChatMessage]
+  private var conversationOpen = false
+  private var conversationBusy = false
   private(set) var modelReady = false
   private(set) var modelError: String?
   private(set) var starter: String
   private(set) var stage: String
+  private(set) var petName: String
   private(set) var isClickThrough: Bool
 
   var isVisible: Bool { panel.isVisible }
   var currentSize: NSSize { panel.frame.size }
+
+  private static func defaultName(for starter: String) -> String {
+    switch starter {
+    case "cool": return "维尔"
+    case "beautiful": return "艾拉"
+    default: return "露莫"
+    }
+  }
 
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
@@ -571,10 +611,22 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
     let savedStage = defaults.string(forKey: Self.stageKey) ?? "seed"
     starter = Self.starters.contains(savedStarter) ? savedStarter : "cute"
     stage = Self.stages.contains(savedStage) ? savedStage : "seed"
+    petName = defaults.string(forKey: Self.nameKey) ?? Self.defaultName(for: starter)
+    chatHistory = defaults.data(forKey: Self.chatHistoryKey)
+      .flatMap { try? JSONDecoder().decode([DesktopChatMessage].self, from: $0) }?
+      .filter { ["user", "assistant"].contains($0.role) && !$0.content.isEmpty }
+      .suffix(12)
+      .map { $0 } ?? []
     isClickThrough = defaults.bool(forKey: Self.clickThroughKey)
     let webRoot = Bundle.main.resourceURL?.appendingPathComponent("Web")
       ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     schemeHandler = BundleSchemeHandler(rootURL: webRoot)
+    let sessionConfiguration = URLSessionConfiguration.ephemeral
+    sessionConfiguration.timeoutIntervalForRequest = 18
+    sessionConfiguration.timeoutIntervalForResource = 24
+    sessionConfiguration.urlCache = nil
+    sessionConfiguration.httpAdditionalHeaders = ["User-Agent": "NEXORA-Bridge-macOS/0.3"]
+    conversationSession = URLSession(configuration: sessionConfiguration)
     super.init()
     configureWindow()
     installDragMonitor()
@@ -595,6 +647,9 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
     frameSaveWorkItem?.cancel()
     frameSaveWorkItem = nil
     panel?.orderOut(nil)
+    chatTask?.cancel()
+    voiceTask?.cancel()
+    audioPlayer?.stop()
     webView?.stopLoading()
     webView?.configuration.userContentController.removeScriptMessageHandler(forName: "desktopPet")
     if let eventMonitor {
@@ -632,6 +687,29 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
     isVisible ? hide() : show()
   }
 
+  func setBridgeConfiguration(_ configuration: BridgeConfiguration?) {
+    bridgeConfiguration = configuration
+    if configuration == nil, conversationOpen {
+      chatTask?.cancel()
+      voiceTask?.cancel()
+      audioPlayer?.stop()
+      conversationBusy = false
+      evaluate(function: "setConversationState", payload: [
+        "phase": "error",
+        "status": "请先从菜单栏配对电脑"
+      ])
+    }
+  }
+
+  func openConversation() {
+    setClickThrough(false)
+    show()
+    evaluate(function: "setConversationOpen", payload: [
+      "open": "true",
+      "status": bridgeConfiguration == nil ? "请先从菜单栏配对电脑" : "我在，想聊什么？"
+    ])
+  }
+
   func setClickThrough(_ enabled: Bool) {
     isClickThrough = enabled
     panel.ignoresMouseEvents = enabled
@@ -642,6 +720,9 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
     guard Self.starters.contains(value) else { return }
     starter = value
     defaults.set(value, forKey: Self.starterKey)
+    if defaults.object(forKey: Self.nameKey) == nil {
+      petName = Self.defaultName(for: value)
+    }
     applyConfiguration()
     show()
   }
@@ -650,6 +731,16 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
     guard Self.stages.contains(value) else { return }
     stage = value
     defaults.set(value, forKey: Self.stageKey)
+    applyConfiguration()
+    show()
+  }
+
+  func setName(_ value: String) {
+    let cleaned = value.trimmingCharacters(in: .whitespacesAndNewlines)
+      .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    guard !cleaned.isEmpty else { return }
+    petName = String(cleaned.prefix(12))
+    defaults.set(petName, forKey: Self.nameKey)
     applyConfiguration()
     show()
   }
@@ -688,6 +779,23 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
     if type == "ready" {
       modelReady = true
       applyConfiguration()
+    } else if type == "conversation-state" {
+      conversationOpen = body["open"] as? Bool == true
+      dragStart = nil
+      if conversationOpen {
+        setClickThrough(false)
+        panel.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        webView.evaluateJavaScript("document.querySelector('#conversation-input')?.focus();")
+      } else {
+        chatTask?.cancel()
+        voiceTask?.cancel()
+        audioPlayer?.stop()
+        conversationBusy = false
+        panel.resignKey()
+      }
+    } else if type == "chat-submit" {
+      sendChat(String(describing: body["text"] ?? ""))
     } else if type == "open-chat" {
       guard let url = URL(string: productSite + "/soulmate/") else { return }
       NSWorkspace.shared.open(url)
@@ -737,6 +845,7 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
     panel.isReleasedWhenClosed = false
     panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
     panel.animationBehavior = .utilityWindow
+    panel.becomesKeyOnlyIfNeeded = true
     panel.ignoresMouseEvents = isClickThrough
 
     let configuration = WKWebViewConfiguration()
@@ -783,6 +892,7 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
       scheduleFrameSave()
       return
     }
+    if conversationOpen { return }
     if event.type == .magnify {
       let factor = min(1.18, max(0.82, 1 + CGFloat(event.magnification)))
       resizeWindow(by: factor, anchor: NSEvent.mouseLocation)
@@ -876,7 +986,193 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
 
   private func applyConfiguration() {
     guard modelReady else { return }
-    evaluate(function: "configure", payload: ["starter": starter, "stage": stage, "action": "idle"])
+    evaluate(function: "configure", payload: [
+      "starter": starter,
+      "stage": stage,
+      "name": petName,
+      "action": "idle"
+    ])
+  }
+
+  private func sendChat(_ rawText: String) {
+    let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+      .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    guard !conversationBusy, !text.isEmpty else { return }
+    guard let configuration = bridgeConfiguration else {
+      evaluate(function: "setConversationState", payload: [
+        "phase": "error",
+        "status": "请先从菜单栏配对电脑"
+      ])
+      return
+    }
+    conversationBusy = true
+    let userMessage = DesktopChatMessage(role: "user", content: String(text.prefix(160)))
+    let requestHistory = Array(chatHistory.suffix(10))
+    appendChatMessage(userMessage)
+    let body: [String: Any] = [
+      "text": userMessage.content,
+      "persona": "creature:\(starter)",
+      "persona_short": "creature:\(starter)",
+      "relationship": "companion",
+      "scene": "daily",
+      "history": requestHistory.map { ["role": $0.role, "content": $0.content] },
+      "soulmate": [
+        "name": petName,
+        "starter": starter,
+        "starterId": starter,
+        "species": speciesName,
+        "stage": stage,
+        "daysTogether": 1,
+        "bond": min(240, chatHistory.count * 3),
+        "interactions": chatHistory.count,
+        "traits": ["warmth": 72, "curiosity": 68, "steadiness": 66, "courage": 58, "independence": 55],
+        "memories": []
+      ],
+      "voice_context": [
+        "persona": "creature:\(starter)",
+        "archetype": voiceArchetype,
+        "starter": starter
+      ],
+      "client_release": "desktop-pet-native-v1"
+    ]
+    guard let request = bridgeRequest(
+      configuration: configuration,
+      path: "/api/device-bridge/chat",
+      body: body
+    ) else {
+      finishChatWithError("无法创建对话请求")
+      return
+    }
+    chatTask?.cancel()
+    chatTask = conversationSession.dataTask(with: request) { [weak self] data, response, error in
+      guard let self else { return }
+      let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+      guard error == nil,
+            (200...299).contains(status),
+            let data,
+            let reply = try? JSONDecoder().decode(DesktopChatResponse.self, from: data),
+            !reply.text.isEmpty else {
+        let message = status == 401 ? "电脑配对已失效，请重新配对" : "真实对话暂时不可用，请稍后重试"
+        DispatchQueue.main.async {
+          guard self.conversationOpen else {
+            self.conversationBusy = false
+            return
+          }
+          self.finishChatWithError(message)
+        }
+        return
+      }
+      DispatchQueue.main.async {
+        guard self.conversationOpen else {
+          self.conversationBusy = false
+          return
+        }
+        self.finishChat(reply, configuration: configuration)
+      }
+    }
+    chatTask?.resume()
+  }
+
+  private var speciesName: String {
+    switch starter {
+    case "cool": return "曜影兽"
+    case "beautiful": return "月羽灵"
+    default: return "绒云兽"
+    }
+  }
+
+  private var voiceArchetype: String {
+    switch starter {
+    case "cool": return "edge"
+    case "beautiful": return "aether"
+    default: return "sprout"
+    }
+  }
+
+  private func bridgeRequest(
+    configuration: BridgeConfiguration,
+    path: String,
+    body: [String: Any]
+  ) -> URLRequest? {
+    guard JSONSerialization.isValidJSONObject(body),
+          let data = try? JSONSerialization.data(withJSONObject: body),
+          let agentId = configuration.credential.agentId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+          let url = URL(string: configuration.siteURL + path + "?agentId=\(agentId)") else { return nil }
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+    request.httpBody = data
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.setValue("Bearer \(configuration.credential.secret)", forHTTPHeaderField: "Authorization")
+    return request
+  }
+
+  private func appendChatMessage(_ message: DesktopChatMessage) {
+    chatHistory = Array((chatHistory + [message]).suffix(12))
+    if let data = try? JSONEncoder().encode(chatHistory) {
+      defaults.set(data, forKey: Self.chatHistoryKey)
+    }
+  }
+
+  private func finishChat(_ reply: DesktopChatResponse, configuration: BridgeConfiguration) {
+    conversationBusy = false
+    let text = String(reply.text.prefix(300))
+    appendChatMessage(DesktopChatMessage(role: "assistant", content: text))
+    let requestedAction = reply.actions?.first(where: { $0.target == "companion" })?.action ?? "voice"
+    let action: String
+    switch requestedAction {
+    case "heart": action = "affection"
+    case "nod", "wave", "walk", "run": action = requestedAction
+    default: action = "speaking"
+    }
+    evaluate(function: "receiveReply", payload: ["text": text, "action": action])
+    requestVoice(text, mood: reply.emotion?.mood ?? "calm", configuration: configuration)
+  }
+
+  private func finishChatWithError(_ message: String) {
+    conversationBusy = false
+    evaluate(function: "setConversationState", payload: ["phase": "error", "status": message])
+  }
+
+  private func requestVoice(_ text: String, mood: String, configuration: BridgeConfiguration) {
+    let body: [String: Any] = [
+      "text": text,
+      "persona": "creature:\(starter)",
+      "relationship": "companion",
+      "mood": mood,
+      "archetype": voiceArchetype,
+      "starter": starter
+    ]
+    guard let request = bridgeRequest(
+      configuration: configuration,
+      path: "/api/device-bridge/voice",
+      body: body
+    ) else { return }
+    voiceTask?.cancel()
+    voiceTask = conversationSession.dataTask(with: request) { [weak self] data, response, error in
+      guard let self,
+            error == nil,
+            let http = response as? HTTPURLResponse,
+            (200...299).contains(http.statusCode),
+            http.value(forHTTPHeaderField: "Content-Type")?.contains("audio") == true,
+            let data,
+            !data.isEmpty else { return }
+      DispatchQueue.main.async {
+        guard self.conversationOpen else { return }
+        self.audioPlayer?.stop()
+        guard let player = try? AVAudioPlayer(data: data) else { return }
+        self.audioPlayer = player
+        player.delegate = self
+        player.prepareToPlay()
+        player.play()
+      }
+    }
+    voiceTask?.resume()
+  }
+
+  func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+    evaluate(function: "setConversationState", payload: ["phase": "idle", "status": ""])
   }
 
   private func evaluate(function: String, payload: [String: String]) {
@@ -941,6 +1237,14 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     petVisibilityMenuItem = NSMenuItem(title: "显示桌面宠物", action: #selector(toggleDesktopPet), keyEquivalent: "d")
     petVisibilityMenuItem.target = self
     menu.addItem(petVisibilityMenuItem)
+
+    let petConversation = NSMenuItem(title: "和桌面伙伴对话...", action: #selector(openDesktopConversation), keyEquivalent: "t")
+    petConversation.target = self
+    menu.addItem(petConversation)
+
+    let petName = NSMenuItem(title: "设置伙伴名字...", action: #selector(renameDesktopPet), keyEquivalent: "")
+    petName.target = self
+    menu.addItem(petName)
 
     let starterRoot = NSMenuItem(title: "桌面伙伴", action: nil, keyEquivalent: "")
     let starterMenu = NSMenu(title: "桌面伙伴")
@@ -1013,6 +1317,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
   private func start(_ configuration: BridgeConfiguration) {
     self.configuration = configuration
+    desktopPet.setBridgeConfiguration(configuration)
     paused = false
     pairMenuItem.title = "重新配对..."
     pauseMenuItem.title = "暂停连接"
@@ -1042,6 +1347,28 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
   @objc private func toggleDesktopPet() {
     desktopPet.toggleVisibility()
     refreshPetMenu()
+  }
+
+  @objc private func openDesktopConversation() {
+    desktopPet.openConversation()
+    refreshPetMenu()
+  }
+
+  @objc private func renameDesktopPet() {
+    NSApp.activate(ignoringOtherApps: true)
+    let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 26))
+    field.stringValue = desktopPet.petName
+    field.placeholderString = "伙伴名字"
+    let alert = NSAlert()
+    alert.alertStyle = .informational
+    alert.messageText = "设置桌面伙伴名字"
+    alert.informativeText = "名字只保存在这台电脑上，并用于桌面对话。"
+    alert.accessoryView = field
+    alert.addButton(withTitle: "保存")
+    alert.addButton(withTitle: "取消")
+    alert.window.initialFirstResponder = field
+    guard alert.runModal() == .alertFirstButtonReturn else { return }
+    desktopPet.setName(field.stringValue)
   }
 
   @objc private func togglePetClickThrough() {
@@ -1140,6 +1467,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
       try KeychainStore.delete()
       poller.stop()
       configuration = nil
+      desktopPet.setBridgeConfiguration(nil)
       pairMenuItem.title = "配对电脑..."
       pauseMenuItem.isEnabled = false
       removeMenuItem.isEnabled = false
@@ -1256,6 +1584,107 @@ private enum SelfTest {
     print("NEXORA desktop pet native self-test passed")
   }
 
+  static func runCloudPet() throws {
+    guard let configuration = KeychainStore.load() else {
+      throw TestError.failed("desktop pet cloud pairing")
+    }
+    let chatBody: [String: Any] = [
+      "text": "今天工作有点累，请自然地回应一句。",
+      "persona": "creature:cute",
+      "persona_short": "creature:cute",
+      "relationship": "companion",
+      "scene": "daily",
+      "history": [],
+      "soulmate": [
+        "name": "露莫",
+        "starter": "cute",
+        "starterId": "cute",
+        "species": "绒云兽",
+        "stage": "seed",
+        "daysTogether": 1,
+        "bond": 6,
+        "interactions": 2,
+        "traits": ["warmth": 72, "curiosity": 68, "steadiness": 66, "courage": 58, "independence": 55],
+        "memories": []
+      ],
+      "voice_context": [
+        "persona": "creature:cute",
+        "archetype": "sprout",
+        "starter": "cute"
+      ],
+      "client_release": "desktop-pet-native-self-test"
+    ]
+    let chat = try cloudRequest(
+      configuration: configuration,
+      path: "/api/device-bridge/chat",
+      body: chatBody
+    )
+    guard let reply = try? JSONDecoder().decode(DesktopChatResponse.self, from: chat.data),
+          !reply.text.isEmpty else {
+      throw TestError.failed("desktop pet cloud reply")
+    }
+    let voice = try cloudRequest(
+      configuration: configuration,
+      path: "/api/device-bridge/voice",
+      body: [
+        "text": reply.text,
+        "persona": "creature:cute",
+        "relationship": "companion",
+        "mood": reply.emotion?.mood ?? "calm",
+        "archetype": "sprout",
+        "starter": "cute"
+      ]
+    )
+    guard voice.response.value(forHTTPHeaderField: "Content-Type")?.contains("audio") == true,
+          voice.data.count > 1000 else {
+      throw TestError.failed("desktop pet cloud voice")
+    }
+    let action = reply.actions?.first(where: { $0.target == "companion" })?.action ?? "none"
+    print("NEXORA desktop pet cloud self-test passed: replyChars=\(reply.text.count) action=\(action) audioBytes=\(voice.data.count)")
+  }
+
+  private static func cloudRequest(
+    configuration: BridgeConfiguration,
+    path: String,
+    body: [String: Any]
+  ) throws -> (data: Data, response: HTTPURLResponse) {
+    guard JSONSerialization.isValidJSONObject(body),
+          let data = try? JSONSerialization.data(withJSONObject: body),
+          let agentId = configuration.credential.agentId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+          let url = URL(string: configuration.siteURL + path + "?agentId=\(agentId)") else {
+      throw TestError.failed("desktop pet cloud request")
+    }
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+    request.httpBody = data
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.setValue("Bearer \(configuration.credential.secret)", forHTTPHeaderField: "Authorization")
+    let sessionConfiguration = URLSessionConfiguration.ephemeral
+    sessionConfiguration.timeoutIntervalForRequest = 30
+    sessionConfiguration.timeoutIntervalForResource = 40
+    let session = URLSession(configuration: sessionConfiguration)
+    let semaphore = DispatchSemaphore(value: 0)
+    var resultData: Data?
+    var resultResponse: HTTPURLResponse?
+    var resultError: Error?
+    session.dataTask(with: request) { data, response, error in
+      resultData = data
+      resultResponse = response as? HTTPURLResponse
+      resultError = error
+      semaphore.signal()
+    }.resume()
+    guard semaphore.wait(timeout: .now() + 45) == .success,
+          resultError == nil,
+          let resultData,
+          let resultResponse,
+          (200...299).contains(resultResponse.statusCode) else {
+      throw TestError.failed("desktop pet cloud response")
+    }
+    return (resultData, resultResponse)
+  }
+
   private enum TestError: Error {
     case failed(String)
   }
@@ -1267,6 +1696,16 @@ if CommandLine.arguments.contains("--self-test-pet") {
     exit(EXIT_SUCCESS)
   } catch {
     fputs("NEXORA desktop pet native self-test failed: \(error)\n", stderr)
+    exit(EXIT_FAILURE)
+  }
+}
+
+if CommandLine.arguments.contains("--self-test-cloud-pet") {
+  do {
+    try SelfTest.runCloudPet()
+    exit(EXIT_SUCCESS)
+  } catch {
+    fputs("NEXORA desktop pet cloud self-test failed: \(error)\n", stderr)
     exit(EXIT_FAILURE)
   }
 }
