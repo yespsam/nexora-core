@@ -45,6 +45,7 @@ function deviceCloudHarness() {
   let failAfterCommit = false;
   let failBootstrap = false;
   let failAfterBootstrapCommit = false;
+  let divergeNextEvent = false;
   let bootstrapCommitted = false;
   let deletionRequest = '';
   let bootstrapBody = null;
@@ -79,6 +80,20 @@ function deviceCloudHarness() {
     if (url.pathname === '/api/device-cloud/events' && method === 'POST') {
       const event = JSON.parse(options.body);
       assert.ok(normalizeDeviceCloudEvent(event));
+      if (divergeNextEvent) {
+        divergeNextEvent = false;
+        const competingEvent = {
+          ...event,
+          eventId: crypto.randomUUID(),
+          occurredAt: new Date(Date.parse(event.occurredAt) + 1).toISOString()
+        };
+        const competingHash = toBase64Url(await crypto.subtle.digest(
+          'SHA-256',
+          new TextEncoder().encode(canonicalDeviceCloudEvent(competingEvent))
+        ));
+        events.push({ cursor: events.length + 1, contentHash: competingHash, event: competingEvent });
+        return Response.json({ error: 'sequence_gap' }, { status: 409 });
+      }
       let saved = events.find((entry) => entry.event.eventId === event.eventId);
       if (!saved) {
         const contentHash = toBase64Url(await crypto.subtle.digest(
@@ -125,7 +140,8 @@ function deviceCloudHarness() {
     set dualWrite(value) { dualWrite = value; },
     set failAfterCommit(value) { failAfterCommit = value; },
     set failBootstrap(value) { failBootstrap = value; },
-    set failAfterBootstrapCommit(value) { failAfterBootstrapCommit = value; }
+    set failAfterBootstrapCommit(value) { failAfterBootstrapCommit = value; },
+    set divergeNextEvent(value) { divergeNextEvent = value; }
   };
 }
 
@@ -250,6 +266,41 @@ test('a committed bootstrap survives a lost response without replacing device ke
   assert.equal(retried.verified, true);
   assert.equal(cloud.events.length, 1);
   assert.equal(cloud.events[0].event.deviceId, committedDeviceId);
+});
+
+test('a divergent server event head is realigned before retrying the current revision', async () => {
+  const identity = createSoulmateCloudIdentity();
+  const storage = memoryStorage();
+  const cloud = deviceCloudHarness();
+  const firstBundle = companionBundle();
+  const first = await mirrorSoulmateCloudState(firstBundle, identity, 1, {
+    storage,
+    fetchImpl: cloud.fetchImpl
+  });
+  assert.equal(first.verified, true);
+
+  cloud.divergeNextEvent = true;
+  const nextProfile = growSoulmate(firstBundle.profile, { kind: 'chat', text: '今晚想看电影' });
+  const second = await mirrorSoulmateCloudState(
+    createSoulmateExportBundle(nextProfile, firstBundle.history),
+    identity,
+    2,
+    { storage, fetchImpl: cloud.fetchImpl }
+  );
+
+  assert.equal(second.mirrored, true);
+  assert.equal(second.verified, true);
+  assert.equal(cloud.events.length, 3);
+  assert.equal(cloud.events[1].event.deviceSequence, 2);
+  assert.equal(cloud.events[2].event.deviceSequence, 3);
+  assert.equal(cloud.events[2].event.previousEventHash, cloud.events[1].contentHash);
+  assert.deepEqual(await getSoulmateDeviceCloudDiagnostic(identity, { storage }), {
+    registered: true,
+    mirroredRevision: 2,
+    verifiedRevision: 2,
+    cursor: 3,
+    pending: false
+  });
 });
 
 test('mirror failures return a report instead of failing the legacy sync path', async () => {

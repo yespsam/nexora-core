@@ -394,24 +394,30 @@ async function verifyCommittedEvent(state, identity, revision, expectedEvent, va
   }
 }
 
-async function flushPending(state, identity, vaultKey, fetchImpl, storage, crypto) {
-  if (!state.pendingEvent) return { state, report: null };
-  const expectedEvent = state.pendingEvent;
-  const expectedRevision = state.pendingRevision;
-  const saved = await requestJson(fetchImpl, '/api/device-cloud/events', {
-    method: 'POST',
-    body: JSON.stringify(expectedEvent)
-  });
-  const contentHash = String(saved.body.contentHash || '');
-  if (!saved.response.ok || !base64Url32Pattern.test(contentHash)) {
-    throw new Error('event mirror unavailable');
-  }
+const recoverableEventConflicts = new Set([
+  'event_conflict',
+  'hash_chain_mismatch',
+  'sequence_gap'
+]);
+
+async function finalizeCommittedEvent(
+  state,
+  identity,
+  expectedEvent,
+  expectedRevision,
+  contentHash,
+  cursor,
+  vaultKey,
+  fetchImpl,
+  storage,
+  crypto
+) {
   let next = {
     ...state,
     deviceSequence: expectedEvent.deviceSequence,
     previousEventHash: contentHash,
     lastMirroredRevision: expectedRevision,
-    latestCursor: Math.max(1, Math.floor(Number(saved.body.cursor) || 0)),
+    latestCursor: Math.max(1, Math.floor(Number(cursor) || 0)),
     lastEventId: expectedEvent.eventId,
     pendingEvent: null,
     pendingRevision: 0
@@ -440,6 +446,126 @@ async function flushPending(state, identity, vaultKey, fetchImpl, storage, crypt
       cursor: next.latestCursor
     }
   };
+}
+
+async function recoverRejectedPending(
+  state,
+  identity,
+  expectedEvent,
+  expectedRevision,
+  rejection,
+  vaultKey,
+  fetchImpl,
+  storage,
+  crypto
+) {
+  const errorCode = String(rejection.body?.error || '');
+  if (rejection.response.status !== 409 || !recoverableEventConflicts.has(errorCode)) return null;
+  const after = Math.max(0, state.latestCursor - 1);
+  const result = await requestJson(
+    fetchImpl,
+    `/api/device-cloud/events?vaultId=${encodeURIComponent(identity.syncId)}&deviceId=${encodeURIComponent(state.deviceId)}&after=${after}&limit=200`,
+    { method: 'GET' }
+  );
+  if (!result.response.ok || !Array.isArray(result.body.events)) return null;
+  const candidates = result.body.events
+    .map((value) => ({
+      event: normalizeDeviceCloudEvent(value),
+      cursor: Math.max(0, Math.floor(Number(value?.cursor) || 0)),
+      contentHash: String(value?.contentHash || '')
+    }))
+    .filter((value) => (
+      value.event?.deviceId === state.deviceId
+      && value.cursor > 0
+      && base64Url32Pattern.test(value.contentHash)
+    ));
+  const committed = candidates.find((value) => value.event.eventId === expectedEvent.eventId);
+  if (committed) {
+    const expectedCanonical = canonicalDeviceCloudEvent(expectedEvent);
+    const expectedHash = toBase64Url(await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(expectedCanonical)
+    ));
+    if (
+      canonicalDeviceCloudEvent(committed.event) !== expectedCanonical
+      || committed.contentHash !== expectedHash
+    ) return null;
+    return finalizeCommittedEvent(
+      state,
+      identity,
+      expectedEvent,
+      expectedRevision,
+      committed.contentHash,
+      committed.cursor,
+      vaultKey,
+      fetchImpl,
+      storage,
+      crypto
+    );
+  }
+  const head = candidates.sort((left, right) => (
+    left.event.deviceSequence - right.event.deviceSequence || left.cursor - right.cursor
+  )).at(-1);
+  if (!head) return null;
+  const next = {
+    ...state,
+    deviceSequence: head.event.deviceSequence,
+    previousEventHash: head.contentHash,
+    latestCursor: Math.max(state.latestCursor, head.cursor),
+    lastEventId: head.event.eventId,
+    pendingEvent: null,
+    pendingRevision: 0
+  };
+  await saveState(next, identity, storage, crypto);
+  return {
+    state: next,
+    report: {
+      enabled: true,
+      mirrored: false,
+      verified: false,
+      reason: 'realigned',
+      sourceRevision: next.lastMirroredRevision,
+      cursor: next.latestCursor
+    }
+  };
+}
+
+async function flushPending(state, identity, vaultKey, fetchImpl, storage, crypto) {
+  if (!state.pendingEvent) return { state, report: null };
+  const expectedEvent = state.pendingEvent;
+  const expectedRevision = state.pendingRevision;
+  const saved = await requestJson(fetchImpl, '/api/device-cloud/events', {
+    method: 'POST',
+    body: JSON.stringify(expectedEvent)
+  });
+  const contentHash = String(saved.body.contentHash || '');
+  if (!saved.response.ok || !base64Url32Pattern.test(contentHash)) {
+    const recovered = await recoverRejectedPending(
+      state,
+      identity,
+      expectedEvent,
+      expectedRevision,
+      saved,
+      vaultKey,
+      fetchImpl,
+      storage,
+      crypto
+    );
+    if (recovered) return recovered;
+    throw new Error('event mirror unavailable');
+  }
+  return finalizeCommittedEvent(
+    state,
+    identity,
+    expectedEvent,
+    expectedRevision,
+    contentHash,
+    saved.body.cursor,
+    vaultKey,
+    fetchImpl,
+    storage,
+    crypto
+  );
 }
 
 async function deviceCloudStatus(fetchImpl) {
@@ -501,6 +627,19 @@ export async function mirrorSoulmateCloudState(bundleValue, identityValue, sourc
     }
     const pendingEvent = await createMirrorEvent(state, identity, bundle, sourceRevision, vaultKey, crypto);
     state = { ...state, pendingEvent, pendingRevision: sourceRevision };
+    await saveState(state, identity, storage, crypto);
+    const flushed = await flushPending(
+      state,
+      identity,
+      vaultKey,
+      fetchImpl,
+      storage,
+      crypto
+    );
+    if (flushed.report?.reason !== 'realigned') return flushed.report;
+    state = flushed.state;
+    const retryEvent = await createMirrorEvent(state, identity, bundle, sourceRevision, vaultKey, crypto);
+    state = { ...state, pendingEvent: retryEvent, pendingRevision: sourceRevision };
     await saveState(state, identity, storage, crypto);
     return (await flushPending(
       state,
