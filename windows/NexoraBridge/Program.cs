@@ -328,29 +328,6 @@ internal static class CommandCrypto
         }
     }
 
-    internal static CloudCommand EncryptForSelfTest(DeviceCommand command, BridgeCredential credential)
-    {
-        byte[] plaintext = JsonSerializer.SerializeToUtf8Bytes(command, JsonDefaults.Options);
-        byte[] nonce = Enumerable.Repeat((byte)3, 12).ToArray();
-        byte[] ciphertext = new byte[plaintext.Length];
-        byte[] tag = new byte[16];
-        byte[] key = DeriveKey(credential);
-        try
-        {
-            using AesGcm aes = new(key, 16);
-            aes.Encrypt(nonce, plaintext, ciphertext, tag, AdditionalData(credential.AgentId, credential.VaultId));
-            byte[] combined = [.. ciphertext, .. tag];
-            return new CloudCommand(
-                Guid.NewGuid().ToString("D"), 1, credential.AgentId, credential.VaultId, 1, 120,
-                "2026-08-02T00:00:00Z", "2099-08-02T00:02:00Z", "2026-08-02T00:00:01Z",
-                new CommandPayload("A256GCM", Base64Url.Encode(nonce), Base64Url.Encode(combined)));
-        }
-        finally
-        {
-            CryptographicOperations.ZeroMemory(key);
-            CryptographicOperations.ZeroMemory(plaintext);
-        }
-    }
 }
 
 internal static class WindowsCommandExecutor
@@ -887,13 +864,20 @@ internal static class SelfTest
         string vaultId = "q58whe6p3uNgkG7FBi70Ww";
         BridgeConfiguration configuration = PairingCode.Parse($"NXC1.{agentId}.{vaultId}.{secret}")
             ?? throw new InvalidOperationException("Pairing parser failed.");
-        DeviceCommand command = new(
+        CloudCommand envelope = new(
+            "0c51d146-3c73-4dc5-874b-c3035d07a9f0",
             1,
-            "computer",
-            "app.open",
-            new CommandParameters(null, null, "calculator", null, null),
-            "正在打开计算器");
-        CloudCommand envelope = CommandCrypto.EncryptForSelfTest(command, configuration.Credential);
+            agentId,
+            vaultId,
+            1,
+            120,
+            "2026-08-02T00:00:00Z",
+            "2099-08-02T00:02:00Z",
+            "2026-08-02T00:00:01Z",
+            new CommandPayload(
+                "A256GCM",
+                "AwMDAwMDAwMDAwMD",
+                "oEHSKK31e_6lDMZbBS09AwjAZuWHb03bt8lfGpJAO4tOjgvIFCSUmsV6tXU1F6pgaskZ485FF4ibdiilgIV7SAGkRtBD5QRjXjntiaRrxvOdDBF-g4Zg7_pdEYI686C3XBUbCH5vzeiXf6mXcSycxUgr_pYbNiCZowyGGTJ7_jdN2YHOQJ-E"));
         DeviceCommand decrypted = CommandCrypto.Decrypt(envelope, configuration.Credential);
         if (decrypted.Action != "app.open" || decrypted.Parameters.App != "calculator")
         {

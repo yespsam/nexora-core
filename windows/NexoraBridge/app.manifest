@@ -10,7 +10,7 @@
   </trustInfo>
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
     <application>
-      <supportedOS Id="{4f476546-9374-4f47-92d1-3b4f5e4646b5}" />
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
     </application>
   </compatibility>
   <application xmlns="urn:schemas-microsoft-com:asm.v3">

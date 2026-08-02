@@ -22,6 +22,7 @@ test('Windows bridge implements the shared encrypted command boundary', () => {
   assert.match(source, /AesGcm/);
   assert.match(source, /nexora-device-command-v1/);
   assert.match(source, /NXC1/);
+  assert.match(source, /oEHSKK31e_6lDMZbBS09AwjAZuWHb03b/);
   assert.match(source, /command\.IsAllowed/);
 });
 
@@ -38,6 +39,7 @@ test('Windows app packages self-contained x64 and ARM64 executables', () => {
   assert.match(project, /<UseWindowsForms>true<\/UseWindowsForms>/);
   assert.match(project, /<PublishSingleFile>true<\/PublishSingleFile>/);
   assert.match(build, /NEXORA-Bridge-Windows-\$ArchiveArchitecture\.zip/);
+  assert.match(build, /WriteAllText\(\$Checksum/);
   assert.match(workflow, /win-x64/);
   assert.match(workflow, /win-arm64/);
   assert.match(workflow, /windows-latest/);

@@ -57,7 +57,8 @@ Set-Content -Path (Join-Path $Output "README-Windows.txt") -Value $Readme -Encod
 Remove-Item $Archive, $Checksum -Force -ErrorAction SilentlyContinue
 Compress-Archive -Path (Join-Path $Output "*") -DestinationPath $Archive -CompressionLevel Optimal
 $Hash = (Get-FileHash -Path $Archive -Algorithm SHA256).Hash.ToLowerInvariant()
-Set-Content -Path $Checksum -Value "$Hash  $(Split-Path -Leaf $Archive)" -Encoding ASCII
+$ChecksumText = "$Hash  $(Split-Path -Leaf $Archive)`n"
+[System.IO.File]::WriteAllText($Checksum, $ChecksumText, [System.Text.UTF8Encoding]::new($false))
 
 Write-Host "Built: $Executable"
 Write-Host "Archive: $Archive"
