@@ -18,6 +18,7 @@ const publicFiles = [
   'soulmate/manifest.webmanifest',
   'soulmate/assets/soulmate-icon-192.png',
   'soulmate/assets/soulmate-icon-512.png',
+  'desktop-wallpaper/index.html',
   'pendant-display/index.html',
   'pendant-display/app.js',
   'pendant-display/style.css',

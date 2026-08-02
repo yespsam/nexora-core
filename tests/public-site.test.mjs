@@ -25,6 +25,7 @@ test('public build contains only the product runtime allowlist', async () => {
     'access/index.html',
     'access/app.js',
     'soulmate/index.html',
+    'desktop-wallpaper/index.html',
     'pendant-display/index.html',
     'shared/soulmate-resilience.mjs',
     'shared/chat-stream.mjs',
@@ -62,6 +63,11 @@ test('public build contains only the product runtime allowlist', async () => {
 
   const rootHtml = await readFile(path.join(publicRoot, 'index.html'), 'utf8');
   assert.match(rootHtml, /\.\/soulmate\//);
+
+  const desktopHtml = await readFile(path.join(publicRoot, 'desktop-wallpaper/index.html'), 'utf8');
+  assert.match(desktopHtml, /\.\.\/soulmate\//);
+  assert.match(desktopHtml, /surface.*desktop/);
+  assert.doesNotMatch(desktopHtml, /小栖|栖安|app\.js/);
 
   const pendantHtml = await readFile(path.join(publicRoot, 'pendant-display/index.html'), 'utf8');
   assert.doesNotMatch(pendantHtml, /device-lab/);

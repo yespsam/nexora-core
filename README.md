@@ -2,7 +2,7 @@
 
 NEXORA CORE 是一个内部保密的随身 AI 情感伙伴产品原型。伙伴以原创 3D 生物形象出现，可以在手机、电脑桌面和 NC-01 项链圆屏模拟器中互动，并通过持续对话形成名字、生日、性格、记忆与成长阶段。未经书面授权，不得复制、分发、公开或用于衍生产品。
 
-[私密测试](https://product-private-cloud-staging--nexora-core-staging.netlify.app/soulmate/) · [项链 3D 运行台](https://product-private-cloud-staging--nexora-core-staging.netlify.app/pendant-display/) · [X / Twitter @yesp999](https://x.com/yesp999)
+[私密测试](https://product-private-cloud-staging--nexora-core-staging.netlify.app/soulmate/) · [电脑陪伴入口](https://product-private-cloud-staging--nexora-core-staging.netlify.app/desktop-wallpaper/) · [项链 3D 运行台](https://product-private-cloud-staging--nexora-core-staging.netlify.app/pendant-display/) · [X / Twitter @yesp999](https://x.com/yesp999)
 
 ![NEXORA CORE 3D companion](NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png)
 
@@ -64,6 +64,7 @@ npm run test:computer
 | 路径 | 内容 |
 | --- | --- |
 | `soulmate/` | 手机端伙伴与对话界面 |
+| `desktop-wallpaper/` | 电脑端伙伴入口，与手机端共享同一身份、对话和成长状态 |
 | `pendant-display/` | 只显示 3D 角色的 NC-01 圆屏模拟器 |
 | `device-lab/` | 手机、电脑与项链联合自动测试台，仅在私有本地环境发布 |
 | `NEXORA_3D_CREATURES/` | LUMO、VEYR、AERA 模型与动作 |
