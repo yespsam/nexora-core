@@ -40,7 +40,7 @@
 - ESP32-S3 固件：54 个 NXR1 角色帧生成成功；RAM 30452 / 327680 bytes（9.3%），Flash 595813 / 3145728 bytes（18.9%），PlatformIO 编译通过。
 - Windows：GitHub Actions 运行 `30809735047` 在 Windows Server 2025 通过，x64 自测实际打开白名单应用；ARM64 自包含构建通过，两套内部 ZIP 已上传。PowerShell 已通过真实 Windows runner 解析和执行。
 - 发布完整性：macOS DMG/ZIP 和 Windows x64/ARM64 的本地 SHA-256 均与 `bridge-v0.3.0-internal` 一致；DMG 校验、ZIP 完整性和 macOS 包内签名通过。
-- 签名发布边界：私有手动工作流会在临时钥匙串/证书库中导入凭据，完成 macOS Hardened Runtime、Apple 公证和装订，以及 Windows Authenticode 时间戳和验签，结束时删除凭据。仓库当前没有 Apple 或 Windows 签名 secrets，因此内部包仍分别使用临时签名和未签名模式，尚不能作为外部分发包。
+- 签名发布边界：私有显式发布工作流会在临时钥匙串/证书库中导入凭据，完成 macOS Hardened Runtime、Apple 公证和装订，以及 Windows Authenticode 时间戳和验签，结束时删除凭据。当前 staging 分支以 `signed-desktop-v*` 标签触发，进入默认分支后也可在 Actions 页面手动运行。仓库当前没有 Apple 或 Windows 签名 secrets，因此内部包仍分别使用临时签名和未签名模式，尚不能作为外部分发包。
 - 实体硬件边界：没有实体样机时不能验证电池温升与续航、麦克风回声、扬声器音质、蓝牙距离、吊环强度和贴肤安全。
 
 ## 历史验收记录（2026-07-31）
@@ -67,7 +67,7 @@
 
 ## 发布前阻断项
 
-1. 取得 Apple Developer ID、App Store Connect 公证密钥和 Windows 可信代码签名 PFX，保存为私有 GitHub Actions secrets，并运行 `Release Signed Desktop Bridges` 手动工作流。
+1. 取得 Apple Developer ID、App Store Connect 公证密钥和 Windows 可信代码签名 PFX，保存为私有 GitHub Actions secrets，并通过 `signed-desktop-v*` 标签运行 `Release Signed Desktop Bridges`。
 2. 打印 NC-01 实体首件，完成主板、电池、USB-C、导光条和音频器件装配。
 3. 完成 5/10/20 N 吊环拉力、60 分钟充电温升、跌落、绝缘和贴肤材料测试。
 4. 确定手机网关协议，并以真实命令回执作为家电控制成功的唯一依据。

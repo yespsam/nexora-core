@@ -94,7 +94,7 @@ npm run build:bridge:windows
 
 私有仓库的 `Build Windows Bridge` 工作流会同时生成无需安装 .NET 的 Windows x64 与 ARM64 单文件程序，并执行 x64 加密协议自测。Windows 对外发布前仍需 Authenticode 代码签名，避免 SmartScreen 的未知发布者提示。
 
-私有 GitHub Actions 的 `Release Signed Desktop Bridges` 手动工作流负责正式双平台包。仓库需要配置以下 Actions secrets：
+私有 GitHub Actions 的 `Release Signed Desktop Bridges` 显式发布工作流负责正式双平台包。仓库需要配置以下 Actions secrets：
 
 ```text
 APPLE_DEVELOPER_ID_P12_BASE64
@@ -106,7 +106,7 @@ WINDOWS_SIGNING_PFX_BASE64
 WINDOWS_SIGNING_PFX_PASSWORD
 ```
 
-普通分支 CI 仍只生成内部测试包；只有手动发布工作流会要求正式证书、执行时间戳、公证或 Authenticode 验签。
+普通分支 CI 仍只生成内部测试包；只有正式发布工作流会要求证书、执行时间戳、公证或 Authenticode 验签。工作流文件进入默认分支后可在 Actions 页面手动运行；在当前私有 staging 分支可推送 `signed-desktop-v*` 标签显式触发。
 
 ## 验证
 

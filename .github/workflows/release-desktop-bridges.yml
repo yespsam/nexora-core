@@ -2,6 +2,9 @@ name: Release Signed Desktop Bridges
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - "signed-desktop-v*"
 
 permissions:
   contents: read

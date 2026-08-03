@@ -13,8 +13,10 @@ const internalWindowsWorkflow = await readFile(
 
 test('signed desktop releases run only through an explicit private workflow', () => {
   assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /tags:\s+- "signed-desktop-v\*"/);
   assert.match(workflow, /permissions:\s+contents: read/);
   assert.doesNotMatch(workflow, /pull_request:/);
+  assert.doesNotMatch(workflow, /branches:/);
   assert.doesNotMatch(workflow, /contents: write/);
 });
 
