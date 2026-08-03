@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import {
   evaluateProductReadiness,
+  evaluateDomesticProcurement,
   evaluateServiceBayFit,
   validateEvtAcceptance,
   validateEvtBom,
@@ -13,10 +14,11 @@ import {
 const evtRoot = new URL('../hardware/soulmate-pendant/evt/', import.meta.url);
 
 test('repository EVT BOM and acceptance plan are machine-valid', async () => {
-  const [bom, acceptance, pinPlan, manifest] = await Promise.all([
+  const [bom, acceptance, pinPlan, domesticProcurement, manifest] = await Promise.all([
     readFile(new URL('nc01-bom-v1.json', evtRoot), 'utf8').then(JSON.parse),
     readFile(new URL('nc01-acceptance-v1.json', evtRoot), 'utf8').then(JSON.parse),
     readFile(new URL('nc01-pin-plan-v1.json', evtRoot), 'utf8').then(JSON.parse),
+    readFile(new URL('nc01-taobao-bom-v1.json', evtRoot), 'utf8').then(JSON.parse),
     readFile(new URL('../manifest.json', evtRoot), 'utf8').then(JSON.parse)
   ]);
   assert.equal(validateEvtBom(bom).model, 'NC-01');
@@ -24,13 +26,26 @@ test('repository EVT BOM and acceptance plan are machine-valid', async () => {
   assert.equal(validateEvtPinPlan(pinPlan).assignments.length, 9);
   const report = evaluateProductReadiness(bom, acceptance, {
     pinPlan,
-    serviceBayMm: manifest.design.serviceBay
+    serviceBayMm: manifest.design.serviceBay,
+    domesticProcurement
   });
   assert.equal(report.ready, false);
   assert.equal(report.bom.total, 12);
   assert.equal(report.bom.selected, 3);
   assert.equal(report.bom.quoted, 6);
   assert.equal(report.bom.quotedSubtotalUsd, 100.17);
+  assert.deepEqual(report.domesticProcurement, {
+    profile: 'EVT-A-CN-ONE',
+    rigCount: 1,
+    buyNow: 6,
+    hold: 3,
+    ordered: 0,
+    available: 0,
+    hardwareMinCny: 108,
+    hardwareMaxCny: 148,
+    checkoutMinCny: 118,
+    checkoutMaxCny: 178
+  });
   assert.equal(report.acceptance.total, 16);
   assert.equal(report.acceptance.passed, 3);
   assert.equal(report.hardware.pinPlan.conflicts, 0);
@@ -38,6 +53,41 @@ test('repository EVT BOM and acceptance plan are machine-valid', async () => {
   assert.ok(report.hardware.serviceBay.minimumFillRatio > 1);
   assert.deepEqual(report.hardware.serviceBay.missingDimensions, ['mic-mute', 'status-light']);
   assert.ok(report.blockers.some((item) => item.id === 'assembly-fit'));
+});
+
+test('Taobao plan rejects unsafe held items without an explicit reason', () => {
+  assert.throws(() => evaluateDomesticProcurement({
+    currency: 'CNY',
+    rigCount: 1,
+    shippingEstimateCny: { min: 0, max: 0 },
+    items: [{
+      id: 'battery',
+      name: 'Unknown battery',
+      purchaseQuantity: 1,
+      action: 'hold',
+      procurementState: 'not-ordered',
+      searchUrl: 'https://s.taobao.com/search?q=battery',
+      selectionChecks: ['Check polarity']
+    }]
+  }), /requires a reason/);
+});
+
+test('Taobao plan only accepts Taobao search links', () => {
+  assert.throws(() => evaluateDomesticProcurement({
+    currency: 'CNY',
+    rigCount: 1,
+    shippingEstimateCny: { min: 0, max: 0 },
+    items: [{
+      id: 'board',
+      name: 'Board',
+      purchaseQuantity: 1,
+      action: 'buy-now',
+      procurementState: 'not-ordered',
+      estimatedUnitPriceCny: { min: 1, max: 2 },
+      searchUrl: 'https://example.com/board',
+      selectionChecks: ['Check model']
+    }]
+  }), /requires a Taobao search URL/);
 });
 
 test('service bay capacity check proves the breakout stack cannot fit', async () => {

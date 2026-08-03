@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "profile": "EVT-A-CN-ONE",
+  "model": "NC-01",
+  "stage": "EVT-A",
+  "updatedAt": "2026-08-03",
+  "currency": "CNY",
+  "rigCount": 1,
+  "notes": "淘宝单台桌面验证包。价格是 2026-08-03 可检索商品的目标区间，不是成交价；所有项目均未下单。先完成一台 USB 供电验证，再决定是否复制到三台。",
+  "shippingEstimateCny": {
+    "min": 10,
+    "max": 30
+  },
+  "items": [
+    {
+      "id": "mainboard",
+      "name": "Waveshare ESP32-S3-LCD-1.28 圆屏开发板",
+      "purchaseQuantity": 1,
+      "action": "buy-now",
+      "procurementState": "not-ordered",
+      "estimatedUnitPriceCny": {
+        "min": 88,
+        "max": 100
+      },
+      "searchUrl": "https://s.taobao.com/search?q=%E5%BE%AE%E9%9B%AA%20ESP32-S3-LCD-1.28",
+      "evidenceUrl": "https://tao.hooos.com/tag_gc9a01.html",
+      "selectionChecks": [
+        "型号必须完整写明 ESP32-S3-LCD-1.28，不购买只有 GC9A01 圆屏而没有 ESP32-S3 的商品",
+        "确认非触摸版、240 x 240、ESP32-S3R2、16 MB Flash、QMI8658",
+        "确认带 1.27 mm 间距的 2 x 20PIN 扩展焊盘或排针"
+      ]
+    },
+    {
+      "id": "microphone",
+      "name": "INMP441 I2S MEMS 麦克风模块",
+      "purchaseQuantity": 1,
+      "action": "buy-now",
+      "procurementState": "not-ordered",
+      "estimatedUnitPriceCny": {
+        "min": 4,
+        "max": 8
+      },
+      "searchUrl": "https://s.taobao.com/search?q=INMP441%20I2S%20%E9%BA%A6%E5%85%8B%E9%A3%8E%E6%A8%A1%E5%9D%97%20ESP32",
+      "evidenceUrl": "https://tao.hooos.com/tag_i2s%E9%BA%A6%E5%85%8B%E9%A3%8E_1.html",
+      "selectionChecks": [
+        "必须是 I2S 数字输出模块，不购买模拟咪头模块",
+        "商品页需要给出 SCK、WS、SD、L/R、VDD 和 GND 引脚定义",
+        "优先选择有 ESP32-S3 接线资料且允许退换的店铺"
+      ]
+    },
+    {
+      "id": "audio-amplifier",
+      "name": "MAX98357A I2S 3W 单声道功放模块",
+      "purchaseQuantity": 1,
+      "action": "buy-now",
+      "procurementState": "not-ordered",
+      "estimatedUnitPriceCny": {
+        "min": 4,
+        "max": 8
+      },
+      "searchUrl": "https://s.taobao.com/search?q=MAX98357A%20I2S%203W%20%E5%8A%9F%E6%94%BE%E6%A8%A1%E5%9D%97",
+      "evidenceUrl": "https://tao.hooos.com/tag_max98357%E6%A8%A1%E5%9D%97_3.html",
+      "selectionChecks": [
+        "购买成品模块，不购买只有 MAX98357A 裸芯片的选项",
+        "确认有 DIN、BCLK、LRC、SD、VIN、GND 和扬声器输出",
+        "支持 3.3 V 逻辑并标明可连接 ESP32"
+      ]
+    },
+    {
+      "id": "speaker-spares",
+      "name": "20 x 30 mm、8 Ohm、1 W 带线椭圆扬声器",
+      "purchaseQuantity": 2,
+      "action": "buy-now",
+      "procurementState": "not-ordered",
+      "estimatedUnitPriceCny": {
+        "min": 1,
+        "max": 3
+      },
+      "searchUrl": "https://s.taobao.com/search?q=2030%208%E6%AC%A7%201W%20%E5%B8%A6%E7%BA%BF%20%E6%89%AC%E5%A3%B0%E5%99%A8",
+      "evidenceUrl": "https://tao.hooos.com/tag_8%E6%AC%A71w%E5%96%87%E5%8F%AD.html",
+      "selectionChecks": [
+        "确认阻抗是 8 Ohm、额定功率是 1 W",
+        "优先购买带线款；两只用于首件和备件",
+        "记录实测厚度，EVT-B 再按声腔结果冻结型号"
+      ]
+    },
+    {
+      "id": "haptic-spares",
+      "name": "1027、3 V 带线扁平振动马达",
+      "purchaseQuantity": 2,
+      "action": "buy-now",
+      "procurementState": "not-ordered",
+      "estimatedUnitPriceCny": {
+        "min": 1,
+        "max": 3
+      },
+      "searchUrl": "https://s.taobao.com/search?q=1027%203V%20%E5%B8%A6%E7%BA%BF%20%E6%89%81%E5%B9%B3%20%E6%8C%AF%E5%8A%A8%E9%A9%AC%E8%BE%BE",
+      "evidenceUrl": "https://tao.hooos.com/category_124800007.html",
+      "selectionChecks": [
+        "选择 10 x 2.7 mm 左右的 1027 带线型号",
+        "额定电压选择 3 V，不购买 12 V 或 24 V 工业振动器",
+        "两只用于首件和备件；只连接主板 MOS 触点，不直接挂普通 GPIO"
+      ]
+    },
+    {
+      "id": "prototyping-kit",
+      "name": "1.27 mm 双排排针、转接板、杜邦线和小面包板",
+      "purchaseQuantity": 1,
+      "action": "buy-now",
+      "procurementState": "not-ordered",
+      "estimatedUnitPriceCny": {
+        "min": 8,
+        "max": 20
+      },
+      "searchUrl": "https://s.taobao.com/search?q=1.27mm%202x20%20%E6%8E%92%E9%92%88%20%E8%BD%AC%E6%8E%A5%E6%9D%BF%20%E6%9D%9C%E9%82%A6%E7%BA%BF",
+      "evidenceUrl": "https://tao.hooos.com/tag_40p%E6%8E%92%E9%92%88.html",
+      "selectionChecks": [
+        "主板是 1.27 mm 间距，普通 2.54 mm 杜邦线不能直接插主板",
+        "至少包含可焊接的 1.27 mm 双排针和转换到 2.54 mm 的转接方式",
+        "没有焊接工具时，在下单前让卖家确认是否可代焊排针"
+      ]
+    },
+    {
+      "id": "battery",
+      "name": "带保护板的 3.7 V 锂聚合物电池与 MX1.25 2P 插头",
+      "purchaseQuantity": 1,
+      "action": "hold",
+      "procurementState": "not-ordered",
+      "searchUrl": "https://s.taobao.com/search?q=3.7V%20%E8%81%9A%E5%90%88%E7%89%A9%20%E7%94%B5%E6%B1%A0%20MX1.25%202P%20%E4%BF%9D%E6%8A%A4%E6%9D%BF",
+      "selectionChecks": [
+        "等待卖家提供保护板、电芯、容量和最大充电电流资料",
+        "必须用照片逐线确认 MX1.25 正负极与主板一致",
+        "第一轮桌面验证使用 USB 供电，不为了凑单提前购买电池"
+      ],
+      "holdReason": "极性、保护板和充电参数尚未冻结，错误电池可能损坏主板或引发安全事故"
+    },
+    {
+      "id": "mic-mute",
+      "name": "物理麦克风静音开关",
+      "purchaseQuantity": 1,
+      "action": "hold",
+      "procurementState": "not-ordered",
+      "searchUrl": "https://s.taobao.com/search?q=%E5%BE%AE%E5%9E%8B%20%E6%8B%A8%E5%8A%A8%E5%BC%80%E5%85%B3%20%E4%BE%A7%E6%8B%A8%20%E8%B4%B4%E7%89%87",
+      "selectionChecks": [
+        "EVT-B 载板与外壳开孔确定后再选择封装",
+        "必须能从电气路径切断麦克风，不能只做软件静音"
+      ],
+      "holdReason": "外壳开孔和麦克风电源门控电路尚未冻结"
+    },
+    {
+      "id": "status-light",
+      "name": "侧发光状态灯与导光件",
+      "purchaseQuantity": 4,
+      "action": "hold",
+      "procurementState": "not-ordered",
+      "searchUrl": "https://s.taobao.com/search?q=2020%20%E4%BE%A7%E5%8F%91%E5%85%89%20RGB%20LED",
+      "selectionChecks": [
+        "先用主板屏幕完成 EVT-A 状态反馈",
+        "EVT-B 根据导光实测选择封装和驱动"
+      ],
+      "holdReason": "导光结构和驱动方式尚未冻结"
+    }
+  ]
+}

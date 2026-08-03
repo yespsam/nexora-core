@@ -146,7 +146,7 @@ npm run product:readiness
 电脑模拟不能替代实体麦克风、扬声器、IMU、电池温升、蓝牙距离、跌落和佩戴强度测试。
 
 V1 冻结范围与 EVT/DVT 门槛见 [`docs/NEXORA_V1_PRODUCT_GATE.md`](docs/NEXORA_V1_PRODUCT_GATE.md)。首件的 12 类 BOM 和 16 项可执行验收位于 `hardware/soulmate-pendant/evt/`。
-三台 EVT-A 桌面接线机的精确参考料号、USD 100.17 已报价基线、暂停采购项和 GPIO 计划见 [`docs/NC01_EVT_A_PROCUREMENT.md`](docs/NC01_EVT_A_PROCUREMENT.md)。
+三台进口品牌 EVT-A 的 USD 100.17 基线仅用于规格对照，见 [`docs/NC01_EVT_A_PROCUREMENT.md`](docs/NC01_EVT_A_PROCUREMENT.md)。当前推荐先购买一台淘宝验证包，6 类器件目标 CNY 108-148、含预估运费 CNY 118-178，搜索链接和逐项核对规则见 [`docs/NC01_TAOBAO_PROCUREMENT.md`](docs/NC01_TAOBAO_PROCUREMENT.md)。
 
 ## API 与隐私
 

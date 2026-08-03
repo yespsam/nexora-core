@@ -2,6 +2,7 @@ const selectionStates = new Set(['frozen', 'candidate', 'design-required']);
 const procurementStates = new Set(['available', 'digital-only', 'not-ordered', 'ordered']);
 const checkStatuses = new Set(['passed', 'failed', 'blocked', 'not-started']);
 const fitClasses = new Set(['product-core', 'integrated-candidate', 'bench-only', 'design-required']);
+const procurementActions = new Set(['buy-now', 'hold']);
 
 function assertRecord(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object`);
@@ -66,6 +67,56 @@ export function validateEvtPinPlan(plan) {
   return plan;
 }
 
+export function evaluateDomesticProcurement(plan) {
+  assertRecord(plan, 'Domestic procurement plan');
+  if (plan.currency !== 'CNY') throw new Error('Domestic procurement plan must use CNY');
+  if (!Number.isInteger(plan.rigCount) || plan.rigCount < 1) throw new Error('Domestic procurement plan has invalid rig count');
+  if (!Array.isArray(plan.items) || !plan.items.length) throw new Error('Domestic procurement plan requires items');
+  assertUniqueIds(plan.items, 'Domestic procurement plan');
+  const shipping = plan.shippingEstimateCny;
+  if (!shipping || !Number.isFinite(shipping.min) || !Number.isFinite(shipping.max) || shipping.min < 0 || shipping.max < shipping.min) {
+    throw new Error('Domestic procurement plan has invalid shipping estimate');
+  }
+  for (const item of plan.items) {
+    if (!item.name || !Number.isInteger(item.purchaseQuantity) || item.purchaseQuantity < 1) {
+      throw new Error(`Domestic procurement item ${item.id} is incomplete`);
+    }
+    if (!procurementActions.has(item.action)) throw new Error(`Domestic procurement item ${item.id} has invalid action`);
+    if (item.procurementState !== 'not-ordered' && item.procurementState !== 'ordered' && item.procurementState !== 'available') {
+      throw new Error(`Domestic procurement item ${item.id} has invalid procurement state`);
+    }
+    if (!Array.isArray(item.selectionChecks) || !item.selectionChecks.length) {
+      throw new Error(`Domestic procurement item ${item.id} requires selection checks`);
+    }
+    if (typeof item.searchUrl !== 'string' || !item.searchUrl.startsWith('https://s.taobao.com/search?')) {
+      throw new Error(`Domestic procurement item ${item.id} requires a Taobao search URL`);
+    }
+    if (item.action === 'buy-now') {
+      const price = item.estimatedUnitPriceCny;
+      if (!price || !Number.isFinite(price.min) || !Number.isFinite(price.max) || price.min < 0 || price.max < price.min) {
+        throw new Error(`Domestic procurement item ${item.id} has invalid price estimate`);
+      }
+    } else if (!item.holdReason) {
+      throw new Error(`Held domestic procurement item ${item.id} requires a reason`);
+    }
+  }
+  const buyNow = plan.items.filter((item) => item.action === 'buy-now');
+  const hardwareMinCny = buyNow.reduce((total, item) => total + (item.estimatedUnitPriceCny.min * item.purchaseQuantity), 0);
+  const hardwareMaxCny = buyNow.reduce((total, item) => total + (item.estimatedUnitPriceCny.max * item.purchaseQuantity), 0);
+  return Object.freeze({
+    profile: plan.profile,
+    rigCount: plan.rigCount,
+    buyNow: buyNow.length,
+    hold: plan.items.length - buyNow.length,
+    ordered: plan.items.filter((item) => item.procurementState === 'ordered').length,
+    available: plan.items.filter((item) => item.procurementState === 'available').length,
+    hardwareMinCny,
+    hardwareMaxCny,
+    checkoutMinCny: hardwareMinCny + shipping.min,
+    checkoutMaxCny: hardwareMaxCny + shipping.max
+  });
+}
+
 function rectangularVolume(dimensions) {
   return dimensions.reduce((total, value) => total * value, 1);
 }
@@ -107,7 +158,7 @@ export function validateEvtAcceptance(plan) {
   return plan;
 }
 
-export function evaluateProductReadiness(bomInput, planInput, { pinPlan = null, serviceBayMm = null } = {}) {
+export function evaluateProductReadiness(bomInput, planInput, { pinPlan = null, serviceBayMm = null, domesticProcurement = null } = {}) {
   const bom = validateEvtBom(bomInput);
   const plan = validateEvtAcceptance(planInput);
   const selected = bom.items.filter((item) => item.selectionState === 'frozen').length;
@@ -142,6 +193,7 @@ export function evaluateProductReadiness(bomInput, planInput, { pinPlan = null, 
       quoted: quotedItems.length,
       quotedSubtotalUsd: Math.round(quotedSubtotalUsd * 100) / 100
     }),
+    domesticProcurement: domesticProcurement ? evaluateDomesticProcurement(domesticProcurement) : null,
     hardware,
     acceptance: Object.freeze({ total: required.length, passed: passed.length, categories }),
     blockers: Object.freeze(required
