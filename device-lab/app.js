@@ -9,7 +9,7 @@ import {
 import { creatureVoiceResources } from '../shared/companion-data.mjs';
 import { PENDANT_DISPLAY_SIZE } from '../shared/pendant-display.mjs';
 
-const RELEASE_ID = 'full-acceptance-v114';
+const RELEASE_ID = 'full-acceptance-v115';
 const FRAME_READY_TIMEOUT_MS = 30000;
 const MOTION_SOAK_MS = 30000;
 const STARTERS = Object.freeze(['cute', 'cool', 'beautiful']);
@@ -96,7 +96,8 @@ async function waitFor(read, timeout = FRAME_READY_TIMEOUT_MS, interval = 100) {
     await delay(interval);
   }
   const detail = String(lastError?.message || '').slice(0, 36);
-  throw new Error(detail ? `双端加载超时：${detail}` : '双端加载超过 30 秒');
+  const seconds = Math.max(1, Math.round(timeout / 1000));
+  throw new Error(detail ? `双端加载超时：${detail}` : `双端加载超过 ${seconds} 秒`);
 }
 
 function setResult(id, status, detail) {

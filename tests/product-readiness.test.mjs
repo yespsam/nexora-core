@@ -129,6 +129,10 @@ test('EVT-A pin plan stays aligned with the firmware configuration', async () =>
   for (const assignment of pinPlan.assignments) {
     assert.match(config, new RegExp(`constexpr uint8_t ${constants[assignment.signal]} = ${assignment.gpio};`));
   }
+  assert.equal(
+    pinPlan.assignments.find((assignment) => assignment.signal === 'microphone-data').device,
+    'INMP441 EVT-A module'
+  );
 });
 
 test('passed acceptance checks cannot omit evidence', () => {

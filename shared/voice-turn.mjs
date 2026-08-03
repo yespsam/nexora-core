@@ -3,7 +3,12 @@ export function normalizeSpeech(value) {
 }
 
 export const VOICE_LISTEN_TIMEOUT_MS = 12000;
+export const VOICE_WAKE_SESSION_TIMEOUT_MS = 20000;
 export const VOICE_WAKE_COMMAND_WINDOW_MS = 8000;
+
+export function voiceRecognitionSessionTimeout(mode = 'manual') {
+  return mode === 'wake' ? VOICE_WAKE_SESSION_TIMEOUT_MS : VOICE_LISTEN_TIMEOUT_MS;
+}
 
 const VOICE_ACTIONS = Object.freeze([
   Object.freeze({

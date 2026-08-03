@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -70,6 +71,15 @@ test('an undelivered user turn is removed without touching earlier conversation'
   assert.deepEqual(removeUndeliveredSoulmateTurn(history, '网络断了 再试试'), [history[0]]);
   assert.equal(removeUndeliveredSoulmateTurn(history, '另一句话'), history);
   assert.equal(removeUndeliveredSoulmateTurn(null, '测试').length, 0);
+});
+
+test('pending chat and device turns stay local until a matching result is ready', async () => {
+  const app = await readFile(new URL('../soulmate/app.js', import.meta.url), 'utf8');
+  assert.equal(
+    app.match(/appendMessage\('user', text, \{ persist: false \}\);/g)?.length,
+    2
+  );
+  assert.match(app, /if \(persist\) saveHistory\(\);/);
 });
 
 test('ten thousand weak-network turns always stop within the retry budget', () => {

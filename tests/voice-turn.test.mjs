@@ -10,7 +10,9 @@ import {
   shouldBlockRecognizedSpeech,
   speechOverlapRatio,
   VOICE_LISTEN_TIMEOUT_MS,
+  VOICE_WAKE_SESSION_TIMEOUT_MS,
   VOICE_WAKE_COMMAND_WINDOW_MS,
+  voiceRecognitionSessionTimeout,
   voiceWakeWords,
   voiceControlState
 } from '../shared/voice-turn.mjs';
@@ -27,7 +29,10 @@ test('recognition combines final speech segments and bounds the message', () => 
     Object.assign([{ transcript: 'a'.repeat(220) }], { isFinal: true })
   ]).length, 160);
   assert.equal(VOICE_LISTEN_TIMEOUT_MS, 12000);
+  assert.equal(VOICE_WAKE_SESSION_TIMEOUT_MS, 20000);
   assert.equal(VOICE_WAKE_COMMAND_WINDOW_MS, 8000);
+  assert.equal(voiceRecognitionSessionTimeout('manual'), VOICE_LISTEN_TIMEOUT_MS);
+  assert.equal(voiceRecognitionSessionTimeout('wake'), VOICE_WAKE_SESSION_TIMEOUT_MS);
 });
 
 test('recognition keeps alternate Safari transcripts with confidence', () => {

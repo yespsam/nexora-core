@@ -53,11 +53,11 @@ import {
   parseVoiceControlCommand,
   resolveVoiceRecognition,
   shouldBlockRecognizedSpeech,
-  VOICE_LISTEN_TIMEOUT_MS,
   VOICE_WAKE_COMMAND_WINDOW_MS,
+  voiceRecognitionSessionTimeout,
   voiceWakeWords,
   voiceControlState
-} from '../shared/voice-turn.mjs?v=5';
+} from '../shared/voice-turn.mjs?v=6';
 import {
   SOULMATE_CHAT_REQUEST_TIMEOUT_MS,
   canRetrySoulmateChat,
@@ -185,7 +185,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   ? requestedDiagnosticLlmModel
   : '';
 const REALTIME_LLM_MODEL = 'moonshot-v1-8k';
-const APP_RELEASE = 'mobile-gateway-evt-v115';
+const APP_RELEASE = 'mobile-gateway-evt-v117';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -611,11 +611,11 @@ function completeBirth() {
   speakText(state.history[0].content, { allowQueue: true });
 }
 
-function appendMessage(role, content) {
+function appendMessage(role, content, { persist = true } = {}) {
   const message = cleanMessage({ role, content });
   if (!message) return;
   state.history = [...state.history, message].slice(-12);
-  saveHistory();
+  if (persist) saveHistory();
   renderMessages();
 }
 
@@ -1610,7 +1610,7 @@ async function handleDeviceCommandInput(text) {
   stopAudio({ clearQueue: true });
   state.busy = true;
   chatInput.value = '';
-  appendMessage('user', text);
+  appendMessage('user', text, { persist: false });
   setPhase('thinking');
   presenceLine.textContent = command.target === 'home' ? '正在连接虚拟家庭网关……' : '正在连接电脑助手……';
   const result = await sendBridgeCommand(command);
@@ -1693,7 +1693,7 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   stopAudio({ clearQueue: true });
   state.busy = true;
   chatInput.value = '';
-  appendMessage('user', text);
+  appendMessage('user', text, { persist: false });
   setPhase('thinking');
   presenceLine.textContent = `${state.profile.name}正在理解你的话……`;
   let result;
@@ -2319,13 +2319,21 @@ function beginRecognition(mode) {
     companionView.dataset.voiceRecognitionState = 'starting';
     companionView.dataset.voiceRecognitionError = '';
     state.recognition.start();
-    if (mode === 'manual') {
-      window.clearTimeout(state.recognitionTimeout);
-      state.recognitionTimeout = window.setTimeout(() => {
-        if (!state.recognitionAccepting || state.recognitionMode !== 'manual') return;
+    window.clearTimeout(state.recognitionTimeout);
+    state.recognitionTimeout = window.setTimeout(() => {
+      if (!state.recognitionAccepting || state.recognitionMode !== mode) return;
+      if (mode === 'manual') {
         presenceLine.textContent = '这次收音已结束，再按一次就能继续说。';
         stopListening();
-      }, VOICE_LISTEN_TIMEOUT_MS);
+        return;
+      }
+      companionView.dataset.voiceRecognitionState = 'timeout';
+      state.recognitionAccepting = false;
+      state.recognitionMode = '';
+      try { state.recognition.abort(); } catch (error) {}
+      scheduleWakeRecognition(300);
+    }, voiceRecognitionSessionTimeout(mode));
+    if (mode === 'manual') {
       setPhase('listening');
     } else {
       renderWakeButton();

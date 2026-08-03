@@ -28,7 +28,7 @@
   "assignments": [
     { "gpio": 13, "signal": "audio-bclk", "direction": "output", "device": "shared I2S clock" },
     { "gpio": 14, "signal": "audio-lrclk", "direction": "output", "device": "shared I2S word select" },
-    { "gpio": 15, "signal": "microphone-data", "direction": "input", "device": "SPH0645LM4H" },
+    { "gpio": 15, "signal": "microphone-data", "direction": "input", "device": "INMP441 EVT-A module" },
     { "gpio": 16, "signal": "speaker-data", "direction": "output", "device": "MAX98357A" },
     { "gpio": 17, "signal": "amplifier-shutdown", "direction": "output", "device": "MAX98357A SD" },
     { "gpio": 18, "signal": "status-light-data", "direction": "output", "device": "EVT status light" },
