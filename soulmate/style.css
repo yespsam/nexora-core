@@ -1074,6 +1074,11 @@ input:focus-visible {
   padding: 0 14px;
 }
 
+.small-command.danger {
+  border-color: rgba(217, 79, 106, 0.4);
+  color: var(--coral-strong);
+}
+
 .wide-command {
   width: 100%;
   height: 46px;

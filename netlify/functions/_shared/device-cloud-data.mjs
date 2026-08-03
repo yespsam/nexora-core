@@ -88,6 +88,16 @@ export function createDeviceCloudFunction(options) {
           vaultId: url.searchParams.get('vaultId')
         }));
       }
+      const commandAgentRevokeMatch = path.match(
+        /^\/api\/device-cloud\/command-agents\/([0-9a-f-]+)\/revoke$/i
+      );
+      if (request.method === 'POST' && commandAgentRevokeMatch) {
+        const body = await readJson(request);
+        return json(await store.revokeCommandAgent(ownerId, {
+          agentId: commandAgentRevokeMatch[1],
+          vaultId: body.vaultId
+        }));
+      }
       if (request.method === 'POST' && path === '/api/device-cloud/commands') {
         return json(await store.queueCommand(ownerId, await readJson(request)), 202);
       }

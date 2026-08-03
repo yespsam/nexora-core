@@ -111,6 +111,14 @@ export async function loadSoulmateCommandAgent(identityValue, options = {}) {
   }
 }
 
+export async function clearSoulmateCommandAgent(identityValue, options = {}) {
+  const identity = normalizeSoulmateCloudIdentity(identityValue);
+  if (!identity) return false;
+  const storage = options.storage || createSoulmateDeviceCloudStorage(options.indexedDb);
+  await storage.delete(storageKey(identity));
+  return true;
+}
+
 export async function registerSoulmateCommandAgent(identityValue, options = {}) {
   const identity = normalizeSoulmateCloudIdentity(identityValue);
   if (!identity) throw new Error('cloud sync is required');
@@ -134,6 +142,24 @@ export async function getSoulmateCommandAgentStatus(identityValue, credentialVal
     options.fetchImpl || globalThis.fetch,
     `/api/device-cloud/command-agents/${encodeURIComponent(credential.agentId)}?vaultId=${encodeURIComponent(identity.syncId)}`
   );
+}
+
+export async function revokeSoulmateCommandAgent(identityValue, credentialValue, options = {}) {
+  const identity = normalizeSoulmateCloudIdentity(identityValue);
+  const credential = normalizeDeviceCommandAgentCredential(credentialValue);
+  if (!identity || !credential || identity.syncId !== credential.vaultId) {
+    throw new Error('command agent is not paired');
+  }
+  const result = await requestJson(
+    options.fetchImpl || globalThis.fetch,
+    `/api/device-cloud/command-agents/${encodeURIComponent(credential.agentId)}/revoke`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ vaultId: identity.syncId })
+    }
+  );
+  await clearSoulmateCommandAgent(identity, options);
+  return result;
 }
 
 export async function queueSoulmateDeviceCommand(command, identityValue, credentialValue, options = {}) {

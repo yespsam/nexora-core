@@ -287,6 +287,27 @@ export class DeviceCloudStore {
     }, this.apiRole);
   }
 
+  async revokeCommandAgent(ownerId, value) {
+    const agentId = requiredUuid(value?.agentId, 'command agent id');
+    const publicId = requiredVaultId(value?.vaultId);
+    return withOwner(this.apiPool, ownerId, async (client, owner) => {
+      const vault = await vaultForOwner(client, owner, publicId);
+      const result = await client.query(`
+        UPDATE nexora_cloud.device_command_agents
+        SET status = 'revoked', revoked_at = COALESCE(revoked_at, now())
+        WHERE id = $1 AND vault_id = $2 AND owner_id = $3
+        RETURNING id, status, revoked_at
+      `, [agentId, vault.id, owner]);
+      if (!result.rowCount) throw new DeviceCloudError('command agent not found', 404, 'not_found');
+      return {
+        agentId: result.rows[0].id,
+        vaultId: publicId,
+        status: result.rows[0].status,
+        revokedAt: result.rows[0].revoked_at.toISOString()
+      };
+    }, this.apiRole);
+  }
+
   async queueCommand(ownerId, value) {
     const command = normalizeDeviceCommandSubmission(value);
     return withOwner(this.apiPool, ownerId, async (client, owner) => {

@@ -70,14 +70,16 @@ import {
 } from '../shared/chat-stream.mjs?v=2';
 import { parseDeviceCommand } from '../shared/device-command.mjs?v=2';
 import {
+  clearSoulmateCommandAgent,
   getSoulmateCommandAgentStatus,
   getSoulmateDeviceCommandStatus,
   loadSoulmateCommandAgent,
   mergeSoulmateCommandAgentStatus,
   queueSoulmateDeviceCommand,
   registerSoulmateCommandAgent,
+  revokeSoulmateCommandAgent,
   soulmateCommandAgentPairingCode
-} from '../shared/soulmate-command-agent.mjs?v=2';
+} from '../shared/soulmate-command-agent.mjs?v=3';
 import {
   DESKTOP_BRIDGE_DOWNLOADS,
   desktopBridgeDownloadView,
@@ -133,6 +135,7 @@ const bluetoothStatus = $('#bluetooth-status');
 const bridgeButton = $('#bridge-button');
 const bridgeStatus = $('#bridge-status');
 const bridgePairButton = $('#bridge-pair-button');
+const bridgeRevokeButton = $('#bridge-revoke-button');
 const bridgePairing = $('#bridge-pairing');
 const bridgePairCode = $('#bridge-pair-code');
 const bridgeCopyButton = $('#bridge-copy-button');
@@ -1265,6 +1268,12 @@ async function requestReply(text, {
   return replyResultFromBody(response, responseBody);
 }
 
+function renderCommandAgentControls() {
+  const paired = Boolean(state.commandAgent);
+  bridgePairButton.textContent = paired ? '显示配对码' : '配对电脑';
+  bridgeRevokeButton.hidden = !paired;
+}
+
 function activateCloudCommandAgent() {
   if (!state.commandAgent) return false;
   state.bridgeConnected = true;
@@ -1274,7 +1283,7 @@ function activateCloudCommandAgent() {
   const online = Number.isFinite(lastSeen) && Date.now() - lastSeen < 45000;
   bridgeStatus.textContent = online ? '云端桌面客户端在线' : '云端已配对，等待桌面客户端';
   bridgeButton.textContent = online ? '在线' : '检测';
-  bridgePairButton.textContent = '显示配对码';
+  renderCommandAgentControls();
   bluetoothStatus.textContent = online ? '家庭网关通道在线' : '家庭网关等待电脑客户端';
   bluetoothButton.textContent = online ? '在线' : '等待中';
   return true;
@@ -1284,7 +1293,7 @@ async function refreshCommandAgent({ quiet = false } = {}) {
   if (!state.cloudIdentity) {
     state.commandAgent = null;
     state.commandAgentStatus = null;
-    bridgePairButton.textContent = '配对电脑';
+    renderCommandAgentControls();
     bridgePairing.hidden = true;
     return false;
   }
@@ -1292,7 +1301,7 @@ async function refreshCommandAgent({ quiet = false } = {}) {
     state.commandAgent = await loadSoulmateCommandAgent(state.cloudIdentity);
     if (!state.commandAgent) {
       state.commandAgentStatus = null;
-      bridgePairButton.textContent = '配对电脑';
+      renderCommandAgentControls();
       bridgePairing.hidden = true;
       return false;
     }
@@ -1300,6 +1309,20 @@ async function refreshCommandAgent({ quiet = false } = {}) {
       state.cloudIdentity,
       state.commandAgent
     );
+    if (remoteStatus?.status !== 'active') {
+      await clearSoulmateCommandAgent(state.cloudIdentity);
+      state.commandAgent = null;
+      state.commandAgentStatus = null;
+      state.bridgeConnected = false;
+      state.bridgeMode = '';
+      state.bridgeCapabilities = [];
+      bridgePairCode.textContent = '';
+      bridgePairing.hidden = true;
+      bridgeStatus.textContent = '电脑授权已移除';
+      bridgeButton.textContent = '检测';
+      renderCommandAgentControls();
+      return false;
+    }
     state.commandAgentStatus = mergeSoulmateCommandAgentStatus(
       state.commandAgentStatus,
       remoteStatus
@@ -2499,6 +2522,36 @@ async function pairCommandAgent() {
   }
 }
 
+async function revokeCommandAgent() {
+  if (!state.cloudIdentity || !state.commandAgent) return;
+  if (!window.confirm('移除后，这台电脑会立即停止领取控制指令。需要重新输入新的配对码才能恢复，确定移除吗？')) {
+    return;
+  }
+  bridgeRevokeButton.disabled = true;
+  bridgePairButton.disabled = true;
+  bridgeStatus.textContent = '正在移除电脑授权';
+  try {
+    await revokeSoulmateCommandAgent(state.cloudIdentity, state.commandAgent);
+    state.commandAgent = null;
+    state.commandAgentStatus = null;
+    state.bridgeConnected = false;
+    state.bridgeMode = '';
+    state.bridgeCapabilities = [];
+    bridgePairCode.textContent = '';
+    bridgePairing.hidden = true;
+    bridgeStatus.textContent = '电脑授权已移除';
+    bridgeButton.textContent = '检测';
+    bluetoothStatus.textContent = '尚未选择';
+    bluetoothButton.textContent = '选择网关';
+    renderCommandAgentControls();
+  } catch (error) {
+    bridgeStatus.textContent = '无法移除电脑授权，请稍后重试';
+  } finally {
+    bridgeRevokeButton.disabled = false;
+    bridgePairButton.disabled = false;
+  }
+}
+
 async function copyCommandAgentPairingCode() {
   const code = bridgePairCode.textContent;
   if (!code) return;
@@ -2691,6 +2744,7 @@ bluetoothButton.addEventListener('click', pairBluetooth);
 pendantButton.addEventListener('click', connectPendant);
 bridgeButton.addEventListener('click', detectBridge);
 bridgePairButton.addEventListener('click', pairCommandAgent);
+bridgeRevokeButton.addEventListener('click', revokeCommandAgent);
 bridgeCopyButton.addEventListener('click', copyCommandAgentPairingCode);
 cloudSyncEnable.addEventListener('click', enableCloudSync);
 cloudSyncNow.addEventListener('click', () => pushCloudState({ manual: true }));

@@ -18,6 +18,7 @@ function fakeStore(calls) {
     registerDevice: invoke('registerDevice'),
     registerCommandAgent: invoke('registerCommandAgent'),
     commandAgentStatus: invoke('commandAgentStatus'),
+    revokeCommandAgent: invoke('revokeCommandAgent'),
     queueCommand: invoke('queueCommand'),
     commandStatus: invoke('commandStatus'),
     appendEvent: invoke('appendEvent'),
@@ -143,6 +144,28 @@ test('authenticated command routes stay owner-derived and return accepted work',
   assert.equal(status.status, 200);
   assert.equal(harness.calls[1].method, 'commandStatus');
   assert.equal(harness.calls[1].args[1], commandId);
+});
+
+test('command agent revocation is same-origin, owner-derived, and scoped to its vault', async () => {
+  const harness = functionHarness();
+  const agentId = 'ef53f13f-b1a5-47ff-a759-171557c32e13';
+  const vaultId = 'A'.repeat(22);
+  const response = await harness.handler(new Request(
+    `https://example.test/api/device-cloud/command-agents/${agentId}/revoke`,
+    {
+      method: 'POST',
+      headers: { Origin: 'https://example.test', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vaultId })
+    }
+  ));
+  assert.equal(response.status, 200);
+  assert.equal(harness.originChecks(), 1);
+  assert.equal(harness.calls[0].method, 'revokeCommandAgent');
+  assert.equal(
+    harness.calls[0].args[0],
+    ownerIdForExternalSubject(`netlify-identity:${userId}`, pepper)
+  );
+  assert.deepEqual(harness.calls[0].args[1], { agentId, vaultId });
 });
 
 test('cloud deletion endpoint always enforces the retention window', async () => {
