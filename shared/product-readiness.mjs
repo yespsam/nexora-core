@@ -1,6 +1,7 @@
 const selectionStates = new Set(['frozen', 'candidate', 'design-required']);
 const procurementStates = new Set(['available', 'digital-only', 'not-ordered', 'ordered']);
 const checkStatuses = new Set(['passed', 'failed', 'blocked', 'not-started']);
+const fitClasses = new Set(['product-core', 'integrated-candidate', 'bench-only', 'design-required']);
 
 function assertRecord(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object`);
@@ -21,10 +22,74 @@ export function validateEvtBom(bom) {
   for (const item of bom.items) {
     if (!item.name || !item.subsystem || !item.requirement) throw new Error(`BOM item ${item.id} is incomplete`);
     if (!Number.isInteger(item.quantity) || item.quantity < 1) throw new Error(`BOM item ${item.id} has invalid quantity`);
+    if (!Number.isInteger(item.purchaseQuantity) || item.purchaseQuantity < item.quantity) {
+      throw new Error(`BOM item ${item.id} has invalid purchase quantity`);
+    }
     if (!selectionStates.has(item.selectionState)) throw new Error(`BOM item ${item.id} has invalid selection state`);
     if (!procurementStates.has(item.procurementState)) throw new Error(`BOM item ${item.id} has invalid procurement state`);
+    if (item.fitClass && !fitClasses.has(item.fitClass)) throw new Error(`BOM item ${item.id} has invalid fit class`);
+    if (item.dimensionsMm && (
+      !Array.isArray(item.dimensionsMm) ||
+      item.dimensionsMm.length !== 3 ||
+      item.dimensionsMm.some((dimension) => !Number.isFinite(dimension) || dimension <= 0)
+    )) throw new Error(`BOM item ${item.id} has invalid dimensions`);
+    if (item.quotedUnitPriceUsd !== undefined && (
+      !Number.isFinite(item.quotedUnitPriceUsd) ||
+      item.quotedUnitPriceUsd < 0 ||
+      !item.quoteCheckedAt
+    )) throw new Error(`BOM item ${item.id} has an invalid quote`);
   }
   return bom;
+}
+
+export function validateEvtPinPlan(plan) {
+  assertRecord(plan, 'EVT pin plan');
+  if (!Array.isArray(plan.reserved) || !Array.isArray(plan.assignments)) throw new Error('EVT pin plan requires pin lists');
+  const reserved = new Set();
+  for (const pin of plan.reserved) {
+    if (!Number.isInteger(pin.gpio) || pin.gpio < 0 || pin.gpio > 48 || reserved.has(pin.gpio)) {
+      throw new Error('EVT pin plan has an invalid reserved GPIO');
+    }
+    reserved.add(pin.gpio);
+  }
+  const avoided = new Set((plan.avoid || []).map((pin) => pin.gpio));
+  const assigned = new Set();
+  for (const pin of plan.assignments) {
+    if (!Number.isInteger(pin.gpio) || pin.gpio < 0 || pin.gpio > 48 || !pin.signal || !pin.direction) {
+      throw new Error('EVT pin plan has an invalid assignment');
+    }
+    if (reserved.has(pin.gpio) || avoided.has(pin.gpio) || assigned.has(pin.gpio)) {
+      throw new Error(`EVT pin plan conflicts on GPIO${pin.gpio}`);
+    }
+    assigned.add(pin.gpio);
+  }
+  return plan;
+}
+
+function rectangularVolume(dimensions) {
+  return dimensions.reduce((total, value) => total * value, 1);
+}
+
+export function evaluateServiceBayFit(bomInput, serviceBayMm) {
+  const bom = validateEvtBom(bomInput);
+  if (!Array.isArray(serviceBayMm) || serviceBayMm.length !== 3 || serviceBayMm.some((value) => !Number.isFinite(value) || value <= 0)) {
+    throw new Error('Service bay dimensions are invalid');
+  }
+  const grouped = bom.items.filter((item) => item.packingGroup === 'service-bay');
+  const measured = grouped.filter((item) => item.dimensionsMm);
+  const minimumComponentVolumeMm3 = measured.reduce((total, item) => (
+    total + (rectangularVolume(item.dimensionsMm) * item.quantity)
+  ), 0);
+  const rawServiceBayVolumeMm3 = rectangularVolume(serviceBayMm);
+  return Object.freeze({
+    dimensionsMm: Object.freeze([...serviceBayMm]),
+    serviceBayVolumeMm3: Math.round(rawServiceBayVolumeMm3 * 10) / 10,
+    minimumComponentVolumeMm3: Math.round(minimumComponentVolumeMm3 * 10) / 10,
+    minimumFillRatio: Math.round((minimumComponentVolumeMm3 / rawServiceBayVolumeMm3) * 1000) / 1000,
+    overCapacity: minimumComponentVolumeMm3 > rawServiceBayVolumeMm3,
+    measuredItems: measured.length,
+    missingDimensions: Object.freeze(grouped.filter((item) => !item.dimensionsMm).map((item) => item.id))
+  });
 }
 
 export function validateEvtAcceptance(plan) {
@@ -42,7 +107,7 @@ export function validateEvtAcceptance(plan) {
   return plan;
 }
 
-export function evaluateProductReadiness(bomInput, planInput) {
+export function evaluateProductReadiness(bomInput, planInput, { pinPlan = null, serviceBayMm = null } = {}) {
   const bom = validateEvtBom(bomInput);
   const plan = validateEvtAcceptance(planInput);
   const selected = bom.items.filter((item) => item.selectionState === 'frozen').length;
@@ -57,11 +122,27 @@ export function evaluateProductReadiness(bomInput, planInput) {
       total: checks.length
     };
   });
+  const quotedItems = bom.items.filter((item) => Number.isFinite(item.quotedUnitPriceUsd));
+  const quotedSubtotalUsd = quotedItems.reduce((total, item) => (
+    total + (item.quotedUnitPriceUsd * item.purchaseQuantity)
+  ), 0);
+  const hardware = Object.freeze({
+    pinPlan: pinPlan ? Object.freeze({ assignments: validateEvtPinPlan(pinPlan).assignments.length, conflicts: 0 }) : null,
+    serviceBay: serviceBayMm ? evaluateServiceBayFit(bom, serviceBayMm) : null
+  });
+  const hardwareReady = !hardware.serviceBay?.overCapacity;
   return Object.freeze({
     model: plan.model || bom.model,
     stage: plan.stage || bom.stage,
-    ready: required.length > 0 && passed.length === required.length,
-    bom: Object.freeze({ total: bom.items.length, selected, procured }),
+    ready: required.length > 0 && passed.length === required.length && hardwareReady,
+    bom: Object.freeze({
+      total: bom.items.length,
+      selected,
+      procured,
+      quoted: quotedItems.length,
+      quotedSubtotalUsd: Math.round(quotedSubtotalUsd * 100) / 100
+    }),
+    hardware,
     acceptance: Object.freeze({ total: required.length, passed: passed.length, categories }),
     blockers: Object.freeze(required
       .filter((check) => check.status !== 'passed')

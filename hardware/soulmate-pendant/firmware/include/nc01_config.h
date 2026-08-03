@@ -20,6 +20,17 @@ constexpr uint8_t kImuInterrupt1Pin = 47;
 constexpr uint8_t kImuInterrupt2Pin = 48;
 constexpr uint8_t kBatteryAdcPin = 1;
 
+// EVT-A expansion pins. Audio, mute, light, and haptic drivers remain disabled until bench hardware is attached.
+constexpr uint8_t kAudioBitClockPin = 13;
+constexpr uint8_t kAudioWordSelectPin = 14;
+constexpr uint8_t kMicrophoneDataPin = 15;
+constexpr uint8_t kSpeakerDataPin = 16;
+constexpr uint8_t kAmplifierShutdownPin = 17;
+constexpr uint8_t kStatusLightDataPin = 18;
+constexpr uint8_t kMicMuteSensePin = 39;
+constexpr uint8_t kHapticDrivePinA = 4;
+constexpr uint8_t kHapticDrivePinB = 5;
+
 constexpr char kBleDeviceName[] = "NEXORA NC-01";
 constexpr char kServiceUuid[] = "c8a10000-5101-4e58-9a18-8f352dc80101";
 constexpr char kSnapshotUuid[] = "c8a10001-5101-4e58-9a18-8f352dc80101";

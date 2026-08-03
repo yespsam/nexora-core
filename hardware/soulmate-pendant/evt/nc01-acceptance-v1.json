@@ -39,7 +39,7 @@
       "required": true,
       "status": "blocked",
       "target": "无挤压、松动、遮挡、异响或 USB-C 干涉",
-      "blocker": "尚未采购首件器件"
+      "blocker": "尚未采购 EVT-A 器件；开发板器件最低包络已占服务仓 112.7%，完成桌面验证后还需 EVT-B 集成小板和声腔设计"
     },
     {
       "id": "charge-thermal",

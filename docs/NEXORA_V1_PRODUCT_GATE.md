@@ -69,3 +69,5 @@ npm run product:readiness
 ```
 
 只有带证据的检查才能标记为 `passed`。发布流水线可使用 `npm run product:readiness -- --require-ready` 阻止未通过 EVT 的版本进入下一阶段。
+
+EVT-A 三台桌面接线机的参考料号、预算、引脚和到货验收见 [`NC01_EVT_A_PROCUREMENT.md`](NC01_EVT_A_PROCUREMENT.md)。当前开发板器件最低体积已超过服务仓，EVT-A 完成后必须进入 EVT-B 集成小板与声腔设计，不能直接把桌面模块作为佩戴成品。

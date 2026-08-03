@@ -146,6 +146,7 @@ npm run product:readiness
 电脑模拟不能替代实体麦克风、扬声器、IMU、电池温升、蓝牙距离、跌落和佩戴强度测试。
 
 V1 冻结范围与 EVT/DVT 门槛见 [`docs/NEXORA_V1_PRODUCT_GATE.md`](docs/NEXORA_V1_PRODUCT_GATE.md)。首件的 12 类 BOM 和 16 项可执行验收位于 `hardware/soulmate-pendant/evt/`。
+三台 EVT-A 桌面接线机的精确参考料号、USD 100.17 已报价基线、暂停采购项和 GPIO 计划见 [`docs/NC01_EVT_A_PROCUREMENT.md`](docs/NC01_EVT_A_PROCUREMENT.md)。
 
 ## API 与隐私
 
