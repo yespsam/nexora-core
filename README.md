@@ -28,6 +28,7 @@ NEXORA CORE 是一个内部保密的随身 AI 情感伙伴产品原型。伙伴�
 - Web Bluetooth 身份与状态同步协议。
 - Netlify Functions 聊天与云端神经语音接口。
 - ESP32-S3 NC-01 固件、3D 打印外壳、切片模拟和装配资料。
+- 统一手机网关协议，原生容器优先并保留 Web Bluetooth 与电脑模拟器回退。
 
 ## 快速运行
 
@@ -113,9 +114,10 @@ WINDOWS_SIGNING_PFX_PASSWORD
 ```bash
 npm test
 npm run test:computer
+npm run product:readiness
 ```
 
-`npm test` 检查聊天、人格、3D 资源、BLE 协议、项链状态和语音配置。`npm run test:computer` 还会编译 ESP32-S3 固件并运行 NC-01 数字样机实验。
+`npm test` 检查聊天、人格、3D 资源、BLE 协议、手机网关、项链状态和语音配置。`npm run test:computer` 还会编译 ESP32-S3 固件并运行 NC-01 数字样机实验。`npm run product:readiness` 输出 BOM 冻结、物料到手和 EVT 必需验收的真实状态，不把数字模拟结果当成实体通过。
 
 ## 项目结构
 
@@ -131,6 +133,7 @@ npm run test:computer
 | `netlify/functions/` | 聊天、语音、密文同步、设备云和维护云函数 |
 | `cloud/` | 实体设备 PostgreSQL 迁移、事件存储和密钥边界，不进入公开发布包 |
 | `hardware/soulmate-pendant/` | 固件、外壳、打印和实验资料 |
+| `mobile/NexoraGateway/` | iOS / Android 原生手机网关契约与实现边界 |
 | `macos/NexoraBridge/` | macOS 菜单栏电脑控制客户端 |
 | `windows/NexoraBridge/` | Windows 系统托盘电脑控制客户端 |
 
@@ -141,6 +144,8 @@ npm run test:computer
 实体版本的云端基线为“BLE 项链 + 手机网关 + PostgreSQL 只追加密文事件 + 加密对象快照”。详细的数据分类、设备撤销、密钥轮换、保留期限与迁移步骤见 [`docs/NEXORA_DEVICE_CLOUD_ARCHITECTURE.md`](docs/NEXORA_DEVICE_CLOUD_ARCHITECTURE.md)。本机 PostgreSQL 已通过三设备、1000 条密文事件、快照压缩、撤销、恢复和数据库/对象联合删除闭环；Netlify Identity 私有测试云见 [`docs/NEXORA_PRIVATE_CLOUD_STAGING.md`](docs/NEXORA_PRIVATE_CLOUD_STAGING.md)，production 默认关闭，仅隔离测试分支启用。
 
 电脑模拟不能替代实体麦克风、扬声器、IMU、电池温升、蓝牙距离、跌落和佩戴强度测试。
+
+V1 冻结范围与 EVT/DVT 门槛见 [`docs/NEXORA_V1_PRODUCT_GATE.md`](docs/NEXORA_V1_PRODUCT_GATE.md)。首件的 12 类 BOM 和 16 项可执行验收位于 `hardware/soulmate-pendant/evt/`。
 
 ## API 与隐私
 

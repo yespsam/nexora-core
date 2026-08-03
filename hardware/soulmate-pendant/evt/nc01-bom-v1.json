@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "model": "NC-01",
+  "stage": "EVT-0",
+  "updatedAt": "2026-08-03",
+  "notes": "候选器件只用于工程首件，完成声学、温升和续航测试前不得视为量产定型。",
+  "items": [
+    {
+      "id": "mainboard",
+      "subsystem": "compute-display",
+      "name": "Waveshare ESP32-S3-LCD-1.28",
+      "quantity": 1,
+      "selectionState": "frozen",
+      "procurementState": "not-ordered",
+      "requirement": "240 x 240 GC9A01A 圆屏、ESP32-S3、BLE、Wi-Fi、QMI8658"
+    },
+    {
+      "id": "battery",
+      "subsystem": "power",
+      "name": "301230 带保护板锂聚合物电池",
+      "quantity": 1,
+      "selectionState": "candidate",
+      "procurementState": "not-ordered",
+      "requirement": "必须带保护板；容量、连接器和最大充电电流在首件温升测试后冻结"
+    },
+    {
+      "id": "microphone",
+      "subsystem": "audio",
+      "name": "小型 I2S MEMS 麦克风",
+      "quantity": 1,
+      "selectionState": "candidate",
+      "procurementState": "not-ordered",
+      "requirement": "支持 ESP32-S3 I2S；正面声孔；首件验证近讲和佩戴距离收音"
+    },
+    {
+      "id": "audio-amplifier",
+      "subsystem": "audio",
+      "name": "低功耗 I2S 音频功放",
+      "quantity": 1,
+      "selectionState": "candidate",
+      "procurementState": "not-ordered",
+      "requirement": "与候选扬声器阻抗和功率匹配；支持硬件关断"
+    },
+    {
+      "id": "speaker",
+      "subsystem": "audio",
+      "name": "薄型微型扬声器",
+      "quantity": 1,
+      "selectionState": "candidate",
+      "procurementState": "not-ordered",
+      "requirement": "装入 31.5 x 28 x 5.8 mm 服务仓后无明显壳体共振"
+    },
+    {
+      "id": "haptic",
+      "subsystem": "interaction",
+      "name": "微型振动执行器及驱动",
+      "quantity": 1,
+      "selectionState": "candidate",
+      "procurementState": "not-ordered",
+      "requirement": "提供唤醒、连接和确认三类可区分触感，不干扰麦克风"
+    },
+    {
+      "id": "mic-mute",
+      "subsystem": "privacy",
+      "name": "物理麦克风静音开关",
+      "quantity": 1,
+      "selectionState": "design-required",
+      "procurementState": "not-ordered",
+      "requirement": "必须从硬件电气路径切断麦克风并提供可见状态，不得只做软件静音"
+    },
+    {
+      "id": "status-light",
+      "subsystem": "interaction",
+      "name": "四段侧发光状态灯及驱动",
+      "quantity": 4,
+      "selectionState": "candidate",
+      "procurementState": "not-ordered",
+      "requirement": "独立控制四段导光条；静态待机时支持低功耗"
+    },
+    {
+      "id": "enclosure",
+      "subsystem": "mechanical",
+      "name": "NC-01 PETG 后壳、前框和透明导光条",
+      "quantity": 1,
+      "selectionState": "frozen",
+      "procurementState": "digital-only",
+      "requirement": "使用仓库 3MF/STL 打印首件并实测公差",
+      "evidence": ["hardware/soulmate-pendant/nexora-core-nc01-kit.3mf"]
+    },
+    {
+      "id": "fasteners",
+      "subsystem": "mechanical",
+      "name": "M2 x 6 mm 塑料自攻螺丝",
+      "quantity": 3,
+      "selectionState": "frozen",
+      "procurementState": "not-ordered",
+      "requirement": "均匀锁紧后屏幕、主板和电池不得承受点载荷"
+    },
+    {
+      "id": "wearable-loop",
+      "subsystem": "mechanical",
+      "name": "吊环、项链绳和安全脱离扣",
+      "quantity": 1,
+      "selectionState": "design-required",
+      "procurementState": "not-ordered",
+      "requirement": "完成分级拉力和日常佩戴测试后冻结"
+    },
+    {
+      "id": "assembly-consumables",
+      "subsystem": "assembly",
+      "name": "绝缘胶带、薄泡棉、导线和电池固定胶",
+      "quantity": 1,
+      "selectionState": "candidate",
+      "procurementState": "not-ordered",
+      "requirement": "材料不得遮挡天线、声孔、散热路径或物理静音开关"
+    }
+  ]
+}

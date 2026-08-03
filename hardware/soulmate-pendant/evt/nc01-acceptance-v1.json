@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "model": "NC-01",
+  "stage": "EVT-0",
+  "updatedAt": "2026-08-03",
+  "disclaimer": "以下为工程首件目标，不替代销售地区要求的实验室认证。",
+  "checks": [
+    {
+      "id": "digital-mesh",
+      "category": "digital",
+      "name": "外壳闭合、切片和装配公差",
+      "required": true,
+      "status": "passed",
+      "target": "三个零件无开口边、非流形边和切片警告",
+      "evidence": ["hardware/soulmate-pendant/experiments/nc01-simulation.json"]
+    },
+    {
+      "id": "digital-firmware",
+      "category": "digital",
+      "name": "ESP32-S3 固件与 54 套圆屏资源",
+      "required": true,
+      "status": "passed",
+      "target": "应用与 LittleFS 构建通过，Flash 和 RAM 不越界",
+      "evidence": ["hardware/soulmate-pendant/firmware/src/main.cpp", "hardware/soulmate-pendant/firmware/data/characters/manifest.json"]
+    },
+    {
+      "id": "digital-gateway",
+      "category": "digital",
+      "name": "统一手机网关协议",
+      "required": true,
+      "status": "passed",
+      "target": "模拟器、原生桥接和 Web Bluetooth 共享同一 NC-01 协议",
+      "evidence": ["shared/mobile-gateway.mjs", "tests/mobile-gateway.test.mjs"]
+    },
+    {
+      "id": "assembly-fit",
+      "category": "mechanical",
+      "name": "真实主板、电池、音频和导光条装配",
+      "required": true,
+      "status": "blocked",
+      "target": "无挤压、松动、遮挡、异响或 USB-C 干涉",
+      "blocker": "尚未采购首件器件"
+    },
+    {
+      "id": "charge-thermal",
+      "category": "power",
+      "name": "连续充电温升与绝缘",
+      "required": true,
+      "status": "blocked",
+      "target": "由硬件安全负责人冻结限值后，连续 60 分钟充电无异常温升、鼓包、异味或绝缘失效",
+      "blocker": "需要实体电池、装配首件和经审核的安全限值"
+    },
+    {
+      "id": "battery-runtime",
+      "category": "power",
+      "name": "典型使用续航",
+      "required": true,
+      "status": "blocked",
+      "target": "首版目标不少于 8 小时典型陪伴，完整记录待机、对话和屏幕占空比",
+      "blocker": "电池容量和音频链路尚未冻结"
+    },
+    {
+      "id": "audio-capture",
+      "category": "audio",
+      "name": "近讲和佩戴距离收音",
+      "required": true,
+      "status": "blocked",
+      "target": "安静与日常背景噪声下完成固定语料识别，记录成功率和信噪比",
+      "blocker": "没有实体麦克风"
+    },
+    {
+      "id": "audio-echo",
+      "category": "audio",
+      "name": "扬声器回声、共振和打断",
+      "required": true,
+      "status": "blocked",
+      "target": "播放语音时不触发自言自语；用户打断可在 800 ms 内停止播放并进入收音",
+      "blocker": "没有实体麦克风、功放和扬声器"
+    },
+    {
+      "id": "ble-reliability",
+      "category": "radio",
+      "name": "BLE 距离、重连和持续同步",
+      "required": true,
+      "status": "blocked",
+      "target": "5 米无遮挡完成 1000 次快照，失败率低于 1%；断开后自动恢复",
+      "blocker": "没有实体 NC-01 和原生手机构建"
+    },
+    {
+      "id": "display-quality",
+      "category": "display",
+      "name": "真屏颜色、亮度、刷新和功耗",
+      "required": true,
+      "status": "blocked",
+      "target": "九种形态和十一种状态清晰可辨，无明显撕裂或错误帧",
+      "blocker": "没有实体圆屏"
+    },
+    {
+      "id": "motion-wake",
+      "category": "interaction",
+      "name": "抬腕唤醒与误唤醒",
+      "required": true,
+      "status": "blocked",
+      "target": "记录 100 次主动抬起成功率和 8 小时日常佩戴误唤醒次数",
+      "blocker": "没有实体 IMU 佩戴样机"
+    },
+    {
+      "id": "mic-mute",
+      "category": "privacy",
+      "name": "物理麦克风静音",
+      "required": true,
+      "status": "blocked",
+      "target": "开关断开后麦克风电气路径不可采集，屏幕与灯光持续显示静音状态",
+      "blocker": "物理开关和电路尚未设计"
+    },
+    {
+      "id": "secure-boot-ota",
+      "category": "security",
+      "name": "Secure Boot、Flash Encryption、签名 OTA 与回滚",
+      "required": true,
+      "status": "not-started",
+      "target": "拒绝未签名固件；升级中断后恢复上一可用版本"
+    },
+    {
+      "id": "lanyard-pull",
+      "category": "mechanical",
+      "name": "吊环 5 N、10 N、20 N 分级拉力",
+      "required": true,
+      "status": "blocked",
+      "target": "每级保持并记录变形；最终门槛由机械安全评审冻结",
+      "blocker": "没有实体打印件和安全脱离扣"
+    },
+    {
+      "id": "drop-wear",
+      "category": "mechanical",
+      "name": "跌落、汗液和长期佩戴",
+      "required": true,
+      "status": "blocked",
+      "target": "完成测试方案评审后执行，不得以桌面打印件直接开始贴肤长期佩戴",
+      "blocker": "材料、装配和测试限值尚未冻结"
+    },
+    {
+      "id": "seven-day-soak",
+      "category": "reliability",
+      "name": "七天连续工程样机运行",
+      "required": true,
+      "status": "blocked",
+      "target": "至少 3 台样机连续七天，记录重启、掉线、过热、音频和同步故障",
+      "blocker": "需要至少 3 台装配完成的 EVT 首件"
+    }
+  ]
+}

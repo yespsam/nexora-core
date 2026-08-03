@@ -16,6 +16,7 @@
     "build:pendant-firmware-fs": "npm run build:pendant-firmware-assets && python3 -m platformio run -d hardware/soulmate-pendant/firmware -t buildfs",
     "package:pendant-firmware": "npm run build:pendant-firmware && npm run build:pendant-firmware-fs && node tools/package-pendant-firmware.mjs",
     "simulate:pendant": "node tools/simulate-nexora-core.mjs",
+    "product:readiness": "node tools/report-product-readiness.mjs",
     "cloud:setup": "node cloud/setup-local.mjs",
     "cloud:serve": "node cloud/local-server.mjs",
     "cloud:simulate": "node cloud/simulate-devices.mjs",

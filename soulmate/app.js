@@ -14,11 +14,13 @@ import {
   stageProgress
 } from '../shared/soulmate-profile.mjs?v=2';
 import {
-  PENDANT_BLE_SERVICE_UUID,
-  PENDANT_BLE_SNAPSHOT_UUID,
   encodePendantBleSnapshot
 } from '../shared/pendant-ble.mjs';
 import { openPendantSimulatorWriter } from '../shared/pendant-simulator.mjs';
+import {
+  connectPendantGateway,
+  pendantGatewayFailureMessage
+} from '../shared/mobile-gateway.mjs?v=1';
 import {
   SOULMATE_SYNC_STORAGE_KEY,
   openSoulmateSync
@@ -183,7 +185,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   ? requestedDiagnosticLlmModel
   : '';
 const REALTIME_LLM_MODEL = 'moonshot-v1-8k';
-const APP_RELEASE = 'chat-resilience-v114';
+const APP_RELEASE = 'mobile-gateway-evt-v115';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -297,6 +299,7 @@ const state = {
   lastAssistantText: '',
   lastAssistantAt: 0,
   currentStageId: '',
+  pendantSession: null,
   pendantDevice: null,
   pendantCharacteristic: null,
   pendantSyncTimer: 0,
@@ -2570,7 +2573,11 @@ async function pairBluetooth() {
 }
 
 function pendantDisconnected() {
+  const session = state.pendantSession;
+  state.pendantSession = null;
+  state.pendantDevice = null;
   state.pendantCharacteristic = null;
+  Promise.resolve(session?.disconnect?.()).catch(() => {});
   pendantStatus.textContent = '连接已断开';
   pendantButton.textContent = '重新连接';
 }
@@ -2600,39 +2607,31 @@ function queuePendantSync() {
 }
 
 async function connectPendant() {
-  if (pendantSimulationMode) {
-    if (!state.pendantCharacteristic) {
-      state.pendantCharacteristic = openPendantSimulatorWriter();
-      state.pendantDevice = { name: 'NEXORA NC-01 · 电脑模拟器' };
-      pendantButton.textContent = '同步';
-    }
-    await syncPendant();
-    pendantStatus.textContent = `模拟器已同步 ${state.profile.name} · 共鸣 ${state.profile.bond}`;
-    return;
-  }
-  if (!navigator.bluetooth) {
-    pendantStatus.textContent = '此浏览器不支持 Web Bluetooth';
-    return;
-  }
   if (state.pendantCharacteristic) {
     await syncPendant();
     return;
   }
   pendantStatus.textContent = '正在查找 NC-01';
   try {
-    const device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [PENDANT_BLE_SERVICE_UUID] }]
+    const session = await connectPendantGateway({
+      host: window,
+      navigatorObject: navigator,
+      simulationWriter: pendantSimulationMode ? openPendantSimulatorWriter() : null,
+      onDisconnected: pendantDisconnected
     });
-    device.addEventListener('gattserverdisconnected', pendantDisconnected);
-    const server = await device.gatt.connect();
-    const service = await server.getPrimaryService(PENDANT_BLE_SERVICE_UUID);
-    state.pendantCharacteristic = await service.getCharacteristic(PENDANT_BLE_SNAPSHOT_UUID);
-    state.pendantDevice = device;
+    state.pendantSession = session;
+    state.pendantCharacteristic = session.writer;
+    state.pendantDevice = { id: session.deviceId, name: session.name, mode: session.mode };
     pendantButton.textContent = '同步';
-    pendantStatus.textContent = `已连接 ${device.name || 'NC-01'}`;
+    pendantStatus.textContent = session.mode === 'native'
+      ? `手机网关已连接 ${session.name}`
+      : `已连接 ${session.name}`;
     await syncPendant();
+    if (session.mode === 'simulation') {
+      pendantStatus.textContent = `模拟器已同步 ${state.profile.name} · 共鸣 ${state.profile.bond}`;
+    }
   } catch (error) {
-    pendantStatus.textContent = error?.name === 'NotFoundError' ? '已取消连接' : '连接失败，请让项链保持开机';
+    pendantStatus.textContent = pendantGatewayFailureMessage(error);
     pendantButton.textContent = '重试';
   }
 }

@@ -36,6 +36,7 @@ const publicFiles = [
   'shared/device-cloud-crypto.mjs',
   'shared/device-cloud-protocol.mjs',
   'shared/pendant-ble.mjs',
+  'shared/mobile-gateway.mjs',
   'shared/pendant-simulator.mjs',
   'shared/pendant-display.mjs',
   'shared/pendant-poses.mjs',
