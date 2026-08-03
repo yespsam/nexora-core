@@ -57,11 +57,16 @@ import {
   voiceControlState
 } from '../shared/voice-turn.mjs?v=5';
 import {
+  SOULMATE_CHAT_REQUEST_TIMEOUT_MS,
+  canRetrySoulmateChat,
   canResumeSoulmateCloudSync,
   isPrivateAccessExpired,
   privateAccessLoginPath,
+  removeUndeliveredSoulmateTurn,
+  soulmateChatNetworkFailure,
+  soulmateChatRetryDelay,
   soulmateCloudRetryDelay
-} from '../shared/soulmate-resilience.mjs?v=2';
+} from '../shared/soulmate-resilience.mjs?v=3';
 import {
   appendChatStreamDelta,
   firstSpeechSegment,
@@ -178,7 +183,7 @@ const diagnosticLlmModel = pageParams.get('probe') === '1'
   ? requestedDiagnosticLlmModel
   : '';
 const REALTIME_LLM_MODEL = 'moonshot-v1-8k';
-const APP_RELEASE = 'desktop-pet-conversation-v113';
+const APP_RELEASE = 'chat-resilience-v114';
 const llmFailureMessages = Object.freeze({
   authentication_required: '登录已过期，正在重新验证身份。',
   server_key_auth: '云端 Kimi 凭据无效，请联系管理员更新。',
@@ -193,7 +198,10 @@ const llmFailureMessages = Object.freeze({
   server_key_failed: 'Kimi 没有完成这次请求。',
   gateway_failed: '云端模型网关暂时不可用，请稍后重试。',
   not_configured: '私有云尚未配置对话模型。',
-  request_failed: '消息没有送到云端，请刷新页面后重试。'
+  client_offline: '当前设备没有网络，请联网后重新发送。',
+  client_timeout: '网络响应时间过长，本次连接已结束，请重新发送。',
+  client_network: '网络连接中断，请确认网络后重新发送。',
+  request_failed: '消息没有送到云端，请稍后重新发送。'
 });
 
 const phaseLabels = {
@@ -1256,7 +1264,7 @@ async function requestReply(text, {
     llm_model: diagnosticLlmModel || REALTIME_LLM_MODEL,
     stream: true
   });
-  const requestChat = (path, grant = '') => fetch(path, {
+  const requestChat = (path, grant = '', signal) => fetch(path, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -1264,21 +1272,76 @@ async function requestReply(text, {
     },
     credentials: 'same-origin',
     cache: 'no-store',
-    body
+    body,
+    signal
   });
-  const grant = String(state.chatGrant || '').slice(0, 1200);
-  let response = await requestChat(grant ? '/api/chat/stream' : '/api/chat', grant);
-  if (grant && response.status === 401) {
-    state.chatGrant = '';
-    response = await requestChat('/api/chat');
-    window.setTimeout(() => refreshLlmConnection(), 0);
+  let lastResult = { reply: '', mood: 'calm', failure: 'request_failed' };
+  const requestDeadline = Date.now() + SOULMATE_CHAT_REQUEST_TIMEOUT_MS;
+  for (let attempt = 0; attempt <= 2; attempt += 1) {
+    const controller = new AbortController();
+    let timedOut = false;
+    let partial = false;
+    let status = 0;
+    onVoiceGrant?.('');
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, Math.max(1, requestDeadline - Date.now()));
+    try {
+      const grant = String(state.chatGrant || '').slice(0, 1200);
+      let response = await requestChat(
+        grant ? '/api/chat/stream' : '/api/chat',
+        grant,
+        controller.signal
+      );
+      if (grant && response.status === 401) {
+        state.chatGrant = '';
+        response = await requestChat('/api/chat', '', controller.signal);
+        window.setTimeout(() => refreshLlmConnection(), 0);
+      }
+      status = response.status;
+      const type = response.headers.get('content-type') || '';
+      if (response.ok && type.includes('text/event-stream')) {
+        lastResult = await readChatStream(response, {
+          onVoiceGrant,
+          onDelta(value) {
+            partial = Boolean(value);
+            onDelta?.(value);
+          }
+        });
+      } else {
+        const responseBody = await response.json().catch(() => null);
+        lastResult = replyResultFromBody(response, responseBody);
+      }
+    } catch (error) {
+      lastResult = {
+        reply: '',
+        mood: 'calm',
+        failure: soulmateChatNetworkFailure({
+          timedOut,
+          online: navigator.onLine !== false
+        })
+      };
+    } finally {
+      window.clearTimeout(timeout);
+    }
+    if (!canRetrySoulmateChat({
+      attempt,
+      status,
+      failure: lastResult.failure,
+      partial,
+      online: navigator.onLine !== false
+    })) {
+      return { ...lastResult, attempts: attempt + 1 };
+    }
+    presenceLine.textContent = `${state.profile.name}正在重新连接……`;
+    const retryDelay = soulmateChatRetryDelay(attempt);
+    if (Date.now() + retryDelay >= requestDeadline) {
+      return { ...lastResult, attempts: attempt + 1 };
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, retryDelay));
   }
-  const type = response.headers.get('content-type') || '';
-  if (response.ok && type.includes('text/event-stream')) {
-    return readChatStream(response, { onDelta, onVoiceGrant });
-  }
-  const responseBody = await response.json().catch(() => null);
-  return replyResultFromBody(response, responseBody);
+  return lastResult;
 }
 
 function renderCommandAgentControls() {
@@ -1628,7 +1691,6 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   state.busy = true;
   chatInput.value = '';
   appendMessage('user', text);
-  updateProfile(growSoulmate(state.profile, { kind: 'chat', text }));
   setPhase('thinking');
   presenceLine.textContent = `${state.profile.name}正在理解你的话……`;
   let result;
@@ -1654,6 +1716,8 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   if (result.reauthenticate) {
     resolveEarlyContinuation?.(null);
     stopAudio({ clearQueue: true, guardMs: 0 });
+    state.history = removeUndeliveredSoulmateTurn(state.history, text);
+    saveHistory();
     state.busy = false;
     setPhase('idle');
     presenceLine.textContent = llmFailureMessages.authentication_required;
@@ -1663,12 +1727,16 @@ async function sendMessage(rawText, { source = 'text' } = {}) {
   if (!result.reply) {
     resolveEarlyContinuation?.(null);
     stopAudio({ clearQueue: true, guardMs: 0 });
+    state.history = removeUndeliveredSoulmateTurn(state.history, text);
+    saveHistory();
+    chatInput.value = text;
     state.busy = false;
     setPhase('idle');
     showConversationError(result.failure);
     presenceLine.textContent = llmFailureMessages[result.failure] || '真实对话连接失败，请到设置中重新验证 API。';
     return;
   }
+  updateProfile(growSoulmate(state.profile, { kind: 'chat', text }));
   appendMessage('assistant', result.reply);
   state.lastAssistantText = result.reply;
   state.lastAssistantAt = Date.now();
