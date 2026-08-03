@@ -6,6 +6,22 @@ NEXORA CORE 是一个内部保密的随身 AI 情感伙伴产品原型。伙伴�
 
 ![NEXORA CORE 3D companion](NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png)
 
+## 内部测试下载
+
+所有可安装和可烧录文件集中在 [NEXORA CORE 0.3.0 Internal Release](https://github.com/yespsam/nexora-core/releases/tag/nexora-core-v0.3.0-internal)。仓库为私有状态，下载前需要登录已获授权的 GitHub 账号。
+
+| 文件 | 用途 |
+| --- | --- |
+| `NEXORA-CORE-Web-v0.3.0-internal.zip` | 网页运行文件，可解压查看或部署到 Netlify；真实对话需要云端 Functions 与服务器密钥 |
+| `NEXORA-Bridge-macOS.dmg` | macOS 电脑控制与透明桌面宠物内部测试版 |
+| `NEXORA-Bridge-Windows-x64.zip` | 普通 Intel / AMD Windows 电脑内部测试版 |
+| `NEXORA-Bridge-Windows-ARM64.zip` | ARM64 Windows 电脑内部测试版 |
+| `NEXORA-NC01-Firmware-EVT-A.zip` | Waveshare ESP32-S3-LCD-1.28 台架验证固件 |
+| `NEXORA-NC01-3D-Print-Pack.zip` | NC-01 外壳 STL、3MF、OpenSCAD 源文件与模拟报告 |
+| `SHA256SUMS.txt` | 下载文件完整性校验值 |
+
+GitHub 自动附带的 `Source code (zip)` 是完整源码快照，不是普通用户安装包。
+
 ## 三种初始伙伴
 
 | 路线 | 伙伴 | 风格 | 默认声线 |
