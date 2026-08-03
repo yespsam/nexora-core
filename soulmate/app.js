@@ -70,16 +70,19 @@ import {
 } from '../shared/chat-stream.mjs?v=2';
 import { parseDeviceCommand } from '../shared/device-command.mjs?v=2';
 import {
-  clearSoulmateCommandAgent,
   getSoulmateCommandAgentStatus,
   getSoulmateDeviceCommandStatus,
+  listSoulmateCommandAgentStatuses,
   loadSoulmateCommandAgent,
+  loadSoulmateCommandAgents,
   mergeSoulmateCommandAgentStatus,
   queueSoulmateDeviceCommand,
   registerSoulmateCommandAgent,
-  revokeSoulmateCommandAgent,
+  removeSoulmateCommandAgent,
+  revokeSoulmateCommandAgentById,
+  selectSoulmateCommandAgent,
   soulmateCommandAgentPairingCode
-} from '../shared/soulmate-command-agent.mjs?v=3';
+} from '../shared/soulmate-command-agent.mjs?v=4';
 import {
   DESKTOP_BRIDGE_DOWNLOADS,
   desktopBridgeDownloadView,
@@ -135,10 +138,12 @@ const bluetoothStatus = $('#bluetooth-status');
 const bridgeButton = $('#bridge-button');
 const bridgeStatus = $('#bridge-status');
 const bridgePairButton = $('#bridge-pair-button');
+const bridgeAddButton = $('#bridge-add-button');
 const bridgeRevokeButton = $('#bridge-revoke-button');
 const bridgePairing = $('#bridge-pairing');
 const bridgePairCode = $('#bridge-pair-code');
 const bridgeCopyButton = $('#bridge-copy-button');
+const bridgeAgentList = $('#bridge-agent-list');
 const bridgePlatformLabel = $('#bridge-platform-label');
 const bridgePlatformNote = $('#bridge-platform-note');
 const bridgeDownloadPrimary = $('#bridge-download-primary');
@@ -306,7 +311,9 @@ const state = {
   bridgeMode: '',
   bridgeCapabilities: [],
   commandAgent: null,
-  commandAgentStatus: null
+  commandAgentStatus: null,
+  commandAgents: [],
+  commandAgentStatuses: []
 };
 
 let creatureViewer = null;
@@ -1007,7 +1014,10 @@ async function stopCloudSync() {
     state.cloudDiagnostic = null;
     state.commandAgent = null;
     state.commandAgentStatus = null;
+    state.commandAgents = [];
+    state.commandAgentStatuses = [];
     bridgePairing.hidden = true;
+    renderCommandAgentControls();
     renderCloudSync();
     setCloudSyncMessage('已停止本机同步，云端加密副本仍保留');
   } catch (error) {
@@ -1032,7 +1042,10 @@ async function removeCloudSync() {
     state.cloudDiagnostic = null;
     state.commandAgent = null;
     state.commandAgentStatus = null;
+    state.commandAgents = [];
+    state.commandAgentStatuses = [];
     bridgePairing.hidden = true;
+    renderCommandAgentControls();
     cloudSyncCode.hidden = true;
     setCloudSyncMessage('云端加密副本已删除，本机伙伴仍保留');
   } catch (error) {
@@ -1271,7 +1284,70 @@ async function requestReply(text, {
 function renderCommandAgentControls() {
   const paired = Boolean(state.commandAgent);
   bridgePairButton.textContent = paired ? '显示配对码' : '配对电脑';
+  bridgeAddButton.hidden = !paired;
   bridgeRevokeButton.hidden = !paired;
+  renderCommandAgentList();
+}
+
+function commandAgentIsOnline(value) {
+  const lastSeen = Date.parse(String(value?.lastSeenAt || ''));
+  return Number.isFinite(lastSeen) && Date.now() - lastSeen < 45000;
+}
+
+function renderCommandAgentList() {
+  const localById = new Map(state.commandAgents.map((item) => [item.agentId, item]));
+  const remoteById = new Map(state.commandAgentStatuses.map((item) => [item.agentId, item]));
+  for (const credential of state.commandAgents) {
+    if (!remoteById.has(credential.agentId)) {
+      remoteById.set(credential.agentId, {
+        agentId: credential.agentId,
+        displayName: credential.displayName,
+        status: 'active',
+        lastSeenAt: null
+      });
+    }
+  }
+  const agents = [...remoteById.values()];
+  bridgeAgentList.replaceChildren();
+  bridgeAgentList.hidden = agents.length === 0;
+  for (const agent of agents) {
+    const local = localById.get(agent.agentId);
+    const current = state.commandAgent?.agentId === agent.agentId;
+    const effectiveStatus = current
+      ? mergeSoulmateCommandAgentStatus(agent, state.commandAgentStatus)
+      : agent;
+    const online = commandAgentIsOnline(effectiveStatus);
+    const row = document.createElement('div');
+    row.className = `bridge-agent-row${current ? ' current' : ''}`;
+
+    const select = document.createElement('button');
+    select.type = 'button';
+    select.className = 'bridge-agent-select';
+    select.dataset.agentSelect = agent.agentId;
+    select.disabled = !local || current;
+    select.setAttribute('aria-label', current
+      ? `${agent.displayName}，当前电脑`
+      : `切换到 ${agent.displayName}`);
+    const name = document.createElement('strong');
+    name.textContent = String(agent.displayName || local?.displayName || 'NEXORA Desktop').slice(0, 80);
+    const status = document.createElement('small');
+    status.textContent = current
+      ? `当前 · ${online ? '在线' : '等待客户端'}`
+      : local
+        ? (online ? '在线 · 可切换' : '离线 · 可切换')
+        : (online ? '在线 · 其他浏览器配对' : '其他浏览器配对');
+    select.append(name, status);
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'bridge-agent-remove';
+    remove.dataset.agentRevoke = agent.agentId;
+    remove.dataset.agentName = name.textContent;
+    remove.textContent = '移除';
+    remove.setAttribute('aria-label', `移除 ${name.textContent} 的授权`);
+    row.append(select, remove);
+    bridgeAgentList.append(row);
+  }
 }
 
 function activateCloudCommandAgent() {
@@ -1293,43 +1369,67 @@ async function refreshCommandAgent({ quiet = false } = {}) {
   if (!state.cloudIdentity) {
     state.commandAgent = null;
     state.commandAgentStatus = null;
+    state.commandAgents = [];
+    state.commandAgentStatuses = [];
     renderCommandAgentControls();
     bridgePairing.hidden = true;
     return false;
   }
   try {
+    state.commandAgents = await loadSoulmateCommandAgents(state.cloudIdentity);
     state.commandAgent = await loadSoulmateCommandAgent(state.cloudIdentity);
-    if (!state.commandAgent) {
-      state.commandAgentStatus = null;
-      renderCommandAgentControls();
-      bridgePairing.hidden = true;
-      return false;
+    let collectionLoaded = false;
+    try {
+      state.commandAgentStatuses = await listSoulmateCommandAgentStatuses(state.cloudIdentity);
+      collectionLoaded = true;
+    } catch (error) {
+      state.commandAgentStatuses = [];
+      if (state.commandAgent) {
+        const remoteStatus = await getSoulmateCommandAgentStatus(
+          state.cloudIdentity,
+          state.commandAgent
+        );
+        if (remoteStatus) state.commandAgentStatuses = [remoteStatus];
+      }
     }
-    const remoteStatus = await getSoulmateCommandAgentStatus(
-      state.cloudIdentity,
-      state.commandAgent
-    );
-    if (remoteStatus?.status !== 'active') {
-      await clearSoulmateCommandAgent(state.cloudIdentity);
-      state.commandAgent = null;
+    if (collectionLoaded) {
+      const activeIds = new Set(state.commandAgentStatuses
+        .filter((item) => item.status === 'active')
+        .map((item) => item.agentId));
+      const removedAgents = state.commandAgents.filter((item) => !activeIds.has(item.agentId));
+      for (const credential of removedAgents) {
+        await removeSoulmateCommandAgent(state.cloudIdentity, credential.agentId);
+      }
+      if (removedAgents.length) {
+        state.commandAgents = await loadSoulmateCommandAgents(state.cloudIdentity);
+        state.commandAgent = await loadSoulmateCommandAgent(state.cloudIdentity);
+      }
+    }
+    if (!state.commandAgent) {
       state.commandAgentStatus = null;
       state.bridgeConnected = false;
       state.bridgeMode = '';
       state.bridgeCapabilities = [];
       bridgePairCode.textContent = '';
       bridgePairing.hidden = true;
-      bridgeStatus.textContent = '电脑授权已移除';
+      bridgeStatus.textContent = state.commandAgentStatuses.length
+        ? '已有电脑授权，此浏览器需要重新配对才能控制'
+        : '尚未配对电脑';
       bridgeButton.textContent = '检测';
       renderCommandAgentControls();
       return false;
     }
+    const remoteStatus = state.commandAgentStatuses.find(
+      (item) => item.agentId === state.commandAgent.agentId
+    );
     state.commandAgentStatus = mergeSoulmateCommandAgentStatus(
       state.commandAgentStatus,
-      remoteStatus
+      remoteStatus || { status: 'active', lastSeenAt: null }
     );
     return activateCloudCommandAgent();
   } catch (error) {
     state.commandAgentStatus = null;
+    renderCommandAgentControls();
     if (!quiet) bridgeStatus.textContent = '云端配对状态暂时不可用';
     return state.commandAgent ? activateCloudCommandAgent() : false;
   }
@@ -1367,6 +1467,12 @@ async function sendCloudCommand(command) {
         ...(state.commandAgentStatus || {}),
         lastSeenAt: acknowledgedAt
       });
+      state.commandAgentStatuses = state.commandAgentStatuses.map((item) => (
+        item.agentId === state.commandAgent?.agentId
+          ? mergeSoulmateCommandAgentStatus(item, { lastSeenAt: acknowledgedAt })
+          : item
+      ));
+      renderCommandAgentControls();
       return { ok: true, summary };
     }
     if (final?.status === 'failed') {
@@ -2501,15 +2607,49 @@ async function pairCommandAgent() {
     bridgePairing.hidden = !bridgePairing.hidden;
     return;
   }
-  if (!window.confirm('配对码会授予这台电脑领取加密控制指令的持续权限。只在你信任的电脑上使用，确定创建吗？')) {
+  await createCommandAgentPairing(false);
+}
+
+function nextCommandAgentDisplayName() {
+  const platform = bridgePlatformLabel.textContent.toLowerCase();
+  const base = platform.includes('windows')
+    ? 'Windows 电脑'
+    : platform.includes('macos')
+      ? 'Mac 电脑'
+      : 'NEXORA 电脑';
+  const count = Math.max(state.commandAgents.length, state.commandAgentStatuses.length) + 1;
+  return count > 1 ? `${base} ${count}` : base;
+}
+
+async function createCommandAgentPairing(additional) {
+  if (!state.cloudIdentity) {
+    bridgeStatus.textContent = '请先在设置中开启加密云同步';
+    return;
+  }
+  const message = additional
+    ? '新增配对码会授予另一台电脑领取加密控制指令的持续权限。只在你信任的电脑上使用，确定创建吗？'
+    : '配对码会授予这台电脑领取加密控制指令的持续权限。只在你信任的电脑上使用，确定创建吗？';
+  if (!window.confirm(message)) {
     return;
   }
   bridgePairButton.disabled = true;
+  bridgeAddButton.disabled = true;
   bridgeStatus.textContent = '正在创建加密配对';
   try {
-    const paired = await registerSoulmateCommandAgent(state.cloudIdentity);
+    const paired = await registerSoulmateCommandAgent(state.cloudIdentity, {
+      displayName: nextCommandAgentDisplayName()
+    });
+    state.commandAgents = await loadSoulmateCommandAgents(state.cloudIdentity);
     state.commandAgent = paired.credential;
     state.commandAgentStatus = { status: 'active', lastSeenAt: null };
+    state.commandAgentStatuses = [{
+      agentId: paired.credential.agentId,
+      vaultId: paired.credential.vaultId,
+      displayName: paired.credential.displayName,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      lastSeenAt: null
+    }, ...state.commandAgentStatuses.filter((item) => item.agentId !== paired.credential.agentId)];
     bridgePairCode.textContent = paired.pairingCode;
     bridgePairing.hidden = false;
     activateCloudCommandAgent();
@@ -2519,37 +2659,62 @@ async function pairCommandAgent() {
       : '无法创建电脑配对，请稍后重试';
   } finally {
     bridgePairButton.disabled = false;
+    bridgeAddButton.disabled = false;
   }
 }
 
-async function revokeCommandAgent() {
-  if (!state.cloudIdentity || !state.commandAgent) return;
-  if (!window.confirm('移除后，这台电脑会立即停止领取控制指令。需要重新输入新的配对码才能恢复，确定移除吗？')) {
+async function addCommandAgent() {
+  await createCommandAgentPairing(true);
+}
+
+async function selectCommandAgent(agentId) {
+  if (!state.cloudIdentity || state.commandAgent?.agentId === agentId) return;
+  const selected = await selectSoulmateCommandAgent(state.cloudIdentity, agentId);
+  if (!selected) {
+    bridgeStatus.textContent = '此浏览器没有这台电脑的控制密钥';
+    return;
+  }
+  state.commandAgent = selected;
+  state.commandAgentStatus = state.commandAgentStatuses.find((item) => item.agentId === agentId) || null;
+  bridgePairCode.textContent = '';
+  bridgePairing.hidden = true;
+  activateCloudCommandAgent();
+}
+
+async function revokeCommandAgentById(agentId, displayName = '这台电脑') {
+  if (!state.cloudIdentity || !agentId) return;
+  if (!window.confirm(`移除「${String(displayName).slice(0, 80)}」后，它会立即停止领取控制指令。确定移除吗？`)) {
     return;
   }
   bridgeRevokeButton.disabled = true;
   bridgePairButton.disabled = true;
+  bridgeAddButton.disabled = true;
   bridgeStatus.textContent = '正在移除电脑授权';
   try {
-    await revokeSoulmateCommandAgent(state.cloudIdentity, state.commandAgent);
-    state.commandAgent = null;
-    state.commandAgentStatus = null;
-    state.bridgeConnected = false;
-    state.bridgeMode = '';
-    state.bridgeCapabilities = [];
+    await revokeSoulmateCommandAgentById(state.cloudIdentity, agentId);
     bridgePairCode.textContent = '';
     bridgePairing.hidden = true;
-    bridgeStatus.textContent = '电脑授权已移除';
-    bridgeButton.textContent = '检测';
-    bluetoothStatus.textContent = '尚未选择';
-    bluetoothButton.textContent = '选择网关';
-    renderCommandAgentControls();
+    await refreshCommandAgent({ quiet: true });
+    if (state.commandAgent) {
+      bridgeStatus.textContent = '电脑授权已移除，已切换到另一台电脑';
+    } else {
+      bridgeStatus.textContent = '电脑授权已移除';
+      bridgeButton.textContent = '检测';
+      bluetoothStatus.textContent = '尚未选择';
+      bluetoothButton.textContent = '选择网关';
+    }
   } catch (error) {
     bridgeStatus.textContent = '无法移除电脑授权，请稍后重试';
   } finally {
     bridgeRevokeButton.disabled = false;
     bridgePairButton.disabled = false;
+    bridgeAddButton.disabled = false;
   }
+}
+
+async function revokeCommandAgent() {
+  if (!state.commandAgent) return;
+  await revokeCommandAgentById(state.commandAgent.agentId, state.commandAgent.displayName);
 }
 
 async function copyCommandAgentPairingCode() {
@@ -2744,8 +2909,20 @@ bluetoothButton.addEventListener('click', pairBluetooth);
 pendantButton.addEventListener('click', connectPendant);
 bridgeButton.addEventListener('click', detectBridge);
 bridgePairButton.addEventListener('click', pairCommandAgent);
+bridgeAddButton.addEventListener('click', addCommandAgent);
 bridgeRevokeButton.addEventListener('click', revokeCommandAgent);
 bridgeCopyButton.addEventListener('click', copyCommandAgentPairingCode);
+bridgeAgentList.addEventListener('click', (event) => {
+  const select = event.target.closest('[data-agent-select]');
+  if (select) {
+    void selectCommandAgent(select.dataset.agentSelect);
+    return;
+  }
+  const revoke = event.target.closest('[data-agent-revoke]');
+  if (revoke) {
+    void revokeCommandAgentById(revoke.dataset.agentRevoke, revoke.dataset.agentName);
+  }
+});
 cloudSyncEnable.addEventListener('click', enableCloudSync);
 cloudSyncNow.addEventListener('click', () => pushCloudState({ manual: true }));
 cloudSyncShowCode.addEventListener('click', async () => {

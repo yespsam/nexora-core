@@ -81,6 +81,11 @@ export function createDeviceCloudFunction(options) {
       if (request.method === 'POST' && path === '/api/device-cloud/command-agents') {
         return json(await store.registerCommandAgent(ownerId, await readJson(request)), 201);
       }
+      if (request.method === 'GET' && path === '/api/device-cloud/command-agents') {
+        return json(await store.listCommandAgents(ownerId, {
+          vaultId: url.searchParams.get('vaultId')
+        }));
+      }
       const commandAgentMatch = path.match(/^\/api\/device-cloud\/command-agents\/([0-9a-f-]+)$/i);
       if (request.method === 'GET' && commandAgentMatch) {
         return json(await store.commandAgentStatus(ownerId, {

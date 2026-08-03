@@ -53,10 +53,14 @@ test('device panel exposes platform downloads without embedding binaries in the 
   ]);
   assert.match(html, /id="bridge-download-primary"/);
   assert.match(html, /data-bridge-download="windows-arm64"/);
+  assert.match(html, /id="bridge-agent-list"/);
+  assert.match(html, /id="bridge-add-button"[^>]*hidden/);
   assert.match(html, /id="bridge-revoke-button"[^>]*hidden/);
   assert.match(html, /rel="noopener noreferrer"/);
   assert.match(app, /detectDesktopBridgePlatform/);
-  assert.match(app, /revokeSoulmateCommandAgent/);
+  assert.match(app, /revokeSoulmateCommandAgentById/);
+  assert.match(app, /selectSoulmateCommandAgent/);
+  assert.match(app, /listSoulmateCommandAgentStatuses/);
   assert.match(app, /bridgeRevokeButton\.addEventListener\('click', revokeCommandAgent\)/);
   assert.match(build, /shared\/desktop-bridge-download\.mjs/);
   assert.doesNotMatch(build, /NEXORA-Bridge-Windows-x64\.zip/);

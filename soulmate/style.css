@@ -1055,6 +1055,75 @@ input:focus-visible {
   white-space: nowrap;
 }
 
+.bridge-agent-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.bridge-agent-list[hidden] {
+  display: none;
+}
+
+.bridge-agent-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bridge-agent-row.current {
+  border-color: rgba(32, 189, 197, 0.55);
+  background: rgba(32, 189, 197, 0.07);
+}
+
+.bridge-agent-select,
+.bridge-agent-remove {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+}
+
+.bridge-agent-select {
+  min-width: 0;
+  padding: 8px 11px;
+  text-align: left;
+}
+
+.bridge-agent-select strong,
+.bridge-agent-select small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bridge-agent-select strong {
+  font-size: 11px;
+}
+
+.bridge-agent-select small {
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
+.bridge-agent-select:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.bridge-agent-remove {
+  width: 54px;
+  border-left: 1px solid var(--line);
+  color: var(--coral-strong);
+  font-size: 10px;
+}
+
 .connection-row span {
   margin-top: 5px;
   color: var(--ink-soft);

@@ -287,6 +287,32 @@ export class DeviceCloudStore {
     }, this.apiRole);
   }
 
+  async listCommandAgents(ownerId, value) {
+    const publicId = requiredVaultId(value?.vaultId);
+    return withOwner(this.apiPool, ownerId, async (client, owner) => {
+      const vault = await vaultForOwner(client, owner, publicId);
+      const result = await client.query(`
+        SELECT id, display_name, status, created_at, last_seen_at
+        FROM nexora_cloud.device_command_agents
+        WHERE vault_id = $1 AND owner_id = $2
+          AND status = 'active' AND revoked_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT 20
+      `, [vault.id, owner]);
+      return {
+        vaultId: publicId,
+        agents: result.rows.map((row) => ({
+          agentId: row.id,
+          vaultId: publicId,
+          displayName: row.display_name,
+          status: row.status,
+          createdAt: row.created_at.toISOString(),
+          lastSeenAt: row.last_seen_at?.toISOString() || null
+        }))
+      };
+    }, this.apiRole);
+  }
+
   async revokeCommandAgent(ownerId, value) {
     const agentId = requiredUuid(value?.agentId, 'command agent id');
     const publicId = requiredVaultId(value?.vaultId);

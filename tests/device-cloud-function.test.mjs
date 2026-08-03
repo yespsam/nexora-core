@@ -17,6 +17,7 @@ function fakeStore(calls) {
     bootstrap: invoke('bootstrap'),
     registerDevice: invoke('registerDevice'),
     registerCommandAgent: invoke('registerCommandAgent'),
+    listCommandAgents: invoke('listCommandAgents'),
     commandAgentStatus: invoke('commandAgentStatus'),
     revokeCommandAgent: invoke('revokeCommandAgent'),
     queueCommand: invoke('queueCommand'),
@@ -166,6 +167,22 @@ test('command agent revocation is same-origin, owner-derived, and scoped to its 
     ownerIdForExternalSubject(`netlify-identity:${userId}`, pepper)
   );
   assert.deepEqual(harness.calls[0].args[1], { agentId, vaultId });
+});
+
+test('command agent collection lists only the authenticated owner vault', async () => {
+  const harness = functionHarness();
+  const vaultId = 'A'.repeat(22);
+  const response = await harness.handler(new Request(
+    `https://example.test/api/device-cloud/command-agents?vaultId=${vaultId}`,
+    { headers: { 'X-Nexora-Owner-Id': '00000000-0000-0000-0000-000000000000' } }
+  ));
+  assert.equal(response.status, 200);
+  assert.equal(harness.calls[0].method, 'listCommandAgents');
+  assert.equal(
+    harness.calls[0].args[0],
+    ownerIdForExternalSubject(`netlify-identity:${userId}`, pepper)
+  );
+  assert.deepEqual(harness.calls[0].args[1], { vaultId });
 });
 
 test('cloud deletion endpoint always enforces the retention window', async () => {
