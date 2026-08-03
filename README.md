@@ -71,6 +71,21 @@ npm run build:bridge:macos
 
 产物位于 `dist/`。当前内部测试包使用临时签名；向外部分发前仍需 Apple Developer ID 签名与公证。
 
+正式 macOS 发布需要 Apple Developer Program 提供的 `Developer ID Application` 证书，以及 App Store Connect API 公证密钥。证书和公证凭据准备好后，先将公证密钥保存到本机钥匙串，再运行发布脚本：
+
+```bash
+xcrun notarytool store-credentials NEXORA_RELEASE \
+  --key /secure/path/AuthKey.p8 \
+  --key-id YOUR_KEY_ID \
+  --issuer YOUR_ISSUER_ID
+
+NEXORA_CODESIGN_IDENTITY="Developer ID Application: YOUR COMPANY (TEAMID)" \
+NEXORA_NOTARY_PROFILE="NEXORA_RELEASE" \
+npm run release:bridge:macos
+```
+
+发布脚本会启用 Hardened Runtime、签名应用和 DMG、提交 Apple 公证、装订票据，并用 Gatekeeper 复核。缺少证书或公证配置时会直接停止，不会生成看似正式的包。
+
 Windows 版本需要 .NET 8 SDK 与 PowerShell 7，在 Windows 构建机执行：
 
 ```powershell
@@ -78,6 +93,20 @@ npm run build:bridge:windows
 ```
 
 私有仓库的 `Build Windows Bridge` 工作流会同时生成无需安装 .NET 的 Windows x64 与 ARM64 单文件程序，并执行 x64 加密协议自测。Windows 对外发布前仍需 Authenticode 代码签名，避免 SmartScreen 的未知发布者提示。
+
+私有 GitHub Actions 的 `Release Signed Desktop Bridges` 手动工作流负责正式双平台包。仓库需要配置以下 Actions secrets：
+
+```text
+APPLE_DEVELOPER_ID_P12_BASE64
+APPLE_DEVELOPER_ID_P12_PASSWORD
+APPLE_NOTARY_KEY_P8_BASE64
+APPLE_NOTARY_KEY_ID
+APPLE_NOTARY_ISSUER_ID
+WINDOWS_SIGNING_PFX_BASE64
+WINDOWS_SIGNING_PFX_PASSWORD
+```
+
+普通分支 CI 仍只生成内部测试包；只有手动发布工作流会要求正式证书、执行时间戳、公证或 Authenticode 验签。
 
 ## 验证
 

@@ -57,6 +57,15 @@ test('Windows app packages self-contained x64 and ARM64 executables', () => {
   assert.match(workflow, /windows-latest/);
 });
 
+test('Windows release build supports Authenticode signing and timestamp verification', () => {
+  assert.match(build, /NEXORA_WINDOWS_CERT_THUMBPRINT/);
+  assert.match(build, /signtool\.exe/);
+  assert.match(build, /sign \/sha1/);
+  assert.match(build, /\/fd SHA256/);
+  assert.match(build, /\/tr \$TimestampUrl/);
+  assert.match(build, /verify \/pa/);
+});
+
 test('Windows self-test initializes the real pairing window without displaying it', () => {
   assert.match(source, /using PairingForm pairingForm = new\(\)/);
   assert.match(source, /pairingForm\.AcceptButton/);

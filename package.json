@@ -25,6 +25,7 @@
     "bridge:cloud": "node tools/nexora-bridge.mjs --cloud",
     "bridge:native": "node tools/nexora-bridge.mjs --cloud --native",
     "build:bridge:macos": "bash tools/build-nexora-bridge-macos.sh",
+    "release:bridge:macos": "bash tools/release-nexora-bridge-macos.sh",
     "test:bridge:macos": "npm run build:bridge:macos",
     "build:bridge:windows": "pwsh -NoProfile -File tools/build-nexora-bridge-windows.ps1 -Runtime win-x64",
     "test:bridge:windows": "node --test tests/nexora-bridge-windows.test.mjs",

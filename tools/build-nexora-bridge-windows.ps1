@@ -1,6 +1,8 @@
 param(
   [ValidateSet("win-x64", "win-arm64")]
-  [string]$Runtime = "win-x64"
+  [string]$Runtime = "win-x64",
+  [string]$CertificateThumbprint = $env:NEXORA_WINDOWS_CERT_THUMBPRINT,
+  [string]$TimestampUrl = "http://timestamp.digicert.com"
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,6 +34,28 @@ if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed for $Runtime" }
 
 $Executable = Join-Path $Output "NEXORA Bridge.exe"
 if (-not (Test-Path $Executable)) { throw "Windows executable was not produced" }
+
+if ($CertificateThumbprint) {
+  $NormalizedThumbprint = $CertificateThumbprint.Replace(" ", "").ToUpperInvariant()
+  if ($NormalizedThumbprint -notmatch "^[0-9A-F]{40}$") {
+    throw "Certificate thumbprint must contain exactly 40 hexadecimal characters"
+  }
+  $SignTool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
+  if (-not $SignTool) {
+    $Candidates = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue |
+      Where-Object { $_.FullName -match "\\x64\\signtool\.exe$" } |
+      Sort-Object FullName -Descending
+    $SignTool = $Candidates[0].FullName
+  }
+  if (-not $SignTool) { throw "signtool.exe was not found" }
+  & $SignTool sign /sha1 $NormalizedThumbprint /fd SHA256 /tr $TimestampUrl /td SHA256 /v $Executable
+  if ($LASTEXITCODE -ne 0) { throw "Authenticode signing failed for $Runtime" }
+  & $SignTool verify /pa /all /v $Executable
+  if ($LASTEXITCODE -ne 0) { throw "Authenticode verification failed for $Runtime" }
+  Write-Host "Signing mode: Authenticode"
+} else {
+  Write-Host "Signing mode: unsigned internal build"
+}
 
 $CanRun = ($Runtime -eq "win-x64" -and $env:PROCESSOR_ARCHITECTURE -eq "AMD64") -or
   ($Runtime -eq "win-arm64" -and $env:PROCESSOR_ARCHITECTURE -eq "ARM64")

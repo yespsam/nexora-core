@@ -4,12 +4,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SOURCE="$ROOT/macos/NexoraBridge/main.swift"
 PLIST="$ROOT/macos/NexoraBridge/Info.plist"
+ENTITLEMENTS="$ROOT/macos/NexoraBridge/NexoraBridge.entitlements"
 ICON_SOURCE="$ROOT/soulmate/assets/soulmate-icon-512.png"
 OUTPUT_ROOT="$ROOT/dist/nexora-bridge-macos"
 APP="$OUTPUT_ROOT/NEXORA Bridge.app"
 MACOS_DIR="$APP/Contents/MacOS"
 RESOURCES_DIR="$APP/Contents/Resources"
 ARCH_BUILD="$OUTPUT_ROOT/architectures"
+CODESIGN_IDENTITY="${NEXORA_CODESIGN_IDENTITY:--}"
+CODESIGN_KEYCHAIN="${NEXORA_CODESIGN_KEYCHAIN:-}"
 
 rm -rf "$OUTPUT_ROOT"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$ARCH_BUILD"
@@ -90,8 +93,40 @@ for creature in CUTE_LUMO COOL_VEYR BEAUTIFUL_AERA; do
   cp "$source_dir/evolution/resonance/rigged.glb" "$target_dir/evolution/resonance/rigged.glb"
 done
 
-codesign --force --deep --sign - "$APP"
-codesign --verify --deep --strict "$APP"
+if [[ "$CODESIGN_IDENTITY" == "-" ]]; then
+  codesign --force --deep --sign - "$APP"
+  echo "Signing mode: ad hoc internal build"
+else
+  if [[ -n "$CODESIGN_KEYCHAIN" ]]; then
+    AVAILABLE_IDENTITIES="$(security find-identity -v -p codesigning "$CODESIGN_KEYCHAIN")"
+  else
+    AVAILABLE_IDENTITIES="$(security find-identity -v -p codesigning)"
+  fi
+  if ! grep -F -- "$CODESIGN_IDENTITY" <<< "$AVAILABLE_IDENTITIES" >/dev/null; then
+    echo "Developer ID identity is not available in the current keychain: $CODESIGN_IDENTITY" >&2
+    exit 1
+  fi
+  if [[ -n "$CODESIGN_KEYCHAIN" ]]; then
+    codesign \
+      --force \
+      --timestamp \
+      --options runtime \
+      --entitlements "$ENTITLEMENTS" \
+      --keychain "$CODESIGN_KEYCHAIN" \
+      --sign "$CODESIGN_IDENTITY" \
+      "$APP"
+  else
+    codesign \
+      --force \
+      --timestamp \
+      --options runtime \
+      --entitlements "$ENTITLEMENTS" \
+      --sign "$CODESIGN_IDENTITY" \
+      "$APP"
+  fi
+  echo "Signing mode: Developer ID"
+fi
+codesign --verify --deep --strict --verbose=2 "$APP"
 "$MACOS_DIR/NexoraBridge" --self-test
 "$MACOS_DIR/NexoraBridge" --self-test-pet
 
@@ -100,6 +135,14 @@ DMG="$ROOT/dist/NEXORA-Bridge-macOS.dmg"
 rm -f "$ZIP" "$DMG"
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 hdiutil create -quiet -volname "NEXORA Bridge" -srcfolder "$APP" -ov -format UDZO "$DMG"
+if [[ "$CODESIGN_IDENTITY" != "-" ]]; then
+  if [[ -n "$CODESIGN_KEYCHAIN" ]]; then
+    codesign --force --timestamp --keychain "$CODESIGN_KEYCHAIN" --sign "$CODESIGN_IDENTITY" "$DMG"
+  else
+    codesign --force --timestamp --sign "$CODESIGN_IDENTITY" "$DMG"
+  fi
+  codesign --verify --verbose=2 "$DMG"
+fi
 shasum -a 256 "$ZIP" "$DMG" > "$ROOT/dist/NEXORA-Bridge-macOS.sha256"
 
 echo "Built: $APP"

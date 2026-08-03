@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [source, plist, build] = await Promise.all([
+const [source, plist, entitlements, build, release] = await Promise.all([
   readFile(new URL('../macos/NexoraBridge/main.swift', import.meta.url), 'utf8'),
   readFile(new URL('../macos/NexoraBridge/Info.plist', import.meta.url), 'utf8'),
-  readFile(new URL('../tools/build-nexora-bridge-macos.sh', import.meta.url), 'utf8')
+  readFile(new URL('../macos/NexoraBridge/NexoraBridge.entitlements', import.meta.url), 'utf8'),
+  readFile(new URL('../tools/build-nexora-bridge-macos.sh', import.meta.url), 'utf8'),
+  readFile(new URL('../tools/release-nexora-bridge-macos.sh', import.meta.url), 'utf8')
 ]);
 
 test('native macOS bridge keeps credentials in the device-only Keychain', () => {
@@ -36,6 +38,21 @@ test('macOS bundle is a menu bar app and packages distributable artifacts', () =
   assert.match(build, /arm64 x86_64/);
   assert.match(build, /NEXORA-Bridge-macOS\.zip/);
   assert.match(build, /NEXORA-Bridge-macOS\.dmg/);
+});
+
+test('macOS release path uses hardened Developer ID signing and notarization', () => {
+  assert.match(entitlements, /com\.apple\.security\.automation\.apple-events/);
+  assert.match(entitlements, /com\.apple\.security\.network\.client/);
+  assert.match(build, /NEXORA_CODESIGN_IDENTITY/);
+  assert.match(build, /NEXORA_CODESIGN_KEYCHAIN/);
+  assert.match(build, /--keychain/);
+  assert.match(build, /--options runtime/);
+  assert.match(build, /--timestamp/);
+  assert.match(build, /--entitlements/);
+  assert.match(release, /notarytool submit/);
+  assert.match(release, /stapler staple/);
+  assert.match(release, /spctl --assess/);
+  assert.match(release, /NEXORA_NOTARY_PROFILE/);
 });
 
 test('macOS bridge exposes the desktop pet from its menu without a second app', () => {
