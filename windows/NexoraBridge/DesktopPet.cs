@@ -289,12 +289,13 @@ internal sealed class DesktopPetForm : Form
         string json = await webView.ExecuteScriptAsync(
             $"(() => {{ const element = document.querySelector({encodedSelector}); " +
             "if (!element) return null; const bounds = element.getBoundingClientRect(); " +
-            "return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }; }})()");
-        using JsonDocument document = JsonDocument.Parse(json);
-        if (document.RootElement.ValueKind != JsonValueKind.Object)
+            "return JSON.stringify({ x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }); }})()");
+        string? coordinates = JsonSerializer.Deserialize<string>(json);
+        if (string.IsNullOrWhiteSpace(coordinates))
         {
             throw new InvalidOperationException($"Desktop pet element was not found: {selector}");
         }
+        using JsonDocument document = JsonDocument.Parse(coordinates);
         int x = (int)Math.Round(document.RootElement.GetProperty("x").GetDouble());
         int y = (int)Math.Round(document.RootElement.GetProperty("y").GetDouble());
         await DispatchMouseClickAsync(x, y, 1);
