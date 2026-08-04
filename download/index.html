@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0e10">
+  <meta name="description" content="NEXORA CORE 公开下载中心：Windows、macOS、网页运行包、NC-01 固件和 3D 打印文件。">
+  <title>下载 NEXORA CORE</title>
+  <link rel="icon" href="../soulmate/assets/soulmate-icon-192.png">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../soulmate/" aria-label="打开 NEXORA CORE">NEXORA <strong>CORE</strong></a>
+    <a class="source-link" href="https://github.com/yespsam/nexora-core" target="_blank" rel="noopener noreferrer">查看源码</a>
+  </header>
+
+  <main>
+    <section class="download-intro" aria-labelledby="page-title">
+      <div class="intro-copy">
+        <p class="eyebrow">PUBLIC ALPHA · 0.3.0</p>
+        <h1 id="page-title">下载 NEXORA CORE</h1>
+        <p>选择你的电脑版本。Windows 副机只需粘贴主设备生成的配对码，不需要登录。</p>
+        <a class="primary-download" id="recommended-download" href="https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/NEXORA-Bridge-Windows-x64.zip">
+          <span>推荐</span>
+          <strong id="recommended-label">下载 Windows x64</strong>
+          <small id="recommended-note">适用于普通 Intel / AMD 电脑 · ZIP 免安装版</small>
+        </a>
+      </div>
+      <img src="../NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png" alt="NEXORA CORE 3D 伙伴 LUMO">
+    </section>
+
+    <section class="download-section" aria-labelledby="desktop-title">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">DESKTOP BRIDGE</p>
+          <h2 id="desktop-title">电脑版本</h2>
+        </div>
+        <p>Windows 下载后解压并双击 <code>NEXORA Bridge.exe</code>。</p>
+      </div>
+      <div class="download-grid">
+        <article class="download-item" data-platform="windows">
+          <div class="platform-mark windows-mark" aria-hidden="true">WIN</div>
+          <div><h3>Windows x64</h3><p>绝大多数 Intel / AMD Windows 10、11 电脑</p></div>
+          <a href="https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/NEXORA-Bridge-Windows-x64.zip" aria-label="下载 Windows x64 版本">下载</a>
+        </article>
+        <article class="download-item" data-platform="windows-arm">
+          <div class="platform-mark arm-mark" aria-hidden="true">ARM</div>
+          <div><h3>Windows ARM64</h3><p>适用于 Snapdragon 与其他 ARM64 Windows 电脑</p></div>
+          <a href="https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/NEXORA-Bridge-Windows-ARM64.zip" aria-label="下载 Windows ARM64 版本">下载</a>
+        </article>
+        <article class="download-item" data-platform="macos">
+          <div class="platform-mark mac-mark" aria-hidden="true">MAC</div>
+          <div><h3>macOS</h3><p>透明桌面伙伴与电脑控制客户端</p></div>
+          <a href="https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/NEXORA-Bridge-macOS.dmg" aria-label="下载 macOS DMG">下载</a>
+        </article>
+      </div>
+      <p class="security-note">Alpha 桌面包尚未完成 Apple Developer ID 与 Windows Authenticode 正式签名。请只从本页下载，并使用校验文件确认完整性。</p>
+    </section>
+
+    <section class="download-section secondary-section" aria-labelledby="developer-title">
+      <div class="section-heading">
+        <div><p class="section-kicker">BUILD &amp; HARDWARE</p><h2 id="developer-title">开发与硬件文件</h2></div>
+      </div>
+      <div class="package-links">
+        <a href="https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/NEXORA-CORE-Web-v0.3.0-internal.zip"><strong>网页运行包</strong><span>Netlify / 本地部署</span></a>
+        <a href="https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/NEXORA-NC01-Firmware-EVT-A.zip"><strong>NC-01 固件</strong><span>EVT-A 台架验证</span></a>
+        <a href="https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/NEXORA-NC01-3D-Print-Pack.zip"><strong>3D 打印包</strong><span>STL / 3MF / OpenSCAD</span></a>
+        <a href="https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/SHA256SUMS.txt"><strong>SHA-256 校验</strong><span>核对下载完整性</span></a>
+      </div>
+    </section>
+
+    <section class="setup-band" aria-labelledby="setup-title">
+      <div><p class="section-kicker">PAIR IN THREE STEPS</p><h2 id="setup-title">副机无需登录</h2></div>
+      <ol>
+        <li><span>1</span>在已登录的手机或主电脑中打开“设备 → 电脑助手 → 添加电脑”。</li>
+        <li><span>2</span>复制为这台副机单独生成的配对码。</li>
+        <li><span>3</span>在 Windows Bridge 粘贴配对码，看到“配对完成”即可。</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer>
+    <span>NEXORA CORE · MIT License</span>
+    <a href="https://x.com/yesp999" target="_blank" rel="noopener noreferrer">@yesp999</a>
+  </footer>
+</body>
+</html>

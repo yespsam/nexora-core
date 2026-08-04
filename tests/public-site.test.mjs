@@ -24,6 +24,8 @@ test('public build contains only the product runtime allowlist', async () => {
     'index.html',
     'access/index.html',
     'access/app.js',
+    'download/index.html',
+    'download/app.js',
     'soulmate/index.html',
     'desktop-wallpaper/index.html',
     'pendant-display/index.html',
@@ -37,6 +39,7 @@ test('public build contains only the product runtime allowlist', async () => {
     'shared/device-cloud-protocol.mjs',
     'shared/creature-3d-viewer.mjs',
     'NEXORA_3D_CREATURES/CUTE_LUMO/model/rigged.glb',
+    'NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png',
     'NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/rigged.glb',
     'NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/resonance/rigged.glb'
   ]) {
@@ -64,6 +67,10 @@ test('public build contains only the product runtime allowlist', async () => {
 
   const rootHtml = await readFile(path.join(publicRoot, 'index.html'), 'utf8');
   assert.match(rootHtml, /\.\/soulmate\//);
+
+  const downloadHtml = await readFile(path.join(publicRoot, 'download/index.html'), 'utf8');
+  assert.match(downloadHtml, /NEXORA-Bridge-Windows-x64\.zip/);
+  assert.match(downloadHtml, /副机无需登录/);
 
   const desktopHtml = await readFile(path.join(publicRoot, 'desktop-wallpaper/index.html'), 'utf8');
   assert.match(desktopHtml, /\.\.\/soulmate\//);

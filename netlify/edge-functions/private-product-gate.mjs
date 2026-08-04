@@ -63,6 +63,8 @@ export const config = {
   excludedPath: [
     '/access',
     '/access/*',
+    '/download',
+    '/download/*',
     '/api/access/*',
     '/api/device-bridge/*',
     '/api/chat/stream',

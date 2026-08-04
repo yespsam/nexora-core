@@ -1,0 +1,260 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, "SF Pro Display", "Microsoft YaHei UI", system-ui, sans-serif;
+  background: #0b0e10;
+  color: #f5f7f7;
+  letter-spacing: 0;
+}
+
+* { box-sizing: border-box; }
+html, body { background: #0b0e10; }
+body { margin: 0; min-width: 320px; }
+a { color: inherit; text-decoration: none; }
+
+.site-header, main, footer {
+  width: min(1120px, calc(100% - 40px));
+  margin-inline: auto;
+}
+
+.site-header {
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #293136;
+}
+
+.brand { font-size: 15px; font-weight: 650; }
+.brand strong { color: #70e4e1; }
+.source-link { color: #b8c1c5; font-size: 14px; }
+.source-link:hover, .source-link:focus-visible { color: #ffffff; }
+
+.download-intro {
+  min-height: 390px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border-bottom: 1px solid #293136;
+}
+
+.intro-copy {
+  position: relative;
+  z-index: 1;
+  width: min(630px, 64%);
+  padding: 58px 0 54px;
+}
+
+.eyebrow, .section-kicker {
+  margin: 0 0 12px;
+  color: #70e4e1;
+  font-size: 12px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+h1, h2, h3, p { letter-spacing: 0; }
+h1 { margin: 0; font-size: 64px; line-height: 1.02; }
+
+.intro-copy > p:not(.eyebrow) {
+  max-width: 590px;
+  margin: 22px 0 28px;
+  color: #bcc5c9;
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.download-intro > img {
+  position: absolute;
+  right: 0;
+  bottom: -18px;
+  width: min(400px, 42vw);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 24px 34px rgba(0, 0, 0, .42));
+}
+
+.primary-download {
+  width: min(520px, 100%);
+  min-height: 82px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 3px 16px;
+  padding: 15px 18px;
+  border-radius: 6px;
+  background: #70e4e1;
+  color: #071012;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.primary-download:hover, .primary-download:focus-visible {
+  background: #93f2ef;
+  transform: translateY(-2px);
+}
+
+.primary-download > span {
+  grid-row: 1 / 3;
+  min-width: 50px;
+  color: #276669;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.primary-download strong { font-size: 19px; }
+.primary-download small { color: #276064; font-size: 13px; }
+
+.download-section {
+  padding: 58px 0;
+  border-bottom: 1px solid #293136;
+}
+
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 25px;
+}
+
+.section-heading h2, .setup-band h2 { margin: 0; font-size: 28px; }
+.section-heading > p { max-width: 500px; margin: 0; color: #9ea9ae; font-size: 14px; line-height: 1.6; }
+code { color: #e4b56f; font-family: "SFMono-Regular", Consolas, monospace; }
+
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.download-item {
+  min-height: 190px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid #354046;
+  border-radius: 6px;
+  background: #121719;
+}
+
+.download-item[data-recommended="true"] { border-color: #70e4e1; }
+
+.platform-mark {
+  width: 52px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  color: #071012;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.windows-mark { background: #70e4e1; }
+.arm-mark { background: #e4b56f; }
+.mac-mark { background: #f09587; }
+.download-item h3 { margin: 0 0 8px; font-size: 19px; }
+.download-item p { margin: 0; color: #9ea9ae; font-size: 14px; line-height: 1.55; }
+
+.download-item > a {
+  width: 100%;
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #59666c;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 720;
+}
+
+.download-item > a:hover, .download-item > a:focus-visible {
+  border-color: #ffffff;
+  background: #1a2225;
+}
+
+.security-note { margin: 20px 0 0; color: #818d92; font-size: 13px; line-height: 1.6; }
+.secondary-section { background: #0e1214; }
+
+.package-links {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid #354046;
+  border-left: 1px solid #354046;
+}
+
+.package-links a {
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 20px;
+  border-right: 1px solid #354046;
+  border-bottom: 1px solid #354046;
+}
+
+.package-links a:hover, .package-links a:focus-visible { background: #182023; }
+.package-links strong { font-size: 15px; }
+.package-links span { color: #8f9ba0; font-size: 13px; line-height: 1.45; }
+
+.setup-band {
+  display: grid;
+  grid-template-columns: minmax(220px, .7fr) minmax(0, 1.3fr);
+  gap: 54px;
+  padding: 58px 0 66px;
+}
+
+.setup-band ol {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid #354046;
+}
+
+.setup-band li {
+  min-height: 70px;
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #354046;
+  color: #c7ced1;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.setup-band li span { color: #70e4e1; font-family: "SFMono-Regular", Consolas, monospace; }
+
+footer {
+  min-height: 74px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #293136;
+  color: #778388;
+  font-size: 12px;
+}
+
+footer a:hover, footer a:focus-visible { color: #ffffff; }
+
+@media (max-width: 760px) {
+  .site-header, main, footer { width: min(100% - 28px, 1120px); }
+  .download-intro { min-height: 510px; align-items: start; }
+  h1 { font-size: 42px; }
+  .intro-copy { width: 100%; padding: 44px 0 230px; }
+  .intro-copy > p:not(.eyebrow) { font-size: 15px; }
+  .download-intro > img { right: 50%; bottom: -28px; width: 270px; transform: translateX(50%); }
+  .download-grid, .package-links, .setup-band { grid-template-columns: 1fr; }
+  .section-heading { align-items: start; flex-direction: column; gap: 12px; }
+  .download-item { min-height: 170px; }
+  .package-links { border-left: 0; }
+  .package-links a { min-height: 88px; border-left: 1px solid #354046; }
+  .setup-band { gap: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; transition: none !important; }
+}

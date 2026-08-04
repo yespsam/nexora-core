@@ -131,6 +131,11 @@
     Pragma = "no-cache"
 
 [[headers]]
+  for = "/download/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300, must-revalidate"
+
+[[headers]]
   for = "/NEXORA_3D_CREATURES/*"
   [headers.values]
     Cache-Control = "private, no-store, max-age=0"

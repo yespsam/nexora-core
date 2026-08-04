@@ -80,11 +80,13 @@ test('authenticated responses pass through with private no-store headers', async
   assert.match(response.headers.get('vary'), /Cookie/);
 });
 
-test('access, signed model routes, and Identity callbacks are the only edge exclusions', () => {
+test('access, public downloads, signed routes, and Identity callbacks are the only edge exclusions', () => {
   assert.equal(gateConfig.path, '/*');
   assert.deepEqual(gateConfig.excludedPath, [
     '/access',
     '/access/*',
+    '/download',
+    '/download/*',
     '/api/access/*',
     '/api/device-bridge/*',
     '/api/chat/stream',

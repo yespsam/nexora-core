@@ -11,6 +11,9 @@ const publicFiles = [
   'access/index.html',
   'access/app.js',
   'access/style.css',
+  'download/index.html',
+  'download/app.js',
+  'download/style.css',
   'soulmate/index.html',
   'soulmate/app.js',
   'soulmate/style.css',
@@ -46,7 +49,8 @@ const publicFiles = [
   'desktop-wallpaper/vendor/three.module.js',
   'desktop-wallpaper/vendor/GLTFLoader.js',
   'desktop-wallpaper/vendor/BufferGeometryUtils.js',
-  'desktop-wallpaper/vendor/meshopt_decoder.module.js'
+  'desktop-wallpaper/vendor/meshopt_decoder.module.js',
+  'NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png'
 ];
 
 const creatureDirectories = [
