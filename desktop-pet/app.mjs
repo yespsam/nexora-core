@@ -36,9 +36,14 @@ const state = {
   conversationBusy: false
 };
 
+let voiceAudio = null;
+
 const postNative = (message) => {
   try {
     globalThis.webkit?.messageHandlers?.desktopPet?.postMessage(message);
+  } catch (error) {}
+  try {
+    globalThis.chrome?.webview?.postMessage(message);
   } catch (error) {}
 };
 
@@ -83,6 +88,10 @@ function showBubble(text, duration = 2100) {
 }
 
 function setConversationOpen(open, status = '') {
+  if (open && typeof open === 'object') {
+    status = open.status || status;
+    open = open.open;
+  }
   state.conversationOpen = Boolean(open);
   conversation.hidden = !state.conversationOpen;
   if (status) conversationStatus.textContent = String(status).trim().slice(0, 80);
@@ -90,6 +99,8 @@ function setConversationOpen(open, status = '') {
   if (state.conversationOpen) {
     window.setTimeout(() => conversationInput.focus(), 0);
   } else {
+    voiceAudio?.pause();
+    voiceAudio = null;
     state.conversationBusy = false;
     conversationInput.disabled = false;
     conversationSend.disabled = false;
@@ -121,6 +132,23 @@ function receiveReply(input = {}) {
   conversationStatus.textContent = text;
   play(action || 'speaking', { line: text, duration: Math.max(3200, Math.min(9000, text.length * 170)) });
   window.setTimeout(() => conversationInput.focus(), 0);
+}
+
+async function playVoice(input = {}) {
+  const mime = String(input.mime || 'audio/mpeg').replace(/[^a-z0-9.+/-]/gi, '');
+  const data = String(input.data || '');
+  if (!data) return false;
+  voiceAudio?.pause();
+  voiceAudio = new Audio(`data:${mime};base64,${data}`);
+  voiceAudio.addEventListener('ended', () => setConversationState({ phase: 'idle', status: '' }), { once: true });
+  voiceAudio.addEventListener('error', () => setConversationState({ phase: 'idle', status: '' }), { once: true });
+  try {
+    await voiceAudio.play();
+    return true;
+  } catch (error) {
+    setConversationState({ phase: 'idle', status: '' });
+    return false;
+  }
 }
 
 async function play(action, options = {}) {
@@ -157,16 +185,23 @@ async function configure(input = {}) {
 stage.addEventListener('pointerdown', (event) => {
   state.pointerStart = { x: event.clientX, y: event.clientY };
   state.dragged = false;
+  stage.setPointerCapture?.(event.pointerId);
+  postNative({ type: 'pointer-down' });
 });
 
 stage.addEventListener('pointermove', (event) => {
   if (!state.pointerStart) return;
   if (Math.hypot(event.clientX - state.pointerStart.x, event.clientY - state.pointerStart.y) > 5) {
     state.dragged = true;
+    postNative({ type: 'pointer-move' });
   }
 });
 
-const releasePointer = () => {
+const releasePointer = (event) => {
+  if (state.pointerStart) postNative({ type: 'pointer-up' });
+  if (event?.pointerId !== undefined && stage.hasPointerCapture?.(event.pointerId)) {
+    stage.releasePointerCapture(event.pointerId);
+  }
   state.pointerStart = null;
 };
 
@@ -202,6 +237,12 @@ stage.addEventListener('keydown', (event) => {
 
 stage.addEventListener('contextmenu', (event) => event.preventDefault());
 
+stage.addEventListener('wheel', (event) => {
+  if (event.target.closest?.('#conversation')) return;
+  event.preventDefault();
+  postNative({ type: 'resize', deltaY: event.deltaY });
+}, { passive: false });
+
 conversation.addEventListener('pointerdown', (event) => event.stopPropagation());
 conversation.addEventListener('pointermove', (event) => event.stopPropagation());
 conversation.addEventListener('pointerup', (event) => event.stopPropagation());
@@ -233,6 +274,7 @@ window.NexoraDesktopPet = Object.freeze({
   setConversationOpen,
   setConversationState,
   receiveReply,
+  playVoice,
   getState: () => ({ ...state, viewer: viewer.getState() })
 });
 

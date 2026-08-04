@@ -7,6 +7,10 @@ on:
       - product/private-cloud-staging
     paths:
       - "windows/NexoraBridge/**"
+      - "desktop-pet/**"
+      - "shared/creature-3d-*.mjs"
+      - "desktop-wallpaper/vendor/**"
+      - "NEXORA_3D_CREATURES/**/*.glb"
       - "tools/build-nexora-bridge-windows.ps1"
       - "tests/nexora-bridge-windows.test.mjs"
       - ".github/workflows/build-windows-bridge.yml"

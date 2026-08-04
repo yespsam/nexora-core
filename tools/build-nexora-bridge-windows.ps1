@@ -35,6 +35,38 @@ if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed for $Runtime" }
 $Executable = Join-Path $Output "NEXORA Bridge.exe"
 if (-not (Test-Path $Executable)) { throw "Windows executable was not produced" }
 
+$RuntimeRoot = Join-Path $Output "Runtime"
+New-Item $RuntimeRoot -ItemType Directory -Force | Out-Null
+
+function Copy-RuntimeFile {
+  param([string]$RelativePath)
+  $Source = Join-Path $Root $RelativePath
+  if (-not (Test-Path $Source)) { throw "Required desktop pet asset is missing: $RelativePath" }
+  $Destination = Join-Path $RuntimeRoot $RelativePath
+  New-Item (Split-Path -Parent $Destination) -ItemType Directory -Force | Out-Null
+  Copy-Item $Source $Destination -Force
+}
+
+@(
+  "desktop-pet/index.html",
+  "desktop-pet/style.css",
+  "desktop-pet/app.mjs",
+  "shared/creature-3d-viewer.mjs",
+  "shared/creature-3d-data.mjs",
+  "desktop-wallpaper/vendor/three.module.js",
+  "desktop-wallpaper/vendor/GLTFLoader.js",
+  "desktop-wallpaper/vendor/meshopt_decoder.module.js"
+) | ForEach-Object { Copy-RuntimeFile $_ }
+
+foreach ($Creature in @("CUTE_LUMO", "COOL_VEYR", "BEAUTIFUL_AERA")) {
+  Copy-RuntimeFile "NEXORA_3D_CREATURES/$Creature/model/rigged.glb"
+  Copy-RuntimeFile "NEXORA_3D_CREATURES/$Creature/evolution/young/rigged.glb"
+  Copy-RuntimeFile "NEXORA_3D_CREATURES/$Creature/evolution/resonance/rigged.glb"
+  foreach ($Action in @("idle", "affection", "nod", "run", "speaking", "walk", "wave")) {
+    Copy-RuntimeFile "NEXORA_3D_CREATURES/$Creature/animations/$Action.glb"
+  }
+}
+
 if ($CertificateThumbprint) {
   $NormalizedThumbprint = $CertificateThumbprint.Replace(" ", "").ToUpperInvariant()
   if ($NormalizedThumbprint -notmatch "^[0-9A-F]{40}$") {
@@ -62,16 +94,20 @@ $CanRun = ($Runtime -eq "win-x64" -and $env:PROCESSOR_ARCHITECTURE -eq "AMD64") 
 if ($CanRun) {
   & $Executable --self-test-native
   if ($LASTEXITCODE -ne 0) { throw "Windows self-test failed for $Runtime" }
+  & $Executable --self-test-pet
+  if ($LASTEXITCODE -ne 0) { throw "Windows desktop pet visual self-test failed for $Runtime" }
 }
 
 $Readme = @"
 NEXORA Bridge for Windows ($ArchiveArchitecture)
 
-1. Double-click NEXORA Bridge.exe. It will stay in the Windows system tray.
-2. On an already signed-in phone or primary computer, open Device > Computer Assistant > Add Computer.
-3. Copy the new NXC1 pairing code and paste it into this Windows computer. This computer does not sign in.
-4. Wait for the cloud verification and the Pairing Complete message.
-5. Use the tray icon to view status, pause, re-pair, or remove this computer.
+1. Extract the entire ZIP, then double-click NEXORA Bridge.exe. Keep the Runtime folder beside it.
+2. The transparent 3D desktop pet appears automatically. Drag it to move, use the mouse wheel to resize,
+   click for an action, or double-click to open conversation.
+3. On an already signed-in phone or primary computer, open Device > Computer Assistant > Add Computer.
+4. Copy the new NXC1 pairing code and paste it into this Windows computer. This computer does not sign in.
+5. Wait for the cloud verification and the Pairing Complete message.
+6. Use the tray icon to show/hide the pet, select its form and action, or manage pairing.
 
 Credentials are stored in Windows Credential Manager. The app only accepts encrypted,
 short-lived allowlisted commands for volume, media controls, and fixed applications.

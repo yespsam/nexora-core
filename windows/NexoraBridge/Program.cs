@@ -838,9 +838,14 @@ internal sealed class PairingForm : Form
 internal sealed class TrayApplicationContext : ApplicationContext
 {
     private readonly BridgePoller poller = new();
+    private readonly DesktopPetController desktopPet = new();
     private readonly NotifyIcon notifyIcon;
     private readonly Control dispatcher = new();
     private readonly ToolStripMenuItem statusItem;
+    private readonly ToolStripMenuItem petVisibilityItem;
+    private readonly ToolStripMenuItem petClickThroughItem;
+    private readonly List<ToolStripMenuItem> petStarterItems = [];
+    private readonly List<ToolStripMenuItem> petStageItems = [];
     private readonly ToolStripMenuItem pairItem;
     private readonly ToolStripMenuItem pauseItem;
     private readonly ToolStripMenuItem removeItem;
@@ -851,6 +856,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         dispatcher.CreateControl();
         statusItem = new ToolStripMenuItem("正在启动") { Enabled = false };
+        petVisibilityItem = new ToolStripMenuItem("显示桌面宠物", null, (_, _) => ToggleDesktopPet());
+        petClickThroughItem = new ToolStripMenuItem("鼠标穿透", null, (_, _) => TogglePetClickThrough());
         pairItem = new ToolStripMenuItem("配对电脑...", null, (_, _) => ShowPairing());
         pauseItem = new ToolStripMenuItem("暂停连接", null, (_, _) => TogglePaused()) { Enabled = false };
         removeItem = new ToolStripMenuItem("移除本机配对", null, (_, _) => RemovePairing()) { Enabled = false };
@@ -859,6 +866,56 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(statusItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("查看连接状态", null, (_, _) => ShowLocalStatus()));
+        menu.Items.Add(petVisibilityItem);
+        menu.Items.Add(new ToolStripMenuItem("和桌面伙伴对话...", null, (_, _) => OpenDesktopConversation()));
+        menu.Items.Add(new ToolStripMenuItem("设置伙伴名字...", null, (_, _) => RenameDesktopPet()));
+
+        ToolStripMenuItem starterMenu = new("选择桌面伙伴");
+        foreach ((string title, string value) in new[]
+        {
+            ("LUMO · 绒云兽", "cute"),
+            ("VEYR · 曜影兽", "cool"),
+            ("AERA · 月羽灵", "beautiful")
+        })
+        {
+            ToolStripMenuItem item = new(title, null, (_, _) => SelectPetStarter(value)) { Tag = value };
+            starterMenu.DropDownItems.Add(item);
+            petStarterItems.Add(item);
+        }
+        menu.Items.Add(starterMenu);
+
+        ToolStripMenuItem stageMenu = new("进化形态");
+        foreach ((string title, string value) in new[]
+        {
+            ("初始体", "seed"),
+            ("成长体", "young"),
+            ("共鸣体", "resonance")
+        })
+        {
+            ToolStripMenuItem item = new(title, null, (_, _) => SelectPetStage(value)) { Tag = value };
+            stageMenu.DropDownItems.Add(item);
+            petStageItems.Add(item);
+        }
+        menu.Items.Add(stageMenu);
+
+        ToolStripMenuItem actionMenu = new("互动动作");
+        foreach ((string title, string value) in new[]
+        {
+            ("招手", "wave"),
+            ("点头", "nod"),
+            ("靠近", "affection"),
+            ("行走", "walk"),
+            ("奔跑", "run"),
+            ("待机", "idle")
+        })
+        {
+            actionMenu.DropDownItems.Add(new ToolStripMenuItem(title, null, (_, _) => desktopPet.Play(value)));
+        }
+        menu.Items.Add(actionMenu);
+        menu.Items.Add(petClickThroughItem);
+        menu.Items.Add(new ToolStripMenuItem("重置宠物位置", null, (_, _) => desktopPet.ResetPosition()));
+        menu.Items.Add(new ToolStripMenuItem("恢复默认大小", null, (_, _) => desktopPet.ResetSize()));
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(pairItem);
         menu.Items.Add(pauseItem);
         menu.Items.Add(removeItem);
@@ -874,6 +931,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         };
         notifyIcon.DoubleClick += (_, _) => ShowLocalStatus();
         poller.StatusChanged += (text, online) => dispatcher.BeginInvoke(new Action(() => UpdateStatus(text, online)));
+        desktopPet.RuntimeError += message => dispatcher.BeginInvoke(new Action(() => ShowDesktopPetError(message)));
+        menu.Opening += (_, _) => RefreshPetMenu();
+        desktopPet.Start();
 
         configuration = CredentialStore.Load() ?? LegacyPairing.ImportIfPresent();
         if (configuration is not null)
@@ -890,6 +950,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void Start(BridgeConfiguration value)
     {
         configuration = value;
+        desktopPet.SetBridgeConfiguration(value);
         paused = false;
         pairItem.Text = "重新配对...";
         pauseItem.Text = "暂停连接";
@@ -941,7 +1002,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 CredentialStore.Save(parsed);
                 Start(parsed);
                 MessageBox.Show(
-                    "配对完成。NEXORA Bridge 已在 Windows 右下角系统托盘保持在线。",
+                    "配对完成。NEXORA Bridge 已在 Windows 右下角系统托盘保持在线。桌面宠物现在可以进行真实对话。",
                     "NEXORA CORE",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -985,6 +1046,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             CredentialStore.Delete();
             poller.Stop();
             configuration = null;
+            desktopPet.SetBridgeConfiguration(null);
             pairItem.Text = "配对电脑...";
             pauseItem.Enabled = false;
             removeItem.Enabled = false;
@@ -999,6 +1061,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void ExitApplication()
     {
         poller.Dispose();
+        desktopPet.Dispose();
         notifyIcon.Visible = false;
         notifyIcon.Dispose();
         dispatcher.Dispose();
@@ -1006,6 +1069,66 @@ internal sealed class TrayApplicationContext : ApplicationContext
     }
 
     private static string Truncate(string value, int maximum) => value.Length <= maximum ? value : value[..maximum];
+
+    private void ToggleDesktopPet()
+    {
+        desktopPet.ToggleVisibility();
+        RefreshPetMenu();
+    }
+
+    private void OpenDesktopConversation()
+    {
+        desktopPet.OpenConversation();
+        RefreshPetMenu();
+    }
+
+    private void RenameDesktopPet()
+    {
+        using PetNameForm form = new(desktopPet.PetName);
+        if (form.ShowDialog() != DialogResult.OK) return;
+        desktopPet.SetName(form.PetName);
+    }
+
+    private void TogglePetClickThrough()
+    {
+        desktopPet.SetClickThrough(!desktopPet.IsClickThrough);
+        RefreshPetMenu();
+    }
+
+    private void SelectPetStarter(string value)
+    {
+        desktopPet.SetStarter(value);
+        RefreshPetMenu();
+    }
+
+    private void SelectPetStage(string value)
+    {
+        desktopPet.SetStage(value);
+        RefreshPetMenu();
+    }
+
+    private void RefreshPetMenu()
+    {
+        petVisibilityItem.Text = desktopPet.IsVisible ? "隐藏桌面宠物" : "显示桌面宠物";
+        petVisibilityItem.Checked = desktopPet.IsVisible;
+        petClickThroughItem.Checked = desktopPet.IsClickThrough;
+        foreach (ToolStripMenuItem item in petStarterItems)
+        {
+            item.Checked = item.Tag as string == desktopPet.Starter;
+        }
+        foreach (ToolStripMenuItem item in petStageItems)
+        {
+            item.Checked = item.Tag as string == desktopPet.Stage;
+        }
+    }
+
+    private void ShowDesktopPetError(string message)
+    {
+        notifyIcon.BalloonTipTitle = "NEXORA 桌面宠物";
+        notifyIcon.BalloonTipText = Truncate(message, 240);
+        notifyIcon.BalloonTipIcon = ToolTipIcon.Warning;
+        notifyIcon.ShowBalloonTip(8000);
+    }
 }
 
 internal static class SelfTest
@@ -1039,6 +1162,7 @@ internal static class SelfTest
         DeviceCommand unsafeCommand = new(1, "computer", "shell.execute", new CommandParameters(null, null, null, null, null), "unsafe");
         if (unsafeCommand.IsAllowed) throw new InvalidOperationException("Command allowlist failed.");
         VerifyCredentialManager(configuration);
+        DesktopPetRuntime.ValidateAssets();
         using PairingForm pairingForm = new();
         if (pairingForm.AcceptButton is null || pairingForm.CancelButton is null || pairingForm.Controls.Count == 0)
         {
@@ -1113,6 +1237,19 @@ internal static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         bool nativeSelfTest = args.Contains("--self-test-native", StringComparer.Ordinal);
+        if (args.Contains("--self-test-pet", StringComparer.Ordinal))
+        {
+            try
+            {
+                DesktopPetVisualSelfTest.Run();
+                return 0;
+            }
+            catch (Exception error)
+            {
+                Console.Error.WriteLine($"NEXORA desktop pet visual self-test failed: {error.Message}");
+                return 1;
+            }
+        }
         if (nativeSelfTest || args.Contains("--self-test", StringComparer.Ordinal))
         {
             try

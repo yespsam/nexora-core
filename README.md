@@ -12,7 +12,7 @@ NEXORA CORE 是一个开源的随身 AI 情感伙伴产品原型。伙伴以原�
 
 **Windows 快速下载：** [Intel / AMD 64 位电脑](https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/NEXORA-Bridge-Windows-x64.zip) · [ARM64 / Snapdragon 电脑](https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/NEXORA-Bridge-Windows-ARM64.zip)
 
-普通 Windows 电脑请选择 `x64`。下载后解压 ZIP，双击 `NEXORA Bridge.exe` 即可运行，无需安装 .NET。当前 Alpha 包尚未购买 Authenticode 代码签名；如果 Windows 显示“未知发布者”，请先核对 `SHA256SUMS.txt`，确认文件来自本仓库后再运行。
+普通 Windows 电脑请选择 `x64`。下载后必须解压完整 ZIP，并让 `Runtime` 文件夹与 `NEXORA Bridge.exe` 保持在一起；双击 EXE 后会直接显示透明 3D 桌面宠物，无需安装 .NET。当前 Alpha 包尚未购买 Authenticode 代码签名；如果 Windows 显示“未知发布者”，请先核对 `SHA256SUMS.txt`，确认文件来自本仓库后再运行。
 
 | 文件 | 用途 |
 | --- | --- |
@@ -73,7 +73,7 @@ http://localhost:8888/device-lab/?autorun=1
 
 ## 配对电脑控制
 
-普通用户在 macOS 使用 `NEXORA Bridge.app`，在 Windows 使用 `NEXORA Bridge.exe`。只需在已经登录的手机或主电脑上打开“设备 → 电脑助手”；第一台电脑选择“配对电脑”，后续每台电脑选择“添加电脑”，并各自生成独立配对码。副机只需粘贴配对码，不需要登录 NEXORA CORE。配对凭据分别保存在当前 Mac 的系统钥匙串或 Windows 凭据管理器；菜单栏/系统托盘图标会显示在线、暂停、重新配对和移除本机配对状态。两个版本使用同一套端到端加密短时指令协议，并且只执行音量、音乐和五个固定应用动作。macOS `0.3.0` 同时内置全透明 3D 桌面宠物，可拖动、隐藏、开启鼠标穿透，并从菜单切换三条角色路线、九种成长形态和互动动作；鼠标滚轮或触控板缩放会记住宠物大小，单击角色互动，双击打开轻量真实对话。桌面对话通过已配对凭据访问云端语言模型和匹配角色的神经声线，对话历史仅保存在当前电脑；完整伙伴页仍可从菜单栏打开。
+普通用户在 macOS 使用 `NEXORA Bridge.app`，在 Windows 使用 `NEXORA Bridge.exe`。只需在已经登录的手机或主电脑上打开“设备 → 电脑助手”；第一台电脑选择“配对电脑”，后续每台电脑选择“添加电脑”，并各自生成独立配对码。副机只需粘贴配对码，不需要登录 NEXORA CORE。配对凭据分别保存在当前 Mac 的系统钥匙串或 Windows 凭据管理器；菜单栏/系统托盘图标会显示在线、暂停、重新配对和移除本机配对状态。两个版本使用同一套端到端加密短时指令协议，并且只执行音量、音乐和五个固定应用动作。macOS `0.3.0` 与 Windows `0.2.0` 都内置全透明 3D 桌面宠物，可拖动、隐藏、开启鼠标穿透，并从菜单切换三条角色路线、九种成长形态和互动动作；鼠标滚轮或触控板缩放会记住宠物大小，单击角色互动，双击打开轻量真实对话。桌面对话通过已配对凭据访问云端语言模型和匹配角色的神经声线，对话历史仅保存在当前电脑。
 
 开发环境也可以在仓库根目录执行：
 
@@ -145,7 +145,7 @@ npm run product:readiness
 | --- | --- |
 | `soulmate/` | 手机端伙伴与对话界面 |
 | `desktop-wallpaper/` | 电脑端伙伴入口，与手机端共享同一身份、对话和成长状态 |
-| `desktop-pet/` | macOS 透明 3D 桌面宠物渲染入口 |
+| `desktop-pet/` | macOS 与 Windows 共用的透明 3D 桌面宠物渲染入口 |
 | `pendant-display/` | 只显示 3D 角色的 NC-01 圆屏模拟器 |
 | `device-lab/` | 手机、电脑与项链联合自动测试台，默认仅在本地运行 |
 | `NEXORA_3D_CREATURES/` | LUMO、VEYR、AERA 模型与动作 |
@@ -155,7 +155,7 @@ npm run product:readiness
 | `hardware/soulmate-pendant/` | 固件、外壳、打印和实验资料 |
 | `mobile/NexoraGateway/` | iOS / Android 原生手机网关契约与实现边界 |
 | `macos/NexoraBridge/` | macOS 菜单栏电脑控制客户端 |
-| `windows/NexoraBridge/` | Windows 系统托盘电脑控制客户端 |
+| `windows/NexoraBridge/` | Windows 透明桌面宠物与系统托盘电脑控制客户端 |
 
 ## 硬件状态
 

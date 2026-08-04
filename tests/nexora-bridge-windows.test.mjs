@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [source, project, build, workflow] = await Promise.all([
+const [source, desktopPet, petPage, project, build, workflow] = await Promise.all([
   readFile(new URL('../windows/NexoraBridge/Program.cs', import.meta.url), 'utf8'),
+  readFile(new URL('../windows/NexoraBridge/DesktopPet.cs', import.meta.url), 'utf8'),
+  readFile(new URL('../desktop-pet/app.mjs', import.meta.url), 'utf8'),
   readFile(new URL('../windows/NexoraBridge/NexoraBridge.csproj', import.meta.url), 'utf8'),
   readFile(new URL('../tools/build-nexora-bridge-windows.ps1', import.meta.url), 'utf8'),
   readFile(new URL('../.github/workflows/build-windows-bridge.yml', import.meta.url), 'utf8')
@@ -63,6 +65,15 @@ test('Windows native self-test launches an allowlisted app and probes audio with
   assert.match(build, /--self-test-native/);
 });
 
+test('Windows runner opens the packaged pet and requires visible WebGL pixels', () => {
+  assert.match(desktopPet, /DesktopPetVisualSelfTest/);
+  assert.match(desktopPet, /SampleOpaquePixelsAsync/);
+  assert.match(desktopPet, /opaquePixels <= 100/);
+  assert.match(desktopPet, /form\.TransparencyKey == Color\.Fuchsia/);
+  assert.match(source, /--self-test-pet/);
+  assert.match(build, /--self-test-pet/);
+});
+
 test('Windows app packages self-contained x64 and ARM64 executables', () => {
   assert.match(project, /<UseWindowsForms>true<\/UseWindowsForms>/);
   assert.match(project, /<PublishSingleFile>true<\/PublishSingleFile>/);
@@ -71,6 +82,46 @@ test('Windows app packages self-contained x64 and ARM64 executables', () => {
   assert.match(workflow, /win-x64/);
   assert.match(workflow, /win-arm64/);
   assert.match(workflow, /windows-latest/);
+});
+
+test('Windows bridge starts a transparent always-on-top 3D desktop pet', () => {
+  assert.match(project, /Microsoft\.Web\.WebView2/);
+  assert.match(desktopPet, /FormBorderStyle = FormBorderStyle\.None/);
+  assert.match(desktopPet, /TopMost = true/);
+  assert.match(desktopPet, /TransparencyKey = Color\.Fuchsia/);
+  assert.match(desktopPet, /DefaultBackgroundColor = Color\.Transparent/);
+  assert.match(desktopPet, /SetVirtualHostNameToFolderMapping/);
+  assert.match(desktopPet, /desktop-pet\/index\.html\?platform=windows/);
+  assert.match(source, /desktopPet\.Start\(\)/);
+  assert.match(source, /显示桌面宠物/);
+  assert.match(source, /隐藏桌面宠物/);
+});
+
+test('Windows desktop pet supports native drag, resize, forms, actions and conversation', () => {
+  assert.match(petPage, /chrome\?\.webview\?\.postMessage/);
+  assert.match(petPage, /type: 'pointer-down'/);
+  assert.match(petPage, /type: 'pointer-move'/);
+  assert.match(petPage, /type: 'resize'/);
+  assert.match(petPage, /async function playVoice/);
+  assert.match(desktopPet, /Math\.Clamp\(proposedWidth, 220, maximumWidth\)/);
+  assert.match(desktopPet, /\/api\/device-bridge\/chat/);
+  assert.match(desktopPet, /\/api\/device-bridge\/voice/);
+  assert.match(source, /LUMO · 绒云兽/);
+  assert.match(source, /VEYR · 曜影兽/);
+  assert.match(source, /AERA · 月羽灵/);
+  assert.match(source, /和桌面伙伴对话/);
+});
+
+test('Windows package includes the complete shared 3D runtime', () => {
+  assert.match(build, /Runtime/);
+  assert.match(build, /desktop-pet\/app\.mjs/);
+  assert.match(build, /shared\/creature-3d-viewer\.mjs/);
+  assert.match(build, /desktop-wallpaper\/vendor\/three\.module\.js/);
+  assert.match(build, /CUTE_LUMO/);
+  assert.match(build, /COOL_VEYR/);
+  assert.match(build, /BEAUTIFUL_AERA/);
+  assert.match(build, /animations\/\$Action\.glb/);
+  assert.match(source, /DesktopPetRuntime\.ValidateAssets\(\)/);
 });
 
 test('Windows release build supports Authenticode signing and timestamp verification', () => {
