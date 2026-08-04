@@ -1,16 +1,16 @@
 const releaseBase = 'https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal';
-const windowsRevision = '?v=20260804-interaction3';
+const windowsRevision = '?v=20260804-native4';
 
 const downloads = {
   windows: {
     href: `${releaseBase}/NEXORA-Bridge-Windows-x64.zip${windowsRevision}`,
     label: '下载 Windows x64',
-    note: '适用于普通 Intel / AMD 电脑 · 已修复点击与对话'
+    note: '适用于普通 Intel / AMD 电脑 · 原生点击与输入'
   },
   'windows-arm': {
     href: `${releaseBase}/NEXORA-Bridge-Windows-ARM64.zip${windowsRevision}`,
     label: '下载 Windows ARM64',
-    note: '适用于 Snapdragon Windows 电脑 · 已修复点击与对话'
+    note: '适用于 Snapdragon Windows 电脑 · 原生点击与输入'
   },
   macos: {
     href: `${releaseBase}/NEXORA-Bridge-macOS.dmg`,
