@@ -216,20 +216,23 @@ internal sealed class DesktopPetForm : Form
         if (IsHandleCreated)
         {
             nint style = GetWindowLongPtr(Handle, GwlExStyle);
-            style = enabled ? style | WsExTransparent : style & ~WsExTransparent;
-            SetWindowLongPtr(Handle, GwlExStyle, style);
-            SetWindowPos(
-                Handle,
-                nint.Zero,
-                0,
-                0,
-                0,
-                0,
-                SetWindowPositionFlags.NoMove |
-                SetWindowPositionFlags.NoSize |
-                SetWindowPositionFlags.NoZOrder |
-                SetWindowPositionFlags.NoActivate |
-                SetWindowPositionFlags.FrameChanged);
+            nint nextStyle = enabled ? style | WsExTransparent : style & ~WsExTransparent;
+            if (nextStyle != style)
+            {
+                SetWindowLongPtr(Handle, GwlExStyle, nextStyle);
+                SetWindowPos(
+                    Handle,
+                    nint.Zero,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SetWindowPositionFlags.NoMove |
+                    SetWindowPositionFlags.NoSize |
+                    SetWindowPositionFlags.NoZOrder |
+                    SetWindowPositionFlags.NoActivate |
+                    SetWindowPositionFlags.FrameChanged);
+            }
         }
         DesktopPetPreferenceStore.Save(preferences);
     }
@@ -840,6 +843,7 @@ internal static class DesktopPetVisualSelfTest
         Exception? failure = null;
         bool completed = false;
         int interactionPhase = 0;
+        string lastNativeMessage = "none";
 
         void Complete(Exception? error)
         {
@@ -851,12 +855,15 @@ internal static class DesktopPetVisualSelfTest
             context.ExitThread();
         }
 
-        timeout.Tick += (_, _) => Complete(new TimeoutException("Desktop pet model did not become ready."));
+        timeout.Tick += (_, _) => Complete(new TimeoutException(
+            $"Desktop pet self-test timed out (webview={form.IsRuntimeReady}, phase={interactionPhase}, last={lastNativeMessage})."));
         form.RuntimeError += message => Complete(new InvalidOperationException(message));
         form.NativeMessage += async message =>
         {
             if (!message.TryGetProperty("type", out JsonElement typeElement)) return;
             string type = typeElement.GetString() ?? string.Empty;
+            lastNativeMessage = type;
+            Console.WriteLine($"NEXORA desktop pet self-test message: {type}");
             try
             {
                 if (type == "ready" && interactionPhase == 0)
