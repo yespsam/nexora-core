@@ -49,8 +49,7 @@ const publicFiles = [
   'desktop-wallpaper/vendor/three.module.js',
   'desktop-wallpaper/vendor/GLTFLoader.js',
   'desktop-wallpaper/vendor/BufferGeometryUtils.js',
-  'desktop-wallpaper/vendor/meshopt_decoder.module.js',
-  'NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png'
+  'desktop-wallpaper/vendor/meshopt_decoder.module.js'
 ];
 
 const creatureDirectories = [
@@ -101,6 +100,11 @@ export async function buildPublicSite() {
     await copyPublicFile(relativePath);
   }
 
+  await copyFile(
+    path.join(repositoryRoot, 'NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png'),
+    path.join(publicRoot, 'download/lumo.png')
+  );
+
   for (const creatureDirectory of creatureDirectories) {
     for (const relativePath of creatureRuntimeFiles) {
       await copyPublicFile(path.join('NEXORA_3D_CREATURES', creatureDirectory, relativePath));
@@ -111,7 +115,7 @@ export async function buildPublicSite() {
 
   return {
     output: publicRoot,
-    files: publicFiles.length + (creatureDirectories.length * creatureRuntimeFiles.length) + 1
+    files: publicFiles.length + (creatureDirectories.length * creatureRuntimeFiles.length) + 2
   };
 }
 

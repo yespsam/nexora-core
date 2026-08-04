@@ -39,7 +39,7 @@ test('public build contains only the product runtime allowlist', async () => {
     'shared/device-cloud-protocol.mjs',
     'shared/creature-3d-viewer.mjs',
     'NEXORA_3D_CREATURES/CUTE_LUMO/model/rigged.glb',
-    'NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png',
+    'download/lumo.png',
     'NEXORA_3D_CREATURES/COOL_VEYR/evolution/young/rigged.glb',
     'NEXORA_3D_CREATURES/BEAUTIFUL_AERA/evolution/resonance/rigged.glb'
   ]) {
