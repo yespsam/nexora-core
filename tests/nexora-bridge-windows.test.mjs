@@ -20,6 +20,15 @@ test('Windows bridge stores credentials in Windows Credential Manager', () => {
   assert.doesNotMatch(source, /Console\.(?:Write|WriteLine)\([^\n]*(?:secret|pairing)/i);
 });
 
+test('Windows bridge verifies pairing online before storing credentials', () => {
+  assert.match(source, /\/api\/device-bridge\/status\?agentId=/);
+  assert.match(source, /PairingVerifier\.VerifyAsync\(parsed\)/);
+  assert.match(source, /HttpStatusCode\.Unauthorized/);
+  assert.match(source, /HttpStatusCode\.NotFound/);
+  assert.match(source, /配对完成。NEXORA Bridge 已在 Windows 右下角系统托盘保持在线。/);
+  assert.ok(source.indexOf('PairingVerifier.VerifyAsync(parsed)') < source.indexOf('CredentialStore.Save(parsed)'));
+});
+
 test('Windows bridge implements the shared encrypted command boundary', () => {
   assert.match(source, /HKDF\.DeriveKey/);
   assert.match(source, /AesGcm/);

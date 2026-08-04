@@ -70,7 +70,8 @@ NEXORA Bridge for Windows ($ArchiveArchitecture)
 1. Double-click NEXORA Bridge.exe. It will stay in the Windows system tray.
 2. In NEXORA CORE, open Device > Computer Assistant > Pair Computer.
 3. Copy the complete NXC1 pairing code and paste it into the pairing window.
-4. Use the tray icon to view status, pause, re-pair, or remove this computer.
+4. Wait for the cloud verification and the Pairing Complete message.
+5. Use the tray icon to view status, pause, re-pair, or remove this computer.
 
 Credentials are stored in Windows Credential Manager. The app only accepts encrypted,
 short-lived allowlisted commands for volume, media controls, and fixed applications.

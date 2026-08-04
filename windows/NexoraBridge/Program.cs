@@ -274,6 +274,72 @@ internal sealed record CloudCommand(
 
 internal sealed record ClaimResponse(CloudCommand? Command);
 
+internal sealed record BridgeStatus(
+    bool Enabled,
+    bool Authenticated,
+    string AgentId,
+    string VaultId);
+
+internal sealed record PairingVerification(bool Success, string Message);
+
+internal static class PairingVerifier
+{
+    internal static async Task<PairingVerification> VerifyAsync(
+        BridgeConfiguration configuration,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(12) };
+            string agentId = Uri.EscapeDataString(configuration.Credential.AgentId);
+            using HttpRequestMessage request = new(
+                HttpMethod.Get,
+                configuration.SiteUrl + $"/api/device-bridge/status?agentId={agentId}");
+            request.Headers.Authorization = new AuthenticationHeaderValue(
+                "Bearer",
+                configuration.Credential.Secret);
+            request.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true, NoStore = true };
+
+            using HttpResponseMessage response = await client.SendAsync(request, cancellationToken);
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                return new PairingVerification(false, "配对码无效、已撤销或没有完整复制，请回到伙伴页重新生成。");
+            }
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return new PairingVerification(false, "云端电脑助手当前未开启，请稍后重试。");
+            }
+            if (!response.IsSuccessStatusCode)
+            {
+                return new PairingVerification(false, $"云端验证失败（{(int)response.StatusCode}），请稍后重试。");
+            }
+
+            BridgeStatus? status = await response.Content.ReadFromJsonAsync<BridgeStatus>(
+                JsonDefaults.Options,
+                cancellationToken);
+            if (status is null || !status.Enabled || !status.Authenticated ||
+                status.AgentId != configuration.Credential.AgentId ||
+                status.VaultId != configuration.Credential.VaultId)
+            {
+                return new PairingVerification(false, "云端返回了不匹配的电脑身份，请重新生成配对码。");
+            }
+            return new PairingVerification(true, "配对完成");
+        }
+        catch (TaskCanceledException)
+        {
+            return new PairingVerification(false, "连接云端超时，请检查网络后重试。");
+        }
+        catch (HttpRequestException)
+        {
+            return new PairingVerification(false, "无法连接 NEXORA CORE 云端，请检查网络、防火墙或代理设置。");
+        }
+        catch (JsonException)
+        {
+            return new PairingVerification(false, "云端验证响应无法识别，请下载最新版本后重试。");
+        }
+    }
+}
+
 internal sealed record CommandParameters(int? Level, int? Delta, string? App, string? Room, int? Degrees);
 
 internal sealed record DeviceCommand(int Version, string Target, string Action, CommandParameters Parameters, string Label)
@@ -847,24 +913,44 @@ internal sealed class TrayApplicationContext : ApplicationContext
         new CommandParameters(null, null, "safari", null, null),
         "打开 NEXORA CORE"));
 
-    private void ShowPairing()
+    private async void ShowPairing()
     {
-        using PairingForm form = new();
-        if (form.ShowDialog() != DialogResult.OK) return;
-        BridgeConfiguration? parsed = PairingCode.Parse(form.PairingCodeValue);
-        if (parsed is null)
+        while (true)
         {
-            MessageBox.Show("请重新从 NEXORA CORE 伙伴页复制完整配对码。", "配对码无效", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
-        }
-        try
-        {
-            CredentialStore.Save(parsed);
-            Start(parsed);
-        }
-        catch
-        {
-            MessageBox.Show("Windows 凭据管理器没有接受这条凭据。", "无法保存配对", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            using PairingForm form = new();
+            if (form.ShowDialog() != DialogResult.OK) return;
+            BridgeConfiguration? parsed = PairingCode.Parse(form.PairingCodeValue);
+            if (parsed is null)
+            {
+                MessageBox.Show("请重新从 NEXORA CORE 伙伴页复制完整配对码。", "配对码无效", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                continue;
+            }
+
+            UpdateStatus("正在验证配对码", false);
+            PairingVerification verification = await PairingVerifier.VerifyAsync(parsed);
+            if (!verification.Success)
+            {
+                UpdateStatus(configuration is null ? "尚未配对" : "原配对仍在使用", false);
+                MessageBox.Show(verification.Message, "配对未完成", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                continue;
+            }
+
+            try
+            {
+                CredentialStore.Save(parsed);
+                Start(parsed);
+                MessageBox.Show(
+                    "配对完成。NEXORA Bridge 已在 Windows 右下角系统托盘保持在线。",
+                    "NEXORA CORE",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+            catch
+            {
+                UpdateStatus(configuration is null ? "尚未配对" : "原配对仍在使用", false);
+                MessageBox.Show("Windows 凭据管理器没有接受这条凭据。", "无法保存配对", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
     }
 
