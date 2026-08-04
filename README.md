@@ -10,6 +10,10 @@ NEXORA CORE 是一个开源的随身 AI 情感伙伴产品原型。伙伴以原�
 
 所有可安装和可烧录文件集中在 [NEXORA CORE 0.3.0 Alpha Release](https://github.com/yespsam/nexora-core/releases/tag/nexora-core-v0.3.0-internal)，无需登录 GitHub 即可下载。当前版本用于开发、体验和 EVT-A 台架验证，不代表量产硬件已经完成认证。
 
+**Windows 快速下载：** [Intel / AMD 64 位电脑](https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/NEXORA-Bridge-Windows-x64.zip) · [ARM64 / Snapdragon 电脑](https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/NEXORA-Bridge-Windows-ARM64.zip)
+
+普通 Windows 电脑请选择 `x64`。下载后解压 ZIP，双击 `NEXORA Bridge.exe` 即可运行，无需安装 .NET。当前 Alpha 包尚未购买 Authenticode 代码签名；如果 Windows 显示“未知发布者”，请先核对 `SHA256SUMS.txt`，确认文件来自本仓库后再运行。
+
 | 文件 | 用途 |
 | --- | --- |
 | `NEXORA-CORE-Web-v0.3.0-internal.zip` | 网页运行文件，可解压查看或部署到 Netlify；真实对话需要云端 Functions 与服务器密钥 |
