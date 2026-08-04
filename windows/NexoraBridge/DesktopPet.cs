@@ -277,11 +277,32 @@ internal sealed class DesktopPetForm : Form
     internal bool IsClickThroughStyleEnabled =>
         IsHandleCreated && (GetWindowLongPtr(Handle, GwlExStyle) & (nint)WsExTransparent) != nint.Zero;
 
-    internal async Task DispatchMouseClickAsync(int count)
+    internal Task DispatchMouseClickAsync(int count)
+    {
+        return DispatchMouseClickAsync(ClientSize.Width / 2, ClientSize.Height / 2, count);
+    }
+
+    internal async Task DispatchElementClickAsync(string selector)
     {
         if (webView.CoreWebView2 is null) throw new InvalidOperationException("Desktop pet WebView2 is not ready.");
-        int x = ClientSize.Width / 2;
-        int y = ClientSize.Height / 2;
+        string encodedSelector = JsonSerializer.Serialize(selector);
+        string json = await webView.ExecuteScriptAsync(
+            $"(() => {{ const element = document.querySelector({encodedSelector}); " +
+            "if (!element) return null; const bounds = element.getBoundingClientRect(); " +
+            "return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }; }})()");
+        using JsonDocument document = JsonDocument.Parse(json);
+        if (document.RootElement.ValueKind != JsonValueKind.Object)
+        {
+            throw new InvalidOperationException($"Desktop pet element was not found: {selector}");
+        }
+        int x = (int)Math.Round(document.RootElement.GetProperty("x").GetDouble());
+        int y = (int)Math.Round(document.RootElement.GetProperty("y").GetDouble());
+        await DispatchMouseClickAsync(x, y, 1);
+    }
+
+    private async Task DispatchMouseClickAsync(int x, int y, int count)
+    {
+        if (webView.CoreWebView2 is null) throw new InvalidOperationException("Desktop pet WebView2 is not ready.");
         await webView.CoreWebView2.CallDevToolsProtocolMethodAsync(
             "Input.dispatchMouseEvent",
             JsonSerializer.Serialize(new { type = "mouseMoved", x, y }));
@@ -303,12 +324,11 @@ internal sealed class DesktopPetForm : Form
         await webView.CoreWebView2.CallDevToolsProtocolMethodAsync(
             "Input.insertText",
             JsonSerializer.Serialize(new { text }));
-        await webView.CoreWebView2.CallDevToolsProtocolMethodAsync(
-            "Input.dispatchKeyEvent",
-            JsonSerializer.Serialize(new { type = "keyDown", key = "Enter", code = "Enter", windowsVirtualKeyCode = 13, nativeVirtualKeyCode = 13 }));
-        await webView.CoreWebView2.CallDevToolsProtocolMethodAsync(
-            "Input.dispatchKeyEvent",
-            JsonSerializer.Serialize(new { type = "keyUp", key = "Enter", code = "Enter", windowsVirtualKeyCode = 13, nativeVirtualKeyCode = 13 }));
+        string value = await webView.ExecuteScriptAsync("document.querySelector('#conversation-input')?.value || ''");
+        if (JsonSerializer.Deserialize<string>(value) != text)
+        {
+            throw new InvalidOperationException("Desktop pet conversation input did not accept the test message.");
+        }
     }
 
     internal void ClosePermanently()
@@ -937,6 +957,7 @@ internal static class DesktopPetVisualSelfTest
                         throw new InvalidOperationException("Desktop pet conversation input did not receive focus.");
                     }
                     await form.TypeConversationMessageAsync("hello");
+                    await form.DispatchElementClickAsync("#conversation-send");
                     return;
                 }
 
