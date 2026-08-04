@@ -1,21 +1,21 @@
 # NEXORA CORE
 
-NEXORA CORE 是一个内部保密的随身 AI 情感伙伴产品原型。伙伴以原创 3D 生物形象出现，可以在手机、电脑桌面和 NC-01 项链圆屏模拟器中互动，并通过持续对话形成名字、生日、性格、记忆与成长阶段。未经书面授权，不得复制、分发、公开或用于衍生产品。
+NEXORA CORE 是一个开源的随身 AI 情感伙伴产品原型。伙伴以原创 3D 生物形象出现，可以在手机、电脑桌面和 NC-01 项链圆屏模拟器中互动，并通过持续对话形成名字、生日、性格、记忆与成长阶段。
 
-[私密测试](https://product-private-cloud-staging--nexora-core-staging.netlify.app/soulmate/) · [电脑陪伴入口](https://product-private-cloud-staging--nexora-core-staging.netlify.app/desktop-wallpaper/) · [项链 3D 运行台](https://product-private-cloud-staging--nexora-core-staging.netlify.app/pendant-display/) · [X / Twitter @yesp999](https://x.com/yesp999)
+[在线测试](https://product-private-cloud-staging--nexora-core-staging.netlify.app/soulmate/) · [电脑陪伴入口](https://product-private-cloud-staging--nexora-core-staging.netlify.app/desktop-wallpaper/) · [项链 3D 运行台](https://product-private-cloud-staging--nexora-core-staging.netlify.app/pendant-display/) · [X / Twitter @yesp999](https://x.com/yesp999)
 
 ![NEXORA CORE 3D companion](NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png)
 
-## 内部测试下载
+## 下载
 
-所有可安装和可烧录文件集中在 [NEXORA CORE 0.3.0 Internal Release](https://github.com/yespsam/nexora-core/releases/tag/nexora-core-v0.3.0-internal)。仓库为私有状态，下载前需要登录已获授权的 GitHub 账号。
+所有可安装和可烧录文件集中在 [NEXORA CORE 0.3.0 Alpha Release](https://github.com/yespsam/nexora-core/releases/tag/nexora-core-v0.3.0-internal)，无需登录 GitHub 即可下载。当前版本用于开发、体验和 EVT-A 台架验证，不代表量产硬件已经完成认证。
 
 | 文件 | 用途 |
 | --- | --- |
 | `NEXORA-CORE-Web-v0.3.0-internal.zip` | 网页运行文件，可解压查看或部署到 Netlify；真实对话需要云端 Functions 与服务器密钥 |
-| `NEXORA-Bridge-macOS.dmg` | macOS 电脑控制与透明桌面宠物内部测试版 |
-| `NEXORA-Bridge-Windows-x64.zip` | 普通 Intel / AMD Windows 电脑内部测试版 |
-| `NEXORA-Bridge-Windows-ARM64.zip` | ARM64 Windows 电脑内部测试版 |
+| `NEXORA-Bridge-macOS.dmg` | macOS 电脑控制与透明桌面宠物开发测试版 |
+| `NEXORA-Bridge-Windows-x64.zip` | 普通 Intel / AMD Windows 电脑开发测试版 |
+| `NEXORA-Bridge-Windows-ARM64.zip` | ARM64 Windows 电脑开发测试版 |
 | `NEXORA-NC01-Firmware-EVT-A.zip` | Waveshare ESP32-S3-LCD-1.28 台架验证固件 |
 | `NEXORA-NC01-3D-Print-Pack.zip` | NC-01 外壳 STL、3MF、OpenSCAD 源文件与模拟报告 |
 | `SHA256SUMS.txt` | 下载文件完整性校验值 |
@@ -86,7 +86,7 @@ npm run bridge:cloud
 npm run build:bridge:macos
 ```
 
-产物位于 `dist/`。当前内部测试包使用临时签名；向外部分发前仍需 Apple Developer ID 签名与公证。
+产物位于 `dist/`。当前开发测试包使用临时签名；正式分发前仍需 Apple Developer ID 签名与公证。
 
 正式 macOS 发布需要 Apple Developer Program 提供的 `Developer ID Application` 证书，以及 App Store Connect API 公证密钥。证书和公证凭据准备好后，先将公证密钥保存到本机钥匙串，再运行发布脚本：
 
@@ -109,9 +109,9 @@ Windows 版本需要 .NET 8 SDK 与 PowerShell 7，在 Windows 构建机执行�
 npm run build:bridge:windows
 ```
 
-私有仓库的 `Build Windows Bridge` 工作流会同时生成无需安装 .NET 的 Windows x64 与 ARM64 单文件程序，并执行 x64 加密协议自测。Windows 对外发布前仍需 Authenticode 代码签名，避免 SmartScreen 的未知发布者提示。
+`Build Windows Bridge` 工作流会同时生成无需安装 .NET 的 Windows x64 与 ARM64 单文件程序，并执行 x64 加密协议自测。Windows 正式分发前仍需 Authenticode 代码签名，避免 SmartScreen 的未知发布者提示。
 
-私有 GitHub Actions 的 `Release Signed Desktop Bridges` 显式发布工作流负责正式双平台包。仓库需要配置以下 Actions secrets：
+GitHub Actions 的 `Release Signed Desktop Bridges` 显式发布工作流负责正式双平台包。维护者需要配置以下 Actions secrets：
 
 ```text
 APPLE_DEVELOPER_ID_P12_BASE64
@@ -123,7 +123,7 @@ WINDOWS_SIGNING_PFX_BASE64
 WINDOWS_SIGNING_PFX_PASSWORD
 ```
 
-普通分支 CI 仍只生成内部测试包；只有正式发布工作流会要求证书、执行时间戳、公证或 Authenticode 验签。工作流文件进入默认分支后可在 Actions 页面手动运行；在当前私有 staging 分支可推送 `signed-desktop-v*` 标签显式触发。
+普通分支 CI 只生成开发测试包；只有正式发布工作流会要求证书、执行时间戳、公证或 Authenticode 验签。工作流可以在 Actions 页面手动运行，也可以推送 `signed-desktop-v*` 标签显式触发。
 
 ## 验证
 
@@ -143,7 +143,7 @@ npm run product:readiness
 | `desktop-wallpaper/` | 电脑端伙伴入口，与手机端共享同一身份、对话和成长状态 |
 | `desktop-pet/` | macOS 透明 3D 桌面宠物渲染入口 |
 | `pendant-display/` | 只显示 3D 角色的 NC-01 圆屏模拟器 |
-| `device-lab/` | 手机、电脑与项链联合自动测试台，仅在私有本地环境发布 |
+| `device-lab/` | 手机、电脑与项链联合自动测试台，默认仅在本地运行 |
 | `NEXORA_3D_CREATURES/` | LUMO、VEYR、AERA 模型与动作 |
 | `shared/` | 人格、BLE、3D 和状态机共享模块 |
 | `netlify/functions/` | 聊天、语音、密文同步、设备云和维护云函数 |
@@ -170,10 +170,10 @@ V1 冻结范围与 EVT/DVT 门槛见 [`docs/NEXORA_V1_PRODUCT_GATE.md`](docs/NEX
 
 跨设备同步需要用户主动开启。名字、人格、记忆和对话会先在设备上使用 AES-256-GCM 加密，服务器只保存密文、版本号和访问令牌哈希。恢复码包含解密密钥且不会上传；遗失后服务器和项目方都无法代为找回。
 
-## 保密与协作
+## 参与协作
 
-仓库仅供获得授权的项目成员使用。问题、角色动作改进、硬件验证结果与新功能应在私有仓库内提交，不得将源代码、模型、固件、打印文件、产品路线或测试数据转发到公开渠道。对外产品动态发布在 [X / Twitter @yesp999](https://x.com/yesp999)。
+欢迎通过 GitHub Issues 提交问题、角色动作改进、硬件验证结果与功能建议。提交日志、截图或配置前，请先移除 API Key、数据库连接串、个人对话、设备凭据和其他敏感信息。产品动态发布在 [X / Twitter @yesp999](https://x.com/yesp999)。
 
-## 权利声明
+## 开源许可
 
-当前私有版本采用 [NEXORA CORE Proprietary Notice](LICENSE)，保留所有权利。此前已经随 MIT License 公开分发的历史版本，继续受其当时附带的许可约束。
+项目采用 [MIT License](LICENSE)。你可以使用、修改和分发代码，但软件按现状提供，不包含适销性、特定用途适用性或无侵权保证。第三方依赖和素材仍分别受其自身许可约束。

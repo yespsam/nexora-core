@@ -2,6 +2,11 @@
   "name": "nexora-core",
   "version": "0.3.0",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yespsam/nexora-core.git"
+  },
   "type": "module",
   "scripts": {
     "build:public": "node tools/build-public-site.mjs",
