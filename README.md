@@ -2,13 +2,13 @@
 
 NEXORA CORE 是一个开源的随身 AI 情感伙伴产品原型。伙伴以原创 3D 生物形象出现，可以在手机、电脑桌面和 NC-01 项链圆屏模拟器中互动，并通过持续对话形成名字、生日、性格、记忆与成长阶段。
 
-[直接下载](https://product-private-cloud-staging--nexora-core-staging.netlify.app/download/) · [在线测试](https://product-private-cloud-staging--nexora-core-staging.netlify.app/soulmate/) · [电脑陪伴入口](https://product-private-cloud-staging--nexora-core-staging.netlify.app/desktop-wallpaper/) · [项链 3D 运行台](https://product-private-cloud-staging--nexora-core-staging.netlify.app/pendant-display/) · [X / Twitter @yesp999](https://x.com/yesp999)
+[直接下载](https://nexora-core-staging.netlify.app/download/) · [在线测试](https://product-private-cloud-staging--nexora-core-staging.netlify.app/soulmate/) · [电脑陪伴入口](https://product-private-cloud-staging--nexora-core-staging.netlify.app/desktop-wallpaper/) · [项链 3D 运行台](https://product-private-cloud-staging--nexora-core-staging.netlify.app/pendant-display/) · [X / Twitter @yesp999](https://x.com/yesp999)
 
 ![NEXORA CORE 3D companion](NEXORA_3D_CREATURES/CUTE_LUMO/model/thumbnail.png)
 
 ## 下载
 
-普通用户可从 [NEXORA CORE 公开下载中心](https://product-private-cloud-staging--nexora-core-staging.netlify.app/download/) 直接选择系统，无需登录或展开 GitHub Assets。所有可安装和可烧录文件也保存在 [NEXORA CORE 0.3.0 Alpha Release](https://github.com/yespsam/nexora-core/releases/tag/nexora-core-v0.3.0-internal)。当前版本用于开发、体验和 EVT-A 台架验证，不代表量产硬件已经完成认证。
+普通用户可从 [NEXORA CORE 公开下载中心](https://nexora-core-staging.netlify.app/download/) 直接选择系统，无需登录或展开 GitHub Assets。所有可安装和可烧录文件也保存在 [NEXORA CORE 0.3.0 Alpha Release](https://github.com/yespsam/nexora-core/releases/tag/nexora-core-v0.3.0-internal)。当前版本用于开发、体验和 EVT-A 台架验证，不代表量产硬件已经完成认证。
 
 **Windows 快速下载：** [Intel / AMD 64 位电脑](https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/NEXORA-Bridge-Windows-x64.zip) · [ARM64 / Snapdragon 电脑](https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal/NEXORA-Bridge-Windows-ARM64.zip)
 
