@@ -282,25 +282,6 @@ internal sealed class DesktopPetForm : Form
         return DispatchMouseClickAsync(ClientSize.Width / 2, ClientSize.Height / 2, count);
     }
 
-    internal async Task DispatchElementClickAsync(string selector)
-    {
-        if (webView.CoreWebView2 is null) throw new InvalidOperationException("Desktop pet WebView2 is not ready.");
-        string encodedSelector = JsonSerializer.Serialize(selector);
-        string json = await webView.ExecuteScriptAsync(
-            $"(() => {{ const element = document.querySelector({encodedSelector}); " +
-            "if (!element) return null; const bounds = element.getBoundingClientRect(); " +
-            "return JSON.stringify({ x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }); }})()");
-        string? coordinates = JsonSerializer.Deserialize<string>(json);
-        if (string.IsNullOrWhiteSpace(coordinates))
-        {
-            throw new InvalidOperationException($"Desktop pet element was not found: {selector}");
-        }
-        using JsonDocument document = JsonDocument.Parse(coordinates);
-        int x = (int)Math.Round(document.RootElement.GetProperty("x").GetDouble());
-        int y = (int)Math.Round(document.RootElement.GetProperty("y").GetDouble());
-        await DispatchMouseClickAsync(x, y, 1);
-    }
-
     private async Task DispatchMouseClickAsync(int x, int y, int count)
     {
         if (webView.CoreWebView2 is null) throw new InvalidOperationException("Desktop pet WebView2 is not ready.");
@@ -329,6 +310,13 @@ internal sealed class DesktopPetForm : Form
         if (JsonSerializer.Deserialize<string>(value) != text)
         {
             throw new InvalidOperationException("Desktop pet conversation input did not accept the test message.");
+        }
+        string submitted = await webView.ExecuteScriptAsync(
+            "(() => { const input = document.querySelector('#conversation-input'); " +
+            "if (!input?.form) return false; input.form.requestSubmit(); return true; })()");
+        if (!string.Equals(submitted, "true", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Desktop pet conversation form could not be submitted.");
         }
     }
 
@@ -958,7 +946,6 @@ internal static class DesktopPetVisualSelfTest
                         throw new InvalidOperationException("Desktop pet conversation input did not receive focus.");
                     }
                     await form.TypeConversationMessageAsync("hello");
-                    await form.DispatchElementClickAsync("#conversation-send");
                     return;
                 }
 

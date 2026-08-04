@@ -83,7 +83,7 @@ test('Windows runner validates hit testing then clicks, double-clicks and types 
   assert.match(desktopPet, /IsConversationInputFocusedAsync/);
   assert.match(desktopPet, /form\.ActivateConversation\(\)/);
   assert.match(desktopPet, /TypeConversationMessageAsync\("hello"\)/);
-  assert.match(desktopPet, /DispatchElementClickAsync\("#conversation-send"\)/);
+  assert.match(desktopPet, /input\.form\.requestSubmit\(\)/);
   assert.match(desktopPet, /conversation input did not accept the test message/);
   assert.match(desktopPet, /type == "chat-submit"/);
 });
