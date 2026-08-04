@@ -274,7 +274,42 @@ internal sealed class DesktopPetForm : Form
         return string.Equals(json, "true", StringComparison.OrdinalIgnoreCase);
     }
 
-    internal Point InteractionPoint => PointToScreen(new Point(ClientSize.Width / 2, ClientSize.Height / 2));
+    internal bool IsClickThroughStyleEnabled =>
+        IsHandleCreated && (GetWindowLongPtr(Handle, GwlExStyle) & (nint)WsExTransparent) != nint.Zero;
+
+    internal async Task DispatchMouseClickAsync(int count)
+    {
+        if (webView.CoreWebView2 is null) throw new InvalidOperationException("Desktop pet WebView2 is not ready.");
+        int x = ClientSize.Width / 2;
+        int y = ClientSize.Height / 2;
+        await webView.CoreWebView2.CallDevToolsProtocolMethodAsync(
+            "Input.dispatchMouseEvent",
+            JsonSerializer.Serialize(new { type = "mouseMoved", x, y }));
+        for (int index = 1; index <= count; index += 1)
+        {
+            await webView.CoreWebView2.CallDevToolsProtocolMethodAsync(
+                "Input.dispatchMouseEvent",
+                JsonSerializer.Serialize(new { type = "mousePressed", x, y, button = "left", clickCount = index }));
+            await webView.CoreWebView2.CallDevToolsProtocolMethodAsync(
+                "Input.dispatchMouseEvent",
+                JsonSerializer.Serialize(new { type = "mouseReleased", x, y, button = "left", clickCount = index }));
+            if (index < count) await Task.Delay(80);
+        }
+    }
+
+    internal async Task TypeConversationMessageAsync(string text)
+    {
+        if (webView.CoreWebView2 is null) throw new InvalidOperationException("Desktop pet WebView2 is not ready.");
+        await webView.CoreWebView2.CallDevToolsProtocolMethodAsync(
+            "Input.insertText",
+            JsonSerializer.Serialize(new { text }));
+        await webView.CoreWebView2.CallDevToolsProtocolMethodAsync(
+            "Input.dispatchKeyEvent",
+            JsonSerializer.Serialize(new { type = "keyDown", key = "Enter", code = "Enter", windowsVirtualKeyCode = 13, nativeVirtualKeyCode = 13 }));
+        await webView.CoreWebView2.CallDevToolsProtocolMethodAsync(
+            "Input.dispatchKeyEvent",
+            JsonSerializer.Serialize(new { type = "keyUp", key = "Enter", code = "Enter", windowsVirtualKeyCode = 13, nativeVirtualKeyCode = 13 }));
+    }
 
     internal void ClosePermanently()
     {
@@ -822,9 +857,6 @@ internal sealed class DesktopPetController : IDisposable
 
 internal static class DesktopPetVisualSelfTest
 {
-    private const uint MouseLeftDown = 0x0002;
-    private const uint MouseLeftUp = 0x0004;
-
     internal static void Run()
     {
         DesktopPetRuntime.ValidateAssets();
@@ -877,12 +909,12 @@ internal static class DesktopPetVisualSelfTest
                         throw new InvalidOperationException(
                             $"Desktop pet visual probe failed (transparent={transparentWindow}, opaque={opaquePixels}).");
                     }
-                    interactionPhase = 1;
-                    form.Activate();
-                    if (!SendMouseClick(form.InteractionPoint, 1))
+                    if (form.IsClickThroughStyleEnabled)
                     {
-                        throw new InvalidOperationException("Windows rejected the desktop pet click probe.");
+                        throw new InvalidOperationException("Desktop pet window unexpectedly has WS_EX_TRANSPARENT enabled.");
                     }
+                    interactionPhase = 1;
+                    await form.DispatchMouseClickAsync(1);
                     return;
                 }
 
@@ -890,10 +922,7 @@ internal static class DesktopPetVisualSelfTest
                 {
                     interactionPhase = 2;
                     await Task.Delay(260);
-                    if (!SendMouseClick(form.InteractionPoint, 2))
-                    {
-                        throw new InvalidOperationException("Windows rejected the desktop pet double-click probe.");
-                    }
+                    await form.DispatchMouseClickAsync(2);
                     return;
                 }
 
@@ -907,8 +936,7 @@ internal static class DesktopPetVisualSelfTest
                     {
                         throw new InvalidOperationException("Desktop pet conversation input did not receive focus.");
                     }
-                    SendKeys.SendWait("hello");
-                    SendKeys.SendWait("{ENTER}");
+                    await form.TypeConversationMessageAsync("hello");
                     return;
                 }
 
@@ -936,30 +964,6 @@ internal static class DesktopPetVisualSelfTest
         Application.Run(context);
         if (failure is not null) throw failure;
     }
-
-    private static bool SendMouseClick(Point point, int count)
-    {
-        if (!SetCursorPos(point.X, point.Y)) return false;
-        for (int index = 0; index < count; index += 1)
-        {
-            mouse_event(MouseLeftDown, 0, 0, 0, UIntPtr.Zero);
-            mouse_event(MouseLeftUp, 0, 0, 0, UIntPtr.Zero);
-            if (index + 1 < count) Thread.Sleep(90);
-        }
-        return true;
-    }
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetCursorPos(int x, int y);
-
-    [DllImport("user32.dll")]
-    private static extern void mouse_event(
-        uint flags,
-        uint x,
-        uint y,
-        uint data,
-        UIntPtr extraInfo);
 }
 
 internal sealed class PetNameForm : Form

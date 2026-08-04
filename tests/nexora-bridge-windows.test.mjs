@@ -74,12 +74,16 @@ test('Windows runner opens the packaged pet and requires visible WebGL pixels', 
   assert.match(build, /--self-test-pet/);
 });
 
-test('Windows runner clicks, double-clicks and types through the real pet window', () => {
-  assert.match(desktopPet, /SendMouseClick\(form\.InteractionPoint, 1\)/);
-  assert.match(desktopPet, /SendMouseClick\(form\.InteractionPoint, 2\)/);
+test('Windows runner validates hit testing then clicks, double-clicks and types in the pet renderer', () => {
+  assert.match(desktopPet, /form\.IsClickThroughStyleEnabled/);
+  assert.match(desktopPet, /WS_EX_TRANSPARENT enabled/);
+  assert.match(desktopPet, /DispatchMouseClickAsync\(1\)/);
+  assert.match(desktopPet, /DispatchMouseClickAsync\(2\)/);
+  assert.match(desktopPet, /Input\.dispatchMouseEvent/);
   assert.match(desktopPet, /IsConversationInputFocusedAsync/);
   assert.match(desktopPet, /form\.ActivateConversation\(\)/);
-  assert.match(desktopPet, /SendKeys\.SendWait\("hello"\)/);
+  assert.match(desktopPet, /TypeConversationMessageAsync\("hello"\)/);
+  assert.match(desktopPet, /Input\.dispatchKeyEvent/);
   assert.match(desktopPet, /type == "chat-submit"/);
 });
 
