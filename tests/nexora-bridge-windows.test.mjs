@@ -88,6 +88,19 @@ test('Windows runner validates hit testing then clicks, double-clicks and types 
   assert.match(desktopPet, /type == "chat-submit"/);
 });
 
+test('Windows pet bypasses TransparencyKey with native mouse routing and a native dialogue input', () => {
+  assert.match(desktopPet, /class DesktopPetMouseHook/);
+  assert.match(desktopPet, /SetWindowsHookEx/);
+  assert.match(desktopPet, /HandleNativeMouseInput/);
+  assert.match(desktopPet, /RegisterNativeClick/);
+  assert.match(desktopPet, /MoveFromNativeDrag/);
+  assert.match(desktopPet, /ResizeFromNativeWheel/);
+  assert.match(desktopPet, /class DesktopPetConversationForm/);
+  assert.match(desktopPet, /conversationForm\.MessageSubmitted/);
+  assert.match(desktopPet, /conversationForm\.ShowConversation/);
+  assert.match(desktopPet, /Native desktop pet conversation did not accept text input/);
+});
+
 test('Windows app packages self-contained x64 and ARM64 executables', () => {
   assert.match(project, /<UseWindowsForms>true<\/UseWindowsForms>/);
   assert.match(project, /<PublishSingleFile>true<\/PublishSingleFile>/);

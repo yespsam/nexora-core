@@ -210,6 +210,23 @@ internal sealed class DesktopPetForm : Form
         ShowPet();
     }
 
+    internal void MoveFromNativeDrag(Point pointer, Point pointerOrigin, Point windowOrigin)
+    {
+        Rectangle area = Screen.FromPoint(pointer).WorkingArea;
+        int x = Math.Clamp(windowOrigin.X + pointer.X - pointerOrigin.X, area.Left, area.Right - Width);
+        int y = Math.Clamp(windowOrigin.Y + pointer.Y - pointerOrigin.Y, area.Top, area.Bottom - Height);
+        Location = new Point(x, y);
+    }
+
+    internal void ResizeFromNativeWheel(int delta, Point anchor)
+    {
+        double factor = Math.Exp(-delta * 0.0016);
+        ResizeAtCursor((int)Math.Round(Width * Math.Clamp(factor, 0.82, 1.22)), anchor);
+        SaveFrame();
+    }
+
+    internal void SaveNativeFrame() => SaveFrame();
+
     internal void SetClickThrough(bool enabled)
     {
         preferences.ClickThrough = enabled;
@@ -508,6 +525,238 @@ internal sealed class DesktopPetForm : Form
         SetWindowPositionFlags flags);
 }
 
+internal readonly record struct DesktopPetMouseInput(int Message, Point ScreenPoint, int WheelDelta);
+
+internal sealed class DesktopPetMouseHook : IDisposable
+{
+    internal const int MouseMove = 0x0200;
+    internal const int LeftButtonDown = 0x0201;
+    internal const int LeftButtonUp = 0x0202;
+    internal const int MouseWheel = 0x020A;
+    private const int LowLevelMouseHook = 14;
+
+    private readonly HookCallback callback;
+    private readonly Func<DesktopPetMouseInput, bool> inputHandler;
+    private nint handle;
+
+    internal DesktopPetMouseHook(Func<DesktopPetMouseInput, bool> inputHandler)
+    {
+        this.inputHandler = inputHandler;
+        callback = Receive;
+        handle = SetWindowsHookEx(LowLevelMouseHook, callback, GetModuleHandle(null), 0);
+        if (handle == nint.Zero)
+        {
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(), "Unable to install desktop pet mouse hook.");
+        }
+    }
+
+    private nint Receive(int code, nint message, nint data)
+    {
+        if (code >= 0)
+        {
+            MouseHookData input = Marshal.PtrToStructure<MouseHookData>(data);
+            int messageId = message.ToInt32();
+            int wheelDelta = messageId == MouseWheel ? (short)(input.MouseData >> 16) : 0;
+            if (inputHandler(new DesktopPetMouseInput(messageId, new Point(input.Point.X, input.Point.Y), wheelDelta)))
+            {
+                return new nint(1);
+            }
+        }
+        return CallNextHookEx(handle, code, message, data);
+    }
+
+    public void Dispose()
+    {
+        if (handle == nint.Zero) return;
+        UnhookWindowsHookEx(handle);
+        handle = nint.Zero;
+    }
+
+    private delegate nint HookCallback(int code, nint message, nint data);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        internal int X;
+        internal int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MouseHookData
+    {
+        internal NativePoint Point;
+        internal uint MouseData;
+        internal uint Flags;
+        internal uint Time;
+        internal UIntPtr ExtraInfo;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern nint SetWindowsHookEx(int hook, HookCallback callback, nint module, uint threadId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool UnhookWindowsHookEx(nint hook);
+
+    [DllImport("user32.dll")]
+    private static extern nint CallNextHookEx(nint hook, int code, nint message, nint data);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern nint GetModuleHandle(string? moduleName);
+}
+
+internal sealed class DesktopPetConversationForm : Form
+{
+    private readonly Label status = new();
+    private readonly TextBox input = new();
+    private readonly Button send = new();
+    private bool allowClose;
+
+    internal event Action<string>? MessageSubmitted;
+    internal event Action? ConversationClosed;
+
+    internal DesktopPetConversationForm()
+    {
+        Text = "NEXORA 对话";
+        ClientSize = new Size(410, 150);
+        FormBorderStyle = FormBorderStyle.FixedToolWindow;
+        ShowInTaskbar = false;
+        TopMost = true;
+        MaximizeBox = false;
+        MinimizeBox = false;
+        StartPosition = FormStartPosition.Manual;
+        AutoScaleMode = AutoScaleMode.Dpi;
+        Font = new Font("Microsoft YaHei UI", 10f);
+        BackColor = Color.FromArgb(24, 27, 30);
+        ForeColor = Color.WhiteSmoke;
+
+        status.Dock = DockStyle.Fill;
+        status.Padding = new Padding(14, 12, 14, 8);
+        status.AutoEllipsis = true;
+        status.ForeColor = Color.WhiteSmoke;
+        status.Text = "我在，想聊什么？";
+
+        input.Dock = DockStyle.Fill;
+        input.MaxLength = 160;
+        input.BorderStyle = BorderStyle.FixedSingle;
+        input.BackColor = Color.FromArgb(245, 247, 248);
+        input.ForeColor = Color.FromArgb(20, 23, 26);
+        input.Margin = new Padding(14, 8, 8, 14);
+
+        send.Text = "发送";
+        send.AutoSize = false;
+        send.Width = 76;
+        send.Dock = DockStyle.Fill;
+        send.FlatStyle = FlatStyle.System;
+        send.Margin = new Padding(0, 8, 14, 14);
+        send.Click += (_, _) => Submit();
+
+        TableLayoutPanel layout = new()
+        {
+            Dock = DockStyle.Fill,
+            BackColor = BackColor,
+            ColumnCount = 2,
+            RowCount = 2,
+            Padding = Padding.Empty
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 98));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
+        layout.Controls.Add(status, 0, 0);
+        layout.SetColumnSpan(status, 2);
+        layout.Controls.Add(input, 0, 1);
+        layout.Controls.Add(send, 1, 1);
+        Controls.Add(layout);
+
+        AcceptButton = send;
+        input.KeyDown += (_, eventArguments) =>
+        {
+            if (eventArguments.KeyCode != Keys.Escape) return;
+            eventArguments.SuppressKeyPress = true;
+            HideConversation();
+        };
+        FormClosing += (_, eventArguments) =>
+        {
+            if (allowClose) return;
+            eventArguments.Cancel = true;
+            HideConversation();
+        };
+    }
+
+    internal void ShowConversation(Rectangle petBounds, string petName, string initialStatus)
+    {
+        Text = $"与 {petName} 对话";
+        status.Text = initialStatus;
+        SetBusy(false);
+        Rectangle area = Screen.FromRectangle(petBounds).WorkingArea;
+        int x = Math.Clamp(petBounds.Left + (petBounds.Width - Width) / 2, area.Left + 8, area.Right - Width - 8);
+        int preferredY = petBounds.Top - Height - 12;
+        int y = preferredY >= area.Top + 8 ? preferredY : Math.Min(area.Bottom - Height - 8, petBounds.Bottom + 12);
+        Location = new Point(x, Math.Max(area.Top + 8, y));
+        if (!Visible) Show();
+        BringToFront();
+        Activate();
+        input.Focus();
+    }
+
+    internal void SetThinking(string petName)
+    {
+        status.Text = $"{petName} 正在理解……";
+        SetBusy(true);
+    }
+
+    internal void SetReply(string text)
+    {
+        status.Text = text;
+        SetBusy(false);
+        Activate();
+        input.Focus();
+    }
+
+    internal void SetError(string text)
+    {
+        status.Text = text;
+        SetBusy(false);
+        Activate();
+        input.Focus();
+    }
+
+    internal void HideConversation()
+    {
+        if (!Visible) return;
+        Hide();
+        ConversationClosed?.Invoke();
+    }
+
+    internal void SubmitForSelfTest(string text)
+    {
+        input.Text = text;
+        Submit();
+    }
+
+    internal void ClosePermanently()
+    {
+        allowClose = true;
+        Close();
+        Dispose();
+    }
+
+    private void Submit()
+    {
+        string text = string.Join(' ', input.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (string.IsNullOrWhiteSpace(text) || !input.Enabled) return;
+        input.Clear();
+        MessageSubmitted?.Invoke(text.Length <= 160 ? text : text[..160]);
+    }
+
+    private void SetBusy(bool busy)
+    {
+        input.Enabled = !busy;
+        send.Enabled = !busy;
+    }
+}
+
 internal sealed class DesktopPetController : IDisposable
 {
     internal static readonly HashSet<string> Starters = ["cute", "cool", "beautiful"];
@@ -516,10 +765,19 @@ internal sealed class DesktopPetController : IDisposable
 
     private readonly DesktopPetPreferences preferences = DesktopPetPreferenceStore.Load();
     private readonly DesktopPetForm form;
+    private readonly DesktopPetConversationForm conversationForm = new();
+    private readonly System.Windows.Forms.Timer clickTimer = new();
     private readonly HttpClient client;
+    private DesktopPetMouseHook? mouseHook;
     private BridgeConfiguration? bridgeConfiguration;
     private CancellationTokenSource? chatCancellation;
     private CancellationTokenSource? voiceCancellation;
+    private Point mousePointerOrigin;
+    private Point mouseWindowOrigin;
+    private Point pendingClickPoint;
+    private bool nativeMouseDown;
+    private bool nativeDragging;
+    private int clickActionIndex;
     private bool conversationOpen;
     private bool conversationBusy;
     private bool modelReady;
@@ -536,6 +794,20 @@ internal sealed class DesktopPetController : IDisposable
         form = new DesktopPetForm(preferences);
         form.NativeMessage += HandleNativeMessage;
         form.RuntimeError += message => RuntimeError?.Invoke(message);
+        conversationForm.MessageSubmitted += text => _ = SendChatAsync(text);
+        conversationForm.ConversationClosed += () =>
+        {
+            conversationOpen = false;
+            CancelConversation();
+        };
+        clickTimer.Interval = Math.Clamp(SystemInformation.DoubleClickTime, 180, 500);
+        clickTimer.Tick += (_, _) =>
+        {
+            clickTimer.Stop();
+            string[] actions = ["wave", "nod", "affection"];
+            Play(actions[clickActionIndex % actions.Length]);
+            clickActionIndex += 1;
+        };
         client = new HttpClient(new SocketsHttpHandler
         {
             AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
@@ -554,6 +826,14 @@ internal sealed class DesktopPetController : IDisposable
         form.SetClickThrough(false);
         _ = form.EnsureInitializedAsync();
         if (preferences.Visible) form.ShowPet();
+        try
+        {
+            mouseHook ??= new DesktopPetMouseHook(HandleNativeMouseInput);
+        }
+        catch (Exception error)
+        {
+            RuntimeError?.Invoke($"桌面宠物鼠标交互启动失败：{error.Message}");
+        }
     }
 
     internal void SetBridgeConfiguration(BridgeConfiguration? configuration)
@@ -562,13 +842,17 @@ internal sealed class DesktopPetController : IDisposable
         if (configuration is null && conversationOpen)
         {
             CancelConversation();
-            _ = form.ExecuteAsync("setConversationState", new { phase = "error", status = "请先从系统托盘配对电脑" });
+            conversationForm.SetError("请先从系统托盘配对电脑");
         }
     }
 
     internal void ToggleVisibility()
     {
-        if (form.Visible) form.HidePet();
+        if (form.Visible)
+        {
+            conversationForm.HideConversation();
+            form.HidePet();
+        }
         else form.ShowPet();
     }
 
@@ -576,12 +860,11 @@ internal sealed class DesktopPetController : IDisposable
     {
         SetClickThrough(false);
         form.ShowPet();
-        _ = form.ExecuteAsync("setConversationOpen", new
-        {
-            open = true,
-            status = bridgeConfiguration is null ? "请先从系统托盘配对电脑" : "我在，想聊什么？"
-        });
-        form.Activate();
+        conversationOpen = true;
+        conversationForm.ShowConversation(
+            form.Bounds,
+            preferences.Name,
+            bridgeConfiguration is null ? "请先从系统托盘配对电脑" : "我在，想聊什么？");
     }
 
     internal void SetStarter(string value)
@@ -616,10 +899,75 @@ internal sealed class DesktopPetController : IDisposable
     internal void SetClickThrough(bool enabled)
     {
         form.SetClickThrough(enabled);
+        if (enabled) conversationForm.HideConversation();
     }
 
     internal void ResetPosition() => form.ResetPosition();
     internal void ResetSize() => form.ResetSize();
+
+    private bool HandleNativeMouseInput(DesktopPetMouseInput input)
+    {
+        if (!form.Visible || preferences.ClickThrough) return false;
+        if (conversationForm.Visible && conversationForm.Bounds.Contains(input.ScreenPoint)) return false;
+
+        bool overPet = form.Bounds.Contains(input.ScreenPoint);
+        switch (input.Message)
+        {
+            case DesktopPetMouseHook.LeftButtonDown when overPet:
+                nativeMouseDown = true;
+                nativeDragging = false;
+                mousePointerOrigin = input.ScreenPoint;
+                mouseWindowOrigin = form.Location;
+                return true;
+            case DesktopPetMouseHook.MouseMove when nativeMouseDown:
+                if (!nativeDragging &&
+                    Math.Abs(input.ScreenPoint.X - mousePointerOrigin.X) +
+                    Math.Abs(input.ScreenPoint.Y - mousePointerOrigin.Y) >= 5)
+                {
+                    nativeDragging = true;
+                    clickTimer.Stop();
+                }
+                if (nativeDragging)
+                {
+                    form.MoveFromNativeDrag(input.ScreenPoint, mousePointerOrigin, mouseWindowOrigin);
+                }
+                return true;
+            case DesktopPetMouseHook.LeftButtonUp when nativeMouseDown:
+                nativeMouseDown = false;
+                if (nativeDragging)
+                {
+                    nativeDragging = false;
+                    form.SaveNativeFrame();
+                }
+                else
+                {
+                    RegisterNativeClick(input.ScreenPoint);
+                }
+                return true;
+            case DesktopPetMouseHook.MouseWheel when overPet:
+                form.ResizeFromNativeWheel(-input.WheelDelta, input.ScreenPoint);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private void RegisterNativeClick(Point point)
+    {
+        Size tolerance = SystemInformation.DoubleClickSize;
+        bool isDoubleClick = clickTimer.Enabled &&
+            Math.Abs(point.X - pendingClickPoint.X) <= tolerance.Width &&
+            Math.Abs(point.Y - pendingClickPoint.Y) <= tolerance.Height;
+        if (isDoubleClick)
+        {
+            clickTimer.Stop();
+            OpenConversation();
+            return;
+        }
+        pendingClickPoint = point;
+        clickTimer.Stop();
+        clickTimer.Start();
+    }
 
     internal static string NormalizeName(string? value, string starter)
     {
@@ -692,11 +1040,14 @@ internal sealed class DesktopPetController : IDisposable
         if (conversationBusy || string.IsNullOrWhiteSpace(text)) return;
         if (bridgeConfiguration is null)
         {
+            conversationForm.SetError("请先从系统托盘配对电脑");
             await form.ExecuteAsync("setConversationState", new { phase = "error", status = "请先从系统托盘配对电脑" });
             return;
         }
 
         conversationBusy = true;
+        conversationForm.SetThinking(preferences.Name);
+        await form.ExecuteAsync("setConversationState", new { phase = "thinking", status = $"{preferences.Name} 正在理解……" });
         chatCancellation?.Cancel();
         chatCancellation?.Dispose();
         chatCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(24));
@@ -762,6 +1113,7 @@ internal sealed class DesktopPetController : IDisposable
                 _ => "speaking"
             };
             conversationBusy = false;
+            conversationForm.SetReply(replyText);
             await form.ExecuteAsync("receiveReply", new { text = replyText, action });
             _ = RequestVoiceAsync(replyText, reply.Emotion?.Mood ?? "calm", bridgeConfiguration);
         }
@@ -830,6 +1182,7 @@ internal sealed class DesktopPetController : IDisposable
     private async Task FinishChatWithErrorAsync(string message)
     {
         conversationBusy = false;
+        conversationForm.SetError(message);
         await form.ExecuteAsync("setConversationState", new { phase = "error", status = message });
     }
 
@@ -859,6 +1212,10 @@ internal sealed class DesktopPetController : IDisposable
         CancelConversation();
         chatCancellation?.Dispose();
         voiceCancellation?.Dispose();
+        clickTimer.Stop();
+        clickTimer.Dispose();
+        mouseHook?.Dispose();
+        conversationForm.ClosePermanently();
         client.Dispose();
         form.ClosePermanently();
     }
@@ -869,6 +1226,16 @@ internal static class DesktopPetVisualSelfTest
     internal static void Run()
     {
         DesktopPetRuntime.ValidateAssets();
+        using (DesktopPetConversationForm nativeConversation = new())
+        {
+            string? submittedText = null;
+            nativeConversation.MessageSubmitted += text => submittedText = text;
+            nativeConversation.SubmitForSelfTest("  hello   native  ");
+            if (submittedText != "hello native")
+            {
+                throw new InvalidOperationException("Native desktop pet conversation did not accept text input.");
+            }
+        }
         DesktopPetPreferences preferences = new()
         {
             Visible = true,
