@@ -117,11 +117,18 @@ test('Windows package includes the complete shared 3D runtime', () => {
   assert.match(build, /desktop-pet\/app\.mjs/);
   assert.match(build, /shared\/creature-3d-viewer\.mjs/);
   assert.match(build, /desktop-wallpaper\/vendor\/three\.module\.js/);
+  assert.match(build, /desktop-wallpaper\/vendor\/BufferGeometryUtils\.js/);
   assert.match(build, /CUTE_LUMO/);
   assert.match(build, /COOL_VEYR/);
   assert.match(build, /BEAUTIFUL_AERA/);
   assert.match(build, /animations\/\$Action\.glb/);
   assert.match(source, /DesktopPetRuntime\.ValidateAssets\(\)/);
+});
+
+test('Windows build waits for GUI self-tests instead of accepting an early launch', () => {
+  assert.match(build, /Start-Process -FilePath \$Executable -ArgumentList "--self-test-native" -Wait -PassThru/);
+  assert.match(build, /Start-Process -FilePath \$Executable -ArgumentList "--self-test-pet" -Wait -PassThru/);
+  assert.match(build, /\$PetSelfTest\.ExitCode/);
 });
 
 test('Windows release build supports Authenticode signing and timestamp verification', () => {

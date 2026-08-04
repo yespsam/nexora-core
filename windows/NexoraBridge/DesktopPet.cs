@@ -93,6 +93,7 @@ internal static class DesktopPetRuntime
             "shared/creature-3d-data.mjs",
             "desktop-wallpaper/vendor/three.module.js",
             "desktop-wallpaper/vendor/GLTFLoader.js",
+            "desktop-wallpaper/vendor/BufferGeometryUtils.js",
             "desktop-wallpaper/vendor/meshopt_decoder.module.js",
             "NEXORA_3D_CREATURES/CUTE_LUMO/model/rigged.glb",
             "NEXORA_3D_CREATURES/COOL_VEYR/model/rigged.glb",

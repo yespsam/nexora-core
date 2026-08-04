@@ -55,6 +55,7 @@ function Copy-RuntimeFile {
   "shared/creature-3d-data.mjs",
   "desktop-wallpaper/vendor/three.module.js",
   "desktop-wallpaper/vendor/GLTFLoader.js",
+  "desktop-wallpaper/vendor/BufferGeometryUtils.js",
   "desktop-wallpaper/vendor/meshopt_decoder.module.js"
 ) | ForEach-Object { Copy-RuntimeFile $_ }
 
@@ -92,10 +93,10 @@ if ($CertificateThumbprint) {
 $CanRun = ($Runtime -eq "win-x64" -and $env:PROCESSOR_ARCHITECTURE -eq "AMD64") -or
   ($Runtime -eq "win-arm64" -and $env:PROCESSOR_ARCHITECTURE -eq "ARM64")
 if ($CanRun) {
-  & $Executable --self-test-native
-  if ($LASTEXITCODE -ne 0) { throw "Windows self-test failed for $Runtime" }
-  & $Executable --self-test-pet
-  if ($LASTEXITCODE -ne 0) { throw "Windows desktop pet visual self-test failed for $Runtime" }
+  $NativeSelfTest = Start-Process -FilePath $Executable -ArgumentList "--self-test-native" -Wait -PassThru
+  if ($NativeSelfTest.ExitCode -ne 0) { throw "Windows self-test failed for $Runtime" }
+  $PetSelfTest = Start-Process -FilePath $Executable -ArgumentList "--self-test-pet" -Wait -PassThru
+  if ($PetSelfTest.ExitCode -ne 0) { throw "Windows desktop pet visual self-test failed for $Runtime" }
 }
 
 $Readme = @"
