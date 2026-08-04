@@ -857,7 +857,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
         dispatcher.CreateControl();
         statusItem = new ToolStripMenuItem("正在启动") { Enabled = false };
         petVisibilityItem = new ToolStripMenuItem("显示桌面宠物", null, (_, _) => ToggleDesktopPet());
-        petClickThroughItem = new ToolStripMenuItem("鼠标穿透", null, (_, _) => TogglePetClickThrough());
+        petClickThroughItem = new ToolStripMenuItem("鼠标穿透（临时）", null, (_, _) => TogglePetClickThrough())
+        {
+            ToolTipText = "开启后鼠标会穿过宠物；重新启动 NEXORA Bridge 会自动关闭。"
+        };
         pairItem = new ToolStripMenuItem("配对电脑...", null, (_, _) => ShowPairing());
         pauseItem = new ToolStripMenuItem("暂停连接", null, (_, _) => TogglePaused()) { Enabled = false };
         removeItem = new ToolStripMenuItem("移除本机配对", null, (_, _) => RemovePairing()) { Enabled = false };

@@ -218,8 +218,33 @@ internal sealed class DesktopPetForm : Form
             nint style = GetWindowLongPtr(Handle, GwlExStyle);
             style = enabled ? style | WsExTransparent : style & ~WsExTransparent;
             SetWindowLongPtr(Handle, GwlExStyle, style);
+            SetWindowPos(
+                Handle,
+                nint.Zero,
+                0,
+                0,
+                0,
+                0,
+                SetWindowPositionFlags.NoMove |
+                SetWindowPositionFlags.NoSize |
+                SetWindowPositionFlags.NoZOrder |
+                SetWindowPositionFlags.NoActivate |
+                SetWindowPositionFlags.FrameChanged);
         }
         DesktopPetPreferenceStore.Save(preferences);
+    }
+
+    internal void ActivateConversation()
+    {
+        SetClickThrough(false);
+        ShowPet();
+        Activate();
+        webView.Focus();
+        BeginInvoke(new Action(async () =>
+        {
+            if (webView.CoreWebView2 is null) return;
+            await webView.ExecuteScriptAsync("document.querySelector('#conversation-input')?.focus()");
+        }));
     }
 
     internal async Task ExecuteAsync(string function, object payload)
@@ -238,6 +263,15 @@ internal sealed class DesktopPetForm : Form
             ? opaque.GetInt32()
             : 0;
     }
+
+    internal async Task<bool> IsConversationInputFocusedAsync()
+    {
+        if (webView.CoreWebView2 is null) return false;
+        string json = await webView.ExecuteScriptAsync("document.activeElement?.id === 'conversation-input'");
+        return string.Equals(json, "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal Point InteractionPoint => PointToScreen(new Point(ClientSize.Width / 2, ClientSize.Height / 2));
 
     internal void ClosePermanently()
     {
@@ -404,6 +438,27 @@ internal sealed class DesktopPetForm : Form
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
     private static extern nint SetWindowLongPtr64(nint window, int index, nint value);
+
+    [Flags]
+    private enum SetWindowPositionFlags : uint
+    {
+        NoSize = 0x0001,
+        NoMove = 0x0002,
+        NoZOrder = 0x0004,
+        NoActivate = 0x0010,
+        FrameChanged = 0x0020
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        nint window,
+        nint insertAfter,
+        int x,
+        int y,
+        int width,
+        int height,
+        SetWindowPositionFlags flags);
 }
 
 internal sealed class DesktopPetController : IDisposable
@@ -448,6 +503,8 @@ internal sealed class DesktopPetController : IDisposable
 
     internal void Start()
     {
+        // Click-through is a temporary mode. Reset it on launch so an old preference cannot lock out interaction.
+        form.SetClickThrough(false);
         _ = form.EnsureInitializedAsync();
         if (preferences.Visible) form.ShowPet();
     }
@@ -551,7 +608,8 @@ internal sealed class DesktopPetController : IDisposable
                 break;
             case "conversation-state":
                 conversationOpen = message.TryGetProperty("open", out JsonElement openElement) && openElement.GetBoolean();
-                if (!conversationOpen) CancelConversation();
+                if (conversationOpen) form.ActivateConversation();
+                else CancelConversation();
                 break;
             case "chat-submit":
                 string text = message.TryGetProperty("text", out JsonElement textElement)
@@ -761,6 +819,9 @@ internal sealed class DesktopPetController : IDisposable
 
 internal static class DesktopPetVisualSelfTest
 {
+    private const uint MouseLeftDown = 0x0002;
+    private const uint MouseLeftUp = 0x0004;
+
     internal static void Run()
     {
         DesktopPetRuntime.ValidateAssets();
@@ -778,6 +839,7 @@ internal static class DesktopPetVisualSelfTest
         using System.Windows.Forms.Timer timeout = new() { Interval = 25_000 };
         Exception? failure = null;
         bool completed = false;
+        int interactionPhase = 0;
 
         void Complete(Exception? error)
         {
@@ -793,20 +855,67 @@ internal static class DesktopPetVisualSelfTest
         form.RuntimeError += message => Complete(new InvalidOperationException(message));
         form.NativeMessage += async message =>
         {
-            if (!message.TryGetProperty("type", out JsonElement type) || type.GetString() != "ready") return;
+            if (!message.TryGetProperty("type", out JsonElement typeElement)) return;
+            string type = typeElement.GetString() ?? string.Empty;
             try
             {
-                int opaquePixels = await form.SampleOpaquePixelsAsync();
-                bool transparentWindow = form.FormBorderStyle == FormBorderStyle.None &&
-                    form.TopMost &&
-                    form.TransparencyKey == Color.Fuchsia;
-                if (!transparentWindow || opaquePixels <= 100)
+                if (type == "ready" && interactionPhase == 0)
                 {
-                    throw new InvalidOperationException(
-                        $"Desktop pet visual probe failed (transparent={transparentWindow}, opaque={opaquePixels}).");
+                    int opaquePixels = await form.SampleOpaquePixelsAsync();
+                    bool transparentWindow = form.FormBorderStyle == FormBorderStyle.None &&
+                        form.TopMost &&
+                        form.TransparencyKey == Color.Fuchsia;
+                    if (!transparentWindow || opaquePixels <= 100)
+                    {
+                        throw new InvalidOperationException(
+                            $"Desktop pet visual probe failed (transparent={transparentWindow}, opaque={opaquePixels}).");
+                    }
+                    interactionPhase = 1;
+                    form.Activate();
+                    if (!SendMouseClick(form.InteractionPoint, 1))
+                    {
+                        throw new InvalidOperationException("Windows rejected the desktop pet click probe.");
+                    }
+                    return;
                 }
-                Console.WriteLine($"NEXORA desktop pet visual probe passed: opaque={opaquePixels}");
-                Complete(null);
+
+                if (type == "interaction" && interactionPhase == 1)
+                {
+                    interactionPhase = 2;
+                    await Task.Delay(260);
+                    if (!SendMouseClick(form.InteractionPoint, 2))
+                    {
+                        throw new InvalidOperationException("Windows rejected the desktop pet double-click probe.");
+                    }
+                    return;
+                }
+
+                if (type == "conversation-state" && interactionPhase == 2 &&
+                    message.TryGetProperty("open", out JsonElement openElement) && openElement.GetBoolean())
+                {
+                    interactionPhase = 3;
+                    await Task.Delay(180);
+                    if (!await form.IsConversationInputFocusedAsync())
+                    {
+                        throw new InvalidOperationException("Desktop pet conversation input did not receive focus.");
+                    }
+                    SendKeys.SendWait("hello");
+                    SendKeys.SendWait("{ENTER}");
+                    return;
+                }
+
+                if (type == "chat-submit" && interactionPhase == 3)
+                {
+                    string text = message.TryGetProperty("text", out JsonElement textElement)
+                        ? textElement.GetString() ?? string.Empty
+                        : string.Empty;
+                    if (text != "hello")
+                    {
+                        throw new InvalidOperationException("Desktop pet conversation input changed the test message.");
+                    }
+                    Console.WriteLine("NEXORA desktop pet visual and native interaction probe passed");
+                    Complete(null);
+                }
             }
             catch (Exception error)
             {
@@ -819,6 +928,30 @@ internal static class DesktopPetVisualSelfTest
         Application.Run(context);
         if (failure is not null) throw failure;
     }
+
+    private static bool SendMouseClick(Point point, int count)
+    {
+        if (!SetCursorPos(point.X, point.Y)) return false;
+        for (int index = 0; index < count; index += 1)
+        {
+            mouse_event(MouseLeftDown, 0, 0, 0, UIntPtr.Zero);
+            mouse_event(MouseLeftUp, 0, 0, 0, UIntPtr.Zero);
+            if (index + 1 < count) Thread.Sleep(90);
+        }
+        return true;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetCursorPos(int x, int y);
+
+    [DllImport("user32.dll")]
+    private static extern void mouse_event(
+        uint flags,
+        uint x,
+        uint y,
+        uint data,
+        UIntPtr extraInfo);
 }
 
 internal sealed class PetNameForm : Form

@@ -74,6 +74,14 @@ test('Windows runner opens the packaged pet and requires visible WebGL pixels', 
   assert.match(build, /--self-test-pet/);
 });
 
+test('Windows runner clicks, double-clicks and types through the real pet window', () => {
+  assert.match(desktopPet, /SendMouseClick\(form\.InteractionPoint, 1\)/);
+  assert.match(desktopPet, /SendMouseClick\(form\.InteractionPoint, 2\)/);
+  assert.match(desktopPet, /IsConversationInputFocusedAsync/);
+  assert.match(desktopPet, /SendKeys\.SendWait\("hello"\)/);
+  assert.match(desktopPet, /type == "chat-submit"/);
+});
+
 test('Windows app packages self-contained x64 and ARM64 executables', () => {
   assert.match(project, /<UseWindowsForms>true<\/UseWindowsForms>/);
   assert.match(project, /<PublishSingleFile>true<\/PublishSingleFile>/);
@@ -93,6 +101,9 @@ test('Windows bridge starts a transparent always-on-top 3D desktop pet', () => {
   assert.match(desktopPet, /SetVirtualHostNameToFolderMapping/);
   assert.match(desktopPet, /desktop-pet\/index\.html\?platform=windows/);
   assert.match(source, /desktopPet\.Start\(\)/);
+  assert.match(desktopPet, /form\.SetClickThrough\(false\)/);
+  assert.match(desktopPet, /if \(conversationOpen\) form\.ActivateConversation\(\)/);
+  assert.match(source, /鼠标穿透（临时）/);
   assert.match(source, /显示桌面宠物/);
   assert.match(source, /隐藏桌面宠物/);
 });
