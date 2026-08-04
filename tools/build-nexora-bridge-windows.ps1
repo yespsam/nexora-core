@@ -95,7 +95,13 @@ $CanRun = ($Runtime -eq "win-x64" -and $env:PROCESSOR_ARCHITECTURE -eq "AMD64") 
 if ($CanRun) {
   $NativeSelfTest = Start-Process -FilePath $Executable -ArgumentList "--self-test-native" -Wait -PassThru
   if ($NativeSelfTest.ExitCode -ne 0) { throw "Windows self-test failed for $Runtime" }
-  $PetSelfTest = Start-Process -FilePath $Executable -ArgumentList "--self-test-pet" -Wait -PassThru
+  $PetStandardOutput = [System.IO.Path]::GetTempFileName()
+  $PetStandardError = [System.IO.Path]::GetTempFileName()
+  $PetSelfTest = Start-Process -FilePath $Executable -ArgumentList "--self-test-pet" -Wait -PassThru `
+    -RedirectStandardOutput $PetStandardOutput -RedirectStandardError $PetStandardError
+  Get-Content $PetStandardOutput -ErrorAction SilentlyContinue
+  Get-Content $PetStandardError -ErrorAction SilentlyContinue
+  Remove-Item $PetStandardOutput, $PetStandardError -Force -ErrorAction SilentlyContinue
   if ($PetSelfTest.ExitCode -ne 0) { throw "Windows desktop pet visual self-test failed for $Runtime" }
 }
 

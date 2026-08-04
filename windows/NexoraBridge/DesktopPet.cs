@@ -894,6 +894,7 @@ internal static class DesktopPetVisualSelfTest
                     message.TryGetProperty("open", out JsonElement openElement) && openElement.GetBoolean())
                 {
                     interactionPhase = 3;
+                    form.ActivateConversation();
                     await Task.Delay(180);
                     if (!await form.IsConversationInputFocusedAsync())
                     {

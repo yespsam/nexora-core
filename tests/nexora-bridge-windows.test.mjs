@@ -78,6 +78,7 @@ test('Windows runner clicks, double-clicks and types through the real pet window
   assert.match(desktopPet, /SendMouseClick\(form\.InteractionPoint, 1\)/);
   assert.match(desktopPet, /SendMouseClick\(form\.InteractionPoint, 2\)/);
   assert.match(desktopPet, /IsConversationInputFocusedAsync/);
+  assert.match(desktopPet, /form\.ActivateConversation\(\)/);
   assert.match(desktopPet, /SendKeys\.SendWait\("hello"\)/);
   assert.match(desktopPet, /type == "chat-submit"/);
 });
@@ -140,6 +141,7 @@ test('Windows build waits for GUI self-tests instead of accepting an early launc
   assert.match(build, /Start-Process -FilePath \$Executable -ArgumentList "--self-test-native" -Wait -PassThru/);
   assert.match(build, /Start-Process -FilePath \$Executable -ArgumentList "--self-test-pet" -Wait -PassThru/);
   assert.match(build, /\$PetSelfTest\.ExitCode/);
+  assert.match(build, /RedirectStandardError \$PetStandardError/);
 });
 
 test('Windows release build supports Authenticode signing and timestamp verification', () => {
