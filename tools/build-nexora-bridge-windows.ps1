@@ -68,8 +68,8 @@ $Readme = @"
 NEXORA Bridge for Windows ($ArchiveArchitecture)
 
 1. Double-click NEXORA Bridge.exe. It will stay in the Windows system tray.
-2. In NEXORA CORE, open Device > Computer Assistant > Pair Computer.
-3. Copy the complete NXC1 pairing code and paste it into the pairing window.
+2. On an already signed-in phone or primary computer, open Device > Computer Assistant > Add Computer.
+3. Copy the new NXC1 pairing code and paste it into this Windows computer. This computer does not sign in.
 4. Wait for the cloud verification and the Pairing Complete message.
 5. Use the tray icon to view status, pause, re-pair, or remove this computer.
 

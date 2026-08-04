@@ -29,6 +29,13 @@ test('Windows bridge verifies pairing online before storing credentials', () => 
   assert.ok(source.indexOf('PairingVerifier.VerifyAsync(parsed)') < source.indexOf('CredentialStore.Save(parsed)'));
 });
 
+test('Windows bridge secondary computers never require the product login page', () => {
+  assert.match(source, /这台 Windows 电脑不需要登录 NEXORA CORE/);
+  assert.match(source, /查看连接状态/);
+  assert.match(source, /notifyIcon\.DoubleClick \+= \(_, _\) => ShowLocalStatus\(\)/);
+  assert.doesNotMatch(source, /private void OpenProduct\(\)/);
+});
+
 test('Windows bridge implements the shared encrypted command boundary', () => {
   assert.match(source, /HKDF\.DeriveKey/);
   assert.match(source, /AesGcm/);

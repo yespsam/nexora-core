@@ -784,8 +784,8 @@ internal sealed class PairingForm : Form
     {
         Text = "配对 NEXORA CORE";
         Width = 560;
-        Height = 230;
-        MinimumSize = new Size(520, 220);
+        Height = 250;
+        MinimumSize = new Size(520, 240);
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
@@ -796,7 +796,7 @@ internal sealed class PairingForm : Form
         {
             AutoSize = false,
             Dock = DockStyle.Fill,
-            Text = "在伙伴页打开“设备 → 电脑助手 → 配对电脑”，复制配对码后粘贴到这里。\r\n配对码只会保存在这台电脑的 Windows 凭据管理器中。",
+            Text = "请在已经登录的手机或主电脑上打开“设备 → 电脑助手 → 添加电脑”。\r\n把新配对码粘贴到这里；这台 Windows 电脑不需要登录 NEXORA CORE。\r\n配对码只会保存在本机 Windows 凭据管理器中。",
             Padding = new Padding(0, 4, 0, 0)
         };
 
@@ -858,7 +858,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         ContextMenuStrip menu = new();
         menu.Items.Add(statusItem);
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(new ToolStripMenuItem("打开 NEXORA CORE", null, (_, _) => OpenProduct()));
+        menu.Items.Add(new ToolStripMenuItem("查看连接状态", null, (_, _) => ShowLocalStatus()));
         menu.Items.Add(pairItem);
         menu.Items.Add(pauseItem);
         menu.Items.Add(removeItem);
@@ -872,7 +872,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ContextMenuStrip = menu,
             Visible = true
         };
-        notifyIcon.DoubleClick += (_, _) => OpenProduct();
+        notifyIcon.DoubleClick += (_, _) => ShowLocalStatus();
         poller.StatusChanged += (text, online) => dispatcher.BeginInvoke(new Action(() => UpdateStatus(text, online)));
 
         configuration = CredentialStore.Load() ?? LegacyPairing.ImportIfPresent();
@@ -906,12 +906,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         notifyIcon.Icon = online ? SystemIcons.Shield : SystemIcons.Application;
     }
 
-    private void OpenProduct() => WindowsCommandExecutor.Execute(new DeviceCommand(
-        1,
-        "computer",
-        "app.open",
-        new CommandParameters(null, null, "safari", null, null),
-        "打开 NEXORA CORE"));
+    private void ShowLocalStatus()
+    {
+        string detail = configuration is null
+            ? "本机尚未配对。请在已登录的手机或主电脑上生成配对码，再粘贴到本机。"
+            : $"{statusItem.Text}\n\n本机已经通过配对码授权，不需要登录 NEXORA CORE。";
+        MessageBox.Show(detail, "NEXORA Bridge", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
 
     private async void ShowPairing()
     {
