@@ -13,7 +13,7 @@ test('desktop bridge downloads stay pinned to the current desktop release', () =
   assert.equal(DESKTOP_BRIDGE_RELEASE_TAG, 'bridge-v0.3.1');
   assert.deepEqual(Object.keys(DESKTOP_BRIDGE_DOWNLOADS), ['macos', 'windows-x64', 'windows-arm64']);
   for (const download of Object.values(DESKTOP_BRIDGE_DOWNLOADS)) {
-    assert.match(download.href, /^https:\/\/github\.com\/yespsam\/nexora-core\/releases\/download\/bridge-v0\.3\.0-internal\//);
+    assert.match(download.href, /^https:\/\/github\.com\/yespsam\/nexora-core\/releases\/download\/bridge-v0\.3\.1\//);
     assert.match(download.file, /\.(?:dmg|zip)$/);
   }
 });
