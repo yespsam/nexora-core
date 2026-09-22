@@ -2,6 +2,15 @@ name: Build Windows Bridge
 
 on:
   workflow_dispatch:
+    inputs:
+      artifact_run_id:
+        description: 'Existing successful build run to publish (skip rebuilding)'
+        type: string
+        default: ''
+      release_tag:
+        description: 'Draft desktop release receiving the verified packages'
+        type: string
+        default: ''
   push:
     branches:
       - product/private-cloud-staging
@@ -20,6 +29,7 @@ permissions:
 
 jobs:
   build:
+    if: ${{ inputs.artifact_run_id == '' }}
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -44,3 +54,30 @@ jobs:
             dist/NEXORA-Bridge-Windows-ARM64.zip.sha256
           if-no-files-found: error
           retention-days: 30
+
+  publish-existing:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.artifact_run_id != '' && inputs.release_tag != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Upload verified packages to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BUILD_RUN: ${{ inputs.artifact_run_id }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
+          [[ "$RELEASE_TAG" =~ ^bridge-v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$(gh run view "$BUILD_RUN" --json conclusion --jq .conclusion)" == "success" ]]
+          [[ "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" == "true" ]]
+          mkdir packages
+          gh run download "$BUILD_RUN" -n NEXORA-Bridge-Windows -D packages
+          gh release download "$RELEASE_TAG" -p 'NEXORA-Bridge-macOS.*' -D packages
+          cd packages
+          sha256sum NEXORA-Bridge-macOS.dmg NEXORA-Bridge-macOS.zip NEXORA-Bridge-Windows-x64.zip NEXORA-Bridge-Windows-ARM64.zip > SHA256SUMS.txt
+          gh release upload "$RELEASE_TAG" NEXORA-Bridge-Windows-x64.zip NEXORA-Bridge-Windows-ARM64.zip SHA256SUMS.txt
