@@ -1,5 +1,5 @@
-const releaseBase = 'https://github.com/yespsam/nexora-core/releases/download/nexora-core-v0.3.0-internal';
-const windowsRevision = '?v=20260804-native4';
+const releaseBase = 'https://github.com/yespsam/nexora-core/releases/download/bridge-v0.3.1';
+const windowsRevision = '';
 
 const downloads = {
   windows: {

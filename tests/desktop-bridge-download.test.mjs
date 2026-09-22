@@ -9,8 +9,8 @@ import {
   detectDesktopBridgePlatform
 } from '../shared/desktop-bridge-download.mjs';
 
-test('desktop bridge downloads stay pinned to the private internal release', () => {
-  assert.equal(DESKTOP_BRIDGE_RELEASE_TAG, 'bridge-v0.3.0-internal');
+test('desktop bridge downloads stay pinned to the current desktop release', () => {
+  assert.equal(DESKTOP_BRIDGE_RELEASE_TAG, 'bridge-v0.3.1');
   assert.deepEqual(Object.keys(DESKTOP_BRIDGE_DOWNLOADS), ['macos', 'windows-x64', 'windows-arm64']);
   for (const download of Object.values(DESKTOP_BRIDGE_DOWNLOADS)) {
     assert.match(download.href, /^https:\/\/github\.com\/yespsam\/nexora-core\/releases\/download\/bridge-v0\.3\.0-internal\//);
@@ -38,11 +38,11 @@ test('desktop platform detection distinguishes Windows ARM64', async () => {
   assert.equal(await detectDesktopBridgePlatform(navigatorValue), 'windows-arm64');
 });
 
-test('mobile devices keep pairing available without selecting a desktop binary', async () => {
+test('mobile devices point to desktop installation without requiring pairing', async () => {
   assert.equal(await detectDesktopBridgePlatform({ platform: 'iPhone', userAgent: 'iPhone', maxTouchPoints: 5 }), 'mobile');
   const view = desktopBridgeDownloadView('mobile');
   assert.equal(view.action, '查看版本');
-  assert.match(view.note, /电脑负责运行客户端/);
+  assert.match(view.note, /请在电脑下载/);
 });
 
 test('device panel exposes platform downloads without embedding binaries in the public build', async () => {

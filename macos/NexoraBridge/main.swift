@@ -696,7 +696,7 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
       conversationBusy = false
       evaluate(function: "setConversationState", payload: [
         "phase": "error",
-        "status": "请先从菜单栏配对电脑"
+        "status": "正在连接网络，身份就绪后即可对话"
       ])
     }
   }
@@ -706,7 +706,7 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
     show()
     evaluate(function: "setConversationOpen", payload: [
       "open": "true",
-      "status": bridgeConfiguration == nil ? "请先从菜单栏配对电脑" : "我在，想聊什么？"
+      "status": bridgeConfiguration == nil ? "正在连接网络，身份就绪后即可对话" : "我在，想聊什么？"
     ])
   }
 
@@ -1001,7 +1001,7 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
     guard let configuration = bridgeConfiguration else {
       evaluate(function: "setConversationState", payload: [
         "phase": "error",
-        "status": "请先从菜单栏配对电脑"
+        "status": "正在连接网络，身份就绪后即可对话"
       ])
       return
     }
@@ -1052,7 +1052,7 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
             let data,
             let reply = try? JSONDecoder().decode(DesktopChatResponse.self, from: data),
             !reply.text.isEmpty else {
-        let message = status == 401 ? "电脑配对已失效，请重新配对" : "真实对话暂时不可用，请稍后重试"
+        let message = status == 401 ? "本机身份暂不可用，请检查网络或联系支持" : "真实对话暂时不可用，请稍后重试"
         DispatchQueue.main.async {
           guard self.conversationOpen else {
             self.conversationBusy = false
@@ -1204,17 +1204,46 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     configureMenu()
     desktopPet.start()
     refreshPetMenu()
-    let shouldShowPairing = CommandLine.arguments.contains("--pair")
     configuration = KeychainStore.load() ?? LegacyPairing.importIfPresent()
     if let configuration {
       start(configuration)
-      if shouldShowPairing {
-        DispatchQueue.main.async { self.showPairingWindow() }
-      }
     } else {
-      updateStatus("尚未配对", online: false)
-      DispatchQueue.main.async { self.showPairingWindow() }
+      initializeIdentity()
     }
+  }
+
+  private var initializingIdentity = false
+
+  @objc private func initializeIdentity() {
+    guard !initializingIdentity, configuration == nil else { return }
+    initializingIdentity = true
+    updateStatus("正在自动创建身份", online: false)
+    var request = URLRequest(url: URL(string: productSite + "/api/device-bridge/start")!)
+    request.httpMethod = "POST"
+    request.timeoutInterval = 20
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = Data("{}".utf8)
+    URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+      DispatchQueue.main.async {
+        guard let self else { return }
+        self.initializingIdentity = false
+        do {
+          guard error == nil, (response as? HTTPURLResponse)?.statusCode == 201,
+                let data,
+                let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let credential = payload["credential"] else { throw URLError(.badServerResponse) }
+          let credentialData = try JSONSerialization.data(withJSONObject: credential)
+          let decoded = try JSONDecoder().decode(BridgeCredential.self, from: credentialData)
+          let value = BridgeConfiguration(version: 1, siteURL: productSite, credential: decoded)
+          guard let validated = PairingCode.validate(value) else { throw URLError(.cannotParseResponse) }
+          try KeychainStore.save(validated)
+          self.start(validated)
+        } catch {
+          self.updateStatus("连接后自动启用对话，正在重试", online: false)
+          DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in self?.initializeIdentity() }
+        }
+      }
+    }.resume()
   }
 
   func applicationWillTerminate(_ notification: Notification) {
@@ -1299,7 +1328,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     menu.addItem(.separator())
 
-    pairMenuItem = NSMenuItem(title: "配对电脑...", action: #selector(showPairingWindow), keyEquivalent: "p")
+    pairMenuItem = NSMenuItem(title: "重试连接", action: #selector(initializeIdentity), keyEquivalent: "p")
     pairMenuItem.target = self
     menu.addItem(pairMenuItem)
 
@@ -1311,7 +1340,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     removeMenuItem = NSMenuItem(title: "移除本机配对", action: #selector(removePairing), keyEquivalent: "")
     removeMenuItem.target = self
     removeMenuItem.isEnabled = false
-    menu.addItem(removeMenuItem)
+    // Identity is retained across restarts.
 
     menu.addItem(.separator())
     let quit = NSMenuItem(title: "退出 NEXORA Bridge", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -1323,7 +1352,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     self.configuration = configuration
     desktopPet.setBridgeConfiguration(configuration)
     paused = false
-    pairMenuItem.title = "重新配对..."
+    pairMenuItem.title = "身份已就绪"
+    pairMenuItem.isEnabled = false
     pauseMenuItem.title = "暂停连接"
     pauseMenuItem.isEnabled = true
     removeMenuItem.isEnabled = true

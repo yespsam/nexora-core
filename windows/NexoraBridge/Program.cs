@@ -861,7 +861,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             ToolTipText = "开启后鼠标会穿过宠物；重新启动 NEXORA Bridge 会自动关闭。"
         };
-        pairItem = new ToolStripMenuItem("配对电脑...", null, (_, _) => ShowPairing());
+        pairItem = new ToolStripMenuItem("重试连接", null, (_, _) => InitializeIdentity());
         pauseItem = new ToolStripMenuItem("暂停连接", null, (_, _) => TogglePaused()) { Enabled = false };
         removeItem = new ToolStripMenuItem("移除本机配对", null, (_, _) => RemovePairing()) { Enabled = false };
 
@@ -921,7 +921,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(pairItem);
         menu.Items.Add(pauseItem);
-        menu.Items.Add(removeItem);
+        // Keep the installation identity across restarts.
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("退出 NEXORA Bridge", null, (_, _) => ExitApplication()));
 
@@ -945,8 +945,42 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         else
         {
-            UpdateStatus("尚未配对", false);
-            dispatcher.BeginInvoke(new Action(ShowPairing));
+            dispatcher.BeginInvoke(new Action(InitializeIdentity));
+        }
+    }
+
+    private bool initializingIdentity;
+
+    private async void InitializeIdentity()
+    {
+        if (initializingIdentity || configuration is not null || dispatcher.IsDisposed) return;
+        initializingIdentity = true;
+        UpdateStatus("正在自动创建身份", false);
+        bool retry = false;
+        try
+        {
+            using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(20) };
+            using HttpResponseMessage response = await client.PostAsJsonAsync(
+                AppConstants.ProductSite + "/api/device-bridge/start", new { });
+            response.EnsureSuccessStatusCode();
+            using JsonDocument payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            BridgeCredential credential = payload.RootElement.GetProperty("credential")
+                .Deserialize<BridgeCredential>(JsonDefaults.Options) ?? throw new JsonException();
+            BridgeConfiguration value = PairingCode.Validate(new BridgeConfiguration(1, AppConstants.ProductSite, credential))
+                ?? throw new JsonException();
+            CredentialStore.Save(value);
+            if (!dispatcher.IsDisposed) Start(value);
+        }
+        catch
+        {
+            retry = true;
+            if (!dispatcher.IsDisposed) UpdateStatus("连接后自动启用对话，正在重试", false);
+        }
+        finally { initializingIdentity = false; }
+        if (retry)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30));
+            if (!dispatcher.IsDisposed) InitializeIdentity();
         }
     }
 
@@ -955,7 +989,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         configuration = value;
         desktopPet.SetBridgeConfiguration(value);
         paused = false;
-        pairItem.Text = "重新配对...";
+        pairItem.Text = "身份已就绪";
+        pairItem.Enabled = false;
         pauseItem.Text = "暂停连接";
         pauseItem.Enabled = true;
         removeItem.Enabled = true;
@@ -973,8 +1008,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void ShowLocalStatus()
     {
         string detail = configuration is null
-            ? "本机尚未配对。请在已登录的手机或主电脑上生成配对码，再粘贴到本机。"
-            : $"{statusItem.Text}\n\n本机已经通过配对码授权，不需要登录 NEXORA CORE。";
+            ? "正在自动创建本机身份。联网后即可对话，无需配对码。"
+            : $"{statusItem.Text}\n\n本机身份已就绪，可以直接使用桌面宠物和 AI 对话。";
         MessageBox.Show(detail, "NEXORA Bridge", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 

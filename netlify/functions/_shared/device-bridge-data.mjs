@@ -62,6 +62,11 @@ export function createDeviceBridgeFunction(options) {
       const url = new URL(request.url);
       const agentId = url.searchParams.get('agentId');
       const store = getStore();
+      if (request.method === 'POST' && url.pathname === '/api/device-bridge/start') {
+        // Never accept a requested account/vault: installations must be isolated.
+        await readJson(request);
+        return json({ version: 1, credential: await store.createStandaloneAgent() }, 201);
+      }
       const auth = await store.authenticateCommandAgent(agentId, bearerToken(request));
       if (request.method === 'GET' && url.pathname === '/api/device-bridge/status') {
         return json({

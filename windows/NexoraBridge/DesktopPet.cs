@@ -842,7 +842,7 @@ internal sealed class DesktopPetController : IDisposable
         if (configuration is null && conversationOpen)
         {
             CancelConversation();
-            conversationForm.SetError("请先从系统托盘配对电脑");
+            conversationForm.SetError("正在连接网络，身份就绪后即可对话");
         }
     }
 
@@ -864,7 +864,7 @@ internal sealed class DesktopPetController : IDisposable
         conversationForm.ShowConversation(
             form.Bounds,
             preferences.Name,
-            bridgeConfiguration is null ? "请先从系统托盘配对电脑" : "我在，想聊什么？");
+            bridgeConfiguration is null ? "正在连接网络，身份就绪后即可对话" : "我在，想聊什么？");
     }
 
     internal void SetStarter(string value)
@@ -1040,8 +1040,8 @@ internal sealed class DesktopPetController : IDisposable
         if (conversationBusy || string.IsNullOrWhiteSpace(text)) return;
         if (bridgeConfiguration is null)
         {
-            conversationForm.SetError("请先从系统托盘配对电脑");
-            await form.ExecuteAsync("setConversationState", new { phase = "error", status = "请先从系统托盘配对电脑" });
+            conversationForm.SetError("正在连接网络，身份就绪后即可对话");
+            await form.ExecuteAsync("setConversationState", new { phase = "error", status = "正在连接网络，身份就绪后即可对话" });
             return;
         }
 
@@ -1092,7 +1092,7 @@ internal sealed class DesktopPetController : IDisposable
             using HttpResponseMessage response = await client.SendAsync(request, token);
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                await FinishChatWithErrorAsync("电脑配对已失效，请重新配对");
+                await FinishChatWithErrorAsync("本机身份暂不可用，请检查网络或联系支持");
                 return;
             }
             response.EnsureSuccessStatusCode();

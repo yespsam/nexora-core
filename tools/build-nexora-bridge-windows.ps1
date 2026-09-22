@@ -111,10 +111,10 @@ NEXORA Bridge for Windows ($ArchiveArchitecture)
 1. Extract the entire ZIP, then double-click NEXORA Bridge.exe. Keep the Runtime folder beside it.
 2. The transparent 3D desktop pet appears automatically. Drag it to move, use the mouse wheel to resize,
    click for an action, or double-click to open conversation.
-3. On an already signed-in phone or primary computer, open Device > Computer Assistant > Add Computer.
-4. Copy the new NXC1 pairing code and paste it into this Windows computer. This computer does not sign in.
-5. Wait for the cloud verification and the Pairing Complete message.
-6. Use the tray icon to show/hide the pet, select its form and action, or manage pairing.
+3. Connect to the internet. Your pet can already move and interact offline.
+4. Your independent desktop identity is created automatically when online. No login or pairing code is required.
+5. Double-click the pet to chat after the automatic connection completes.
+6. Use the tray icon to show/hide the pet, select its form and action, or check connection status.
 
 Credentials are stored in Windows Credential Manager. The app only accepts encrypted,
 short-lived allowlisted commands for volume, media controls, and fixed applications.

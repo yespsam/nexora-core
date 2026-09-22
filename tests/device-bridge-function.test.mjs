@@ -122,3 +122,31 @@ test('device bridge route is bounded independently from the private browser gate
   assert.deepEqual(config.method, ['GET', 'POST']);
   assert.equal(config.rateLimit.windowLimit, 180);
 });
+
+test('new installations can create an independent identity without a pairing code', async () => {
+  let count = 0;
+  const app = harness({store: {
+    async createStandaloneAgent(...args) {
+      assert.deepEqual(args, []);
+      count++;
+      return { agentId: `new-${count}`, secret: 'new-secret' };
+    },
+    async authenticateCommandAgent() { throw new Error('bootstrap must not need existing credentials'); }
+  }});
+  for (let index = 1; index <= 2; index++) {
+    const response = await app.handler(new Request('https://example.test/api/device-bridge/start', {
+      method: 'POST', body: JSON.stringify({ vaultId: 'someone-elses-vault' })
+    }));
+    assert.equal(response.status, 201);
+    assert.equal((await response.json()).credential.agentId, `new-${index}`);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+  }
+});
+
+test('initialization rejects malformed payloads and disabled deployments', async () => {
+  const app = harness();
+  const response = await app.handler(new Request('https://example.test/api/device-bridge/start', {method: 'POST', body: '{'}));
+  assert.equal(response.status, 400);
+  const disabled = harness({enabled: false});
+  assert.equal((await disabled.handler(new Request('https://example.test/api/device-bridge/start', {method: 'POST'}))).status, 404);
+});

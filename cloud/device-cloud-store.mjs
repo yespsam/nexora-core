@@ -243,6 +243,26 @@ export class DeviceCloudStore {
     }, this.apiRole);
   }
 
+  // Each installation owns a new, isolated account; it cannot select an existing vault.
+  async createStandaloneAgent() {
+    const ownerId = randomUUID();
+    const vaultUuid = randomUUID();
+    const vaultId = randomBytes(16).toString('base64url');
+    const agentId = randomUUID();
+    const secret = randomBytes(32);
+    await withOwner(this.apiPool, ownerId, async (client, owner) => {
+      await client.query(`INSERT INTO nexora_cloud.accounts (id, external_subject_hash, region)
+        VALUES ($1, $2, 'cn')`, [owner, createHash('sha256').update(randomBytes(32)).digest()]);
+      await client.query(`INSERT INTO nexora_cloud.companion_vaults (id, owner_id, public_id)
+        VALUES ($1, $2, $3)`, [vaultUuid, owner, vaultId]);
+      await client.query(`INSERT INTO nexora_cloud.device_command_agents
+        (id, owner_id, vault_id, display_name, credential_hash)
+        VALUES ($1, $2, $3, 'NEXORA Desktop', $4)`,
+        [agentId, owner, vaultUuid, createHash('sha256').update(secret).digest()]);
+    }, this.apiRole);
+    return { version: 1, agentId, vaultId, secret: secret.toString('base64url'), displayName: 'NEXORA Desktop' };
+  }
+
   async registerCommandAgent(ownerId, value) {
     const agent = normalizeDeviceCommandAgent(value);
     return withOwner(this.apiPool, ownerId, async (client, owner) => {

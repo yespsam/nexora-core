@@ -1,4 +1,4 @@
-export const DESKTOP_BRIDGE_RELEASE_TAG = 'bridge-v0.3.0-internal';
+export const DESKTOP_BRIDGE_RELEASE_TAG = 'bridge-v0.3.1';
 
 const releaseBase = `https://github.com/yespsam/nexora-core/releases/download/${DESKTOP_BRIDGE_RELEASE_TAG}`;
 const releasePage = `https://github.com/yespsam/nexora-core/releases/tag/${DESKTOP_BRIDGE_RELEASE_TAG}`;
@@ -77,7 +77,7 @@ export function desktopBridgeDownloadView(platformValue) {
   return Object.freeze({
     platform,
     label: platform === 'mobile' ? '在目标电脑安装' : '选择电脑系统',
-    note: platform === 'mobile' ? '手机保留配对码，电脑负责运行客户端' : '请选择 macOS 或 Windows 版本',
+    note: platform === 'mobile' ? '请在电脑下载，打开后自动连接' : '请选择 macOS 或 Windows 版本',
     action: '查看版本',
     href: releasePage
   });
