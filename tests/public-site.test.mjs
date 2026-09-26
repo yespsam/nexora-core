@@ -70,7 +70,7 @@ test('public build contains only the product runtime allowlist', async () => {
 
   const downloadHtml = await readFile(path.join(publicRoot, 'download/index.html'), 'utf8');
   assert.match(downloadHtml, /NEXORA-Bridge-Windows-x64\.zip/);
-  assert.match(downloadHtml, /bridge-v0\.3\.1/);
+  assert.match(downloadHtml, /bridge-v0\.4\.0/);
   assert.match(downloadHtml, /下载即用，无需配对/);
 
   const desktopHtml = await readFile(path.join(publicRoot, 'desktop-wallpaper/index.html'), 'utf8');
