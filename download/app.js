@@ -1,4 +1,4 @@
-const releaseBase = 'https://github.com/yespsam/nexora-core/releases/download/bridge-v0.3.1';
+const releaseBase = 'https://github.com/yespsam/nexora-core/releases/download/bridge-v0.4.0';
 const windowsRevision = '';
 
 const downloads = {

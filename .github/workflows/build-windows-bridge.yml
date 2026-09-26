@@ -18,6 +18,7 @@ on:
       - "windows/NexoraBridge/**"
       - "desktop-pet/**"
       - "shared/creature-3d-*.mjs"
+      - "shared/custom-companion-client.mjs"
       - "desktop-wallpaper/vendor/**"
       - "NEXORA_3D_CREATURES/**/*.glb"
       - "tools/build-nexora-bridge-windows.ps1"
