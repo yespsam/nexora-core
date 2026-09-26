@@ -39,3 +39,13 @@ The fixture harness listens only on localhost, labels itself as a test, never ca
 ## UI direction
 
 A quiet sage-and-cream workspace: a large interactive companion preview on the left, a restrained creation/settings inspector on the right. File selection responds to drag/hover; model changes preserve the current character until the replacement loads; preview and model actions stay beside the image. Motion respects reduced-motion settings.
+
+## 手动部署平台依赖
+
+优先使用 Netlify 的 Linux Git 构建。若从 macOS 运行 CLI 部署，函数包还需要 Linux x64 的 Sharp 二进制；仅有本机 Darwin 依赖会让工作室接口返回 502。部署前安装相应版本（不修改锁文件）：
+
+```sh
+npm install --no-save --package-lock=false --force @img/sharp-linux-x64@0.34.5 @img/sharp-libvips-linux-x64@1.2.4
+```
+
+部署后用新建的测试身份检查 `/studio/config`、保存与读取 `/studio/profile`，以及 `/studio/session` 的短期令牌访问；不能仅凭静态页面 200 判断成功。
