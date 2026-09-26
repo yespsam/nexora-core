@@ -63,6 +63,13 @@ export const config = {
   excludedPath: [
     '/access',
     '/access/*',
+    '/companion-studio',
+    '/companion-studio/*',
+    '/shared/creature-3d-viewer.mjs',
+    '/shared/creature-3d-data.mjs',
+    '/shared/custom-companion-client.mjs',
+    '/desktop-wallpaper/vendor/*',
+    '/NEXORA_3D_CREATURES/*',
     '/download',
     '/download/*',
     '/api/access/*',

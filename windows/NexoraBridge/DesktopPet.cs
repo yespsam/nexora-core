@@ -839,11 +839,22 @@ internal sealed class DesktopPetController : IDisposable
     internal void SetBridgeConfiguration(BridgeConfiguration? configuration)
     {
         bridgeConfiguration = configuration;
+        ConnectStudio();
         if (configuration is null && conversationOpen)
         {
             CancelConversation();
             conversationForm.SetError("正在连接网络，身份就绪后即可对话");
         }
+    }
+
+    private void ConnectStudio()
+    {
+        if (!modelReady || bridgeConfiguration is null) return;
+        _ = form.ExecuteAsync("connectStudio", new {
+            @base = bridgeConfiguration.SiteUrl,
+            agentId = bridgeConfiguration.Credential.AgentId,
+            secret = bridgeConfiguration.Credential.Secret
+        });
     }
 
     internal void ToggleVisibility()
@@ -994,6 +1005,7 @@ internal sealed class DesktopPetController : IDisposable
             case "ready":
                 modelReady = true;
                 ApplyConfiguration();
+                ConnectStudio();
                 break;
             case "model-error":
                 string detail = message.TryGetProperty("message", out JsonElement errorElement)

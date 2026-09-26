@@ -150,3 +150,15 @@ test('initialization rejects malformed payloads and disabled deployments', async
   const disabled = harness({enabled: false});
   assert.equal((await disabled.handler(new Request('https://example.test/api/device-bridge/start', {method: 'POST'}))).status, 404);
 });
+
+test('desktop chat receives owner-scoped saved personality and editable memories', async () => {
+  let submitted;
+  const app = harness({
+    async getCompanionProfile(auth) { assert.equal(auth.agentId, agentId); return {name:'小伴',voice:'beautiful',personality:'温柔',memories:['喜欢散步']}; },
+    async handleChat(request) { submitted=await request.json(); return Response.json({text:'我记得。'}); }
+  });
+  const response=await app.handler(request('/api/device-bridge/chat',{method:'POST',body:JSON.stringify({text:'你好',soulmate:{name:'旧名字',memories:['客户端过期资料']}})}));
+  assert.equal(response.status,200);
+  assert.equal(submitted.soulmate.name,'小伴');assert.equal(submitted.soulmate.personality,'温柔');
+  assert.deepEqual(submitted.soulmate.memories,['喜欢散步']);assert.equal(submitted.persona,'creature:beautiful');assert.equal(submitted.soulmate.custom,true);
+});

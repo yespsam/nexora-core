@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><link rel="icon" href="../soulmate/assets/soulmate-icon-192.png"><title>我的伙伴 · NEXORA CORE</title><link rel="stylesheet" href="./style.css"><script type="module" src="./app.mjs"></script></head>
+<body>
+<header><a href="../download/" class="brand">NEXORA <span>CORE</span></a><span class="header-label">伙伴工作室</span><span id="connection" role="status">正在连接</span></header>
+<main>
+<section class="workspace" aria-label="角色预览"><div class="workspace-top"><span class="eyebrow">YOUR COMPANION</span><h1 id="character-name">我的伙伴</h1><p id="character-caption">从一张喜欢的形象开始。</p></div><div id="viewer" aria-label="可旋转的 3D 角色"></div><img id="preview-image" hidden alt="生成后的全身形象预览"><div id="preview-actions" hidden><button type="button" data-action="idle">待机</button><button type="button" data-action="wave">招手</button><button type="button" data-action="speaking">说话</button></div><div class="workspace-bottom"><span id="preview-label">内置伙伴 · LUMO</span><span>拖动旋转</span></div></section>
+<section class="inspector"><nav aria-label="工作室导航"><button id="create-tab" class="selected" type="button">创建伙伴</button><button id="profile-tab" type="button">伙伴设置</button></nav>
+<div id="notice" role="status" aria-live="polite"></div>
+<section id="create-panel">
+<h2>让喜欢的形象，陪在身边。</h2><p class="muted">真人照片或动漫形象，先确认预览，再生成可互动的 3D 伙伴。</p>
+<form id="create-form">
+<fieldset><legend>上传的形象</legend><label class="choice"><input type="radio" name="inputType" value="photo" checked> 真人照片</label><label class="choice"><input type="radio" name="inputType" value="anime"> 动漫 / 原创角色</label></fieldset>
+<label class="upload" id="dropzone"><input id="images" type="file" accept="image/jpeg,image/png" multiple><strong>选择或拖入图片</strong><span>JPG / PNG，最多 3 张 · 建议清晰全身图</span></label><div id="image-list"></div>
+<div class="form-row"><label>角色名字<input name="name" maxlength="12" placeholder="给伙伴取个名字" required></label><label>形象风格<select name="style"><option value="cute">柔和可爱</option><option value="anime">动漫风格</option></select></label></div>
+<label>补充外观<span class="optional">可选</span><textarea name="details" maxlength="180" rows="2" placeholder="例如：浅色毛衣、短发。只有头像时，用这些描述补充全身。"></textarea></label>
+<label class="consent"><input name="consent" type="checkbox" required><span>我拥有这些图片的使用权；真人照片已取得本人授权，并同意发送给形象生成服务处理。</span></label>
+<p class="service-note" id="service-note">正在读取生成服务状态…</p><button class="primary" id="generate" disabled>生成形象预览 <span>↗</span></button>
+</form>
+<section id="job-list" aria-label="我的角色"></section>
+</section>
+<section id="profile-panel" hidden><h2>认识你的伙伴。</h2><p class="muted">外观可以改变，名字、性格和共同记忆会保留。</p><form id="profile-form"><label>名字<input name="name" maxlength="12" required></label><label>性格<textarea name="personality" rows="3" maxlength="160" placeholder="例如：温柔、幽默，喜欢认真听我说话。"></textarea></label><label>声音<select name="voice"><option value="cute">温暖轻快</option><option value="cool">沉稳自然</option><option value="beautiful">柔和清澈</option></select></label><label>希望伙伴记住的事<textarea name="memories" rows="7" placeholder="每行一条，最多 20 条。可随时修改或删除。&#10;例如：我喜欢在晚饭后散步。"></textarea></label><p class="service-note">这些是你明确保存的记忆，不会根据照片猜测你的性格。</p><button class="primary">保存伙伴设置 <span>✓</span></button></form><button id="restore-builtin" class="text-button" type="button">使用内置形象，保留伙伴记忆</button><p class="muted small">从桌面菜单打开的工作室会自动同步到该电脑。直接在网页打开时，会创建独立的网页伙伴。</p></section>
+</section></main><footer>由 AI 驱动的陪伴角色 <span>你的照片和角色默认私有</span></footer>
+</body></html>

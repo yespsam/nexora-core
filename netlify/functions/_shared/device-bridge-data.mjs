@@ -55,6 +55,17 @@ export function createDeviceBridgeFunction(options) {
   const onError = options.onError || (() => {});
   const handleChat = options.handleChat;
   const handleVoice = options.handleVoice;
+  const companionBody = async (auth, body) => {
+    const profile = await options.getCompanionProfile?.(auth);
+    if (!profile?.name) return body;
+    const voice = ['cute','cool','beautiful'].includes(profile.voice) ? profile.voice : 'cute';
+    return {...body, persona: `creature:${voice}`, persona_short: `creature:${voice}`,
+      archetype: {cute:'sprout',cool:'edge',beautiful:'aether'}[voice], starter:voice,
+      soulmate: {...body.soulmate, custom:true, name:profile.name, species:'专属陪伴角色',
+        personality:profile.personality, memories:profile.memories || []},
+      voice_context: {...body.voice_context,persona:`creature:${voice}`,starter:voice,
+        archetype:{cute:'sprout',cool:'edge',beautiful:'aether'}[voice]}};
+  };
 
   return async function deviceBridgeHandler(request) {
     if (!enabled) return json({ error: 'not_found' }, 404);
@@ -83,13 +94,13 @@ export function createDeviceBridgeFunction(options) {
         if (typeof handleChat !== 'function') {
           throw new DeviceCloudError('desktop chat unavailable', 503, 'chat_unavailable');
         }
-        return handleChat(forwardedJsonRequest(request, '/api/chat', await readJson(request)));
+        return handleChat(forwardedJsonRequest(request, '/api/chat', await companionBody(auth, await readJson(request))));
       }
       if (request.method === 'POST' && url.pathname === '/api/device-bridge/voice') {
         if (typeof handleVoice !== 'function') {
           throw new DeviceCloudError('desktop voice unavailable', 503, 'voice_unavailable');
         }
-        return handleVoice(await readJson(request));
+        return handleVoice(await companionBody(auth, await readJson(request)));
       }
       const acknowledgement = url.pathname.match(/^\/api\/device-bridge\/commands\/([0-9a-f-]+)\/ack$/i);
       if (request.method === 'POST' && acknowledgement) {

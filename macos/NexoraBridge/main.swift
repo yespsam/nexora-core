@@ -689,6 +689,7 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
 
   func setBridgeConfiguration(_ configuration: BridgeConfiguration?) {
     bridgeConfiguration = configuration
+    connectStudio()
     if configuration == nil, conversationOpen {
       chatTask?.cancel()
       voiceTask?.cancel()
@@ -699,6 +700,15 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
         "status": "正在连接网络，身份就绪后即可对话"
       ])
     }
+  }
+
+  private func connectStudio() {
+    guard modelReady, let configuration = bridgeConfiguration else { return }
+    evaluate(function: "connectStudio", payload: [
+      "base": configuration.siteURL,
+      "agentId": configuration.credential.agentId,
+      "secret": configuration.credential.secret
+    ])
   }
 
   func openConversation() {
@@ -779,6 +789,7 @@ private final class DesktopPetController: NSObject, WKScriptMessageHandler, WKNa
     if type == "ready" {
       modelReady = true
       applyConfiguration()
+      connectStudio()
     } else if type == "conversation-state" {
       conversationOpen = body["open"] as? Bool == true
       dragStart = nil
@@ -1328,6 +1339,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     menu.addItem(.separator())
 
+    let studio = NSMenuItem(title: "创建伙伴与管理记忆…", action: #selector(openCompanionStudio), keyEquivalent: "s")
+    studio.target = self
+    menu.addItem(studio)
+
     pairMenuItem = NSMenuItem(title: "重试连接", action: #selector(initializeIdentity), keyEquivalent: "p")
     pairMenuItem.target = self
     menu.addItem(pairMenuItem)
@@ -1346,6 +1361,30 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     let quit = NSMenuItem(title: "退出 NEXORA Bridge", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     menu.addItem(quit)
     statusItem.menu = menu
+  }
+
+  @objc private func openCompanionStudio() {
+    guard let configuration else {
+      showError("正在连接", detail: "联网后会自动创建身份，请稍后重试。")
+      return
+    }
+    var request = URLRequest(url: URL(string: configuration.siteURL + "/api/device-bridge/studio/session?agentId=" + configuration.credential.agentId)!)
+    request.httpMethod = "POST"
+    request.timeoutInterval = 20
+    request.setValue("Bearer " + configuration.credential.secret, forHTTPHeaderField: "Authorization")
+    URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+      DispatchQueue.main.async {
+        guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200,
+              let data, let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let value = body["url"] as? String, let url = URL(string: value),
+              url.scheme == "https", url.host == URL(string: productSite)?.host,
+              url.path == "/companion-studio/" else {
+          self?.showError("暂时无法打开工作室", detail: "请检查网络后重试。")
+          return
+        }
+        NSWorkspace.shared.open(url)
+      }
+    }.resume()
   }
 
   private func start(_ configuration: BridgeConfiguration) {

@@ -75,7 +75,7 @@ rm -rf "$ICONSET" "$ARCH_BUILD"
 WEB_DIR="$RESOURCES_DIR/Web"
 mkdir -p "$WEB_DIR/desktop-pet" "$WEB_DIR/shared" "$WEB_DIR/desktop-wallpaper/vendor"
 cp "$ROOT/desktop-pet/index.html" "$ROOT/desktop-pet/style.css" "$ROOT/desktop-pet/app.mjs" "$WEB_DIR/desktop-pet/"
-cp "$ROOT/shared/creature-3d-viewer.mjs" "$ROOT/shared/creature-3d-data.mjs" "$WEB_DIR/shared/"
+cp "$ROOT/shared/custom-companion-client.mjs" "$ROOT/shared/creature-3d-viewer.mjs" "$ROOT/shared/creature-3d-data.mjs" "$WEB_DIR/shared/"
 cp \
   "$ROOT/desktop-wallpaper/vendor/three.module.js" \
   "$ROOT/desktop-wallpaper/vendor/GLTFLoader.js" \

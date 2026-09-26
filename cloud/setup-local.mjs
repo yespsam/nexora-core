@@ -77,6 +77,9 @@ async function applyFoundation() {
       ), 'utf8');
       await connection.query(migration);
     }
+    const studio = await connection.query("SELECT to_regclass('nexora_cloud.companion_studio_jobs') AS name");
+    if (!studio.rows[0].name) await connection.query(await readFile(new URL(
+      '../netlify/database/migrations/202609260001_companion_studio.sql', import.meta.url), 'utf8'));
     const roles = await readFile(new URL('./local/runtime-roles.sql', import.meta.url), 'utf8');
     const roleSql = databaseName === 'nexora_core_dev'
       ? roles

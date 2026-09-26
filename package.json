@@ -1,6 +1,6 @@
 {
   "name": "nexora-core",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "license": "MIT",
   "repository": {
@@ -50,12 +50,12 @@
     "@netlify/database": "^1.1.0",
     "@netlify/identity": "^1.2.0",
     "openai": "^6.48.0",
-    "pg": "^8.22.0"
+    "pg": "^8.22.0",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@gltf-transform/cli": "^4.4.1",
     "@gltf-transform/core": "^4.4.1",
-    "@gltf-transform/extensions": "^4.4.1",
-    "sharp": "^0.34.5"
+    "@gltf-transform/extensions": "^4.4.1"
   }
 }

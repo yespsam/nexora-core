@@ -8,6 +8,10 @@ export const publicRoot = path.join(repositoryRoot, 'public');
 
 const publicFiles = [
   'index.html',
+  'companion-studio/index.html',
+  'companion-studio/style.css',
+  'companion-studio/app.mjs',
+  'shared/custom-companion-client.mjs',
   'access/index.html',
   'access/app.js',
   'access/style.css',

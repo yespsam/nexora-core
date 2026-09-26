@@ -52,6 +52,7 @@ function Copy-RuntimeFile {
   "desktop-pet/style.css",
   "desktop-pet/app.mjs",
   "shared/creature-3d-viewer.mjs",
+  "shared/custom-companion-client.mjs",
   "shared/creature-3d-data.mjs",
   "desktop-wallpaper/vendor/three.module.js",
   "desktop-wallpaper/vendor/GLTFLoader.js",

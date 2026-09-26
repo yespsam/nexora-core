@@ -1,3 +1,4 @@
+import { CompanionStudioClient, loadCompanionEntry } from '../shared/custom-companion-client.mjs';
 import { Creature3DViewer } from '../shared/creature-3d-viewer.mjs?v=27';
 
 const stage = document.querySelector('#pet-stage');
@@ -267,8 +268,43 @@ conversationInput.addEventListener('keydown', (event) => {
   setConversationOpen(false);
 });
 
+let studioConnection = '', studioTimer, customEntry, customId = '', studioBusy = false;
+async function connectStudio(configuration) {
+  if (!configuration?.secret || !configuration?.agentId) return;
+  if (studioConnection === configuration.agentId) return;
+  studioConnection = configuration.agentId;
+  clearInterval(studioTimer);
+  const client = new CompanionStudioClient(configuration);
+  const cacheKey = `nexora-active-companion:${configuration.agentId}`;
+  const apply = async (saved, offline = false) => {
+    if (saved.profile?.name) state.name = saved.profile.name;
+    if (saved.active?.id && saved.active.id !== customId) {
+      const next = await loadCompanionEntry(client, saved.active, { offline });
+      if (!await viewer.setCustomEntry(next)) { next.dispose(); throw new Error('角色加载失败'); }
+      customEntry?.dispose(); customEntry = next; customId = saved.active.id;
+      stage.setAttribute('aria-label', `${state.name || '我的伙伴'}，自定义 3D 伙伴`);
+    } else if (!saved.active && customId) {
+      if (!await viewer.setCustomEntry(null)) return;
+      customEntry?.dispose(); customEntry = null; customId = '';
+    }
+  };
+  try { const cached = JSON.parse(localStorage.getItem(cacheKey)); if (cached) await apply(cached, true); } catch {}
+  const sync = async () => {
+    if (studioBusy) return;
+    studioBusy = true;
+    try {
+      const saved = await client.request('/profile');
+      await apply(saved);
+      localStorage.setItem(cacheKey, JSON.stringify(saved));
+    } catch { /* Keep the current local companion on network or download failure. */ }
+    finally { studioBusy = false; }
+  };
+  await sync(); studioTimer = setInterval(sync, 30000);
+}
+
 window.NexoraDesktopPet = Object.freeze({
   configure,
+  connectStudio,
   play,
   showBubble,
   setConversationOpen,

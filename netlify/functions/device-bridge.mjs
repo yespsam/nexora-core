@@ -1,5 +1,7 @@
 import { getDatabase } from '@netlify/database';
 
+import { CompanionStudioStore } from '../../cloud/companion-studio-store.mjs';
+
 import { DeviceCloudStore } from '../../cloud/device-cloud-store.mjs';
 import { createDeviceBridgeFunction } from './_shared/device-bridge-data.mjs';
 import chatHandler from './chat.mjs';
@@ -26,6 +28,10 @@ function getStore() {
 export default createDeviceBridgeFunction({
   enabled: environment('NEXORA_DEVICE_CLOUD_ENABLED') === 'true',
   getStore,
+  async getCompanionProfile(auth) {
+    try { return (await new CompanionStudioStore(getStore().apiPool).profile(auth.ownerId)).profile; }
+    catch (error) { if (error.code === '42P01') return null; throw error; }
+  },
   handleChat: chatHandler,
   handleVoice: createVoiceResponse,
   onError(error) {
@@ -39,6 +45,7 @@ export default createDeviceBridgeFunction({
 
 export const config = {
   path: '/api/device-bridge/*',
+  excludedPath: ['/api/device-bridge/studio/*'],
   method: ['GET', 'POST'],
   rateLimit: {
     windowLimit: 180,

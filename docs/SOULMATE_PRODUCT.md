@@ -39,3 +39,9 @@ Sending messages, deleting files, purchases, locks, cameras, and account changes
 ## Data Ownership
 
 The user can export or delete the profile, memories, and conversation history. Long-term memory is bounded and sanitized before it reaches the model. Hardware prototypes should encrypt stored identity and memory data and provide a physical microphone mute.
+
+## Next Release: User-Created Companions
+
+The user-confirmed direction (2026-09-26) makes companionship the primary experience and supports both real-person reference photos and anime/original character images. Users preview and confirm an appearance, generate a 3D companion, and select its name, voice, and personality. The current automatic desktop identity remains the onboarding default. Owner-scoped editable memories are now injected into desktop conversation requests.
+
+See [自定义 3D 陪伴角色方案](CUSTOM_COMPANION_PLAN.md) for scope, user flow, implementation gaps, and acceptance criteria. The studio implementation is available in 0.4.0; real image generation remains disabled until the server Meshy service is configured and validated.

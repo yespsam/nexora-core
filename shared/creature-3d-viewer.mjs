@@ -179,8 +179,16 @@ export class Creature3DViewer {
     this.camera.updateProjectionMatrix();
   }
 
+  async setCustomEntry(entry) {
+    const previous = this.customEntry;
+    this.customEntry = entry || null;
+    const loaded = await this.load(entry ? entry.id : 'cute', 'idle', entry ? 'custom' : 'seed');
+    if (!loaded) this.customEntry = previous;
+    return loaded;
+  }
+
   async load(starter = this.starter, action = 'idle', stage = this.stageId) {
-    const entry = creature3DEntry(starter, stage);
+    const entry = this.customEntry || creature3DEntry(starter, stage);
     const safeAction = entry.actions[action] ? action : 'idle';
     const identity = `${entry.id}:${entry.stage}:${safeAction}`;
     if (identity === this.identity) return true;
@@ -256,7 +264,7 @@ export class Creature3DViewer {
   }
 
   preload(starter = this.starter, actions = ['nod', 'speaking'], stage = this.stageId) {
-    const entry = creature3DEntry(starter, stage);
+    const entry = this.customEntry || creature3DEntry(starter, stage);
     return Promise.allSettled(actions
       .filter((action) => action !== this.action && entry.actions[action])
       .map(async (action) => {

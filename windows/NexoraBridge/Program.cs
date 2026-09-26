@@ -919,6 +919,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(new ToolStripMenuItem("重置宠物位置", null, (_, _) => desktopPet.ResetPosition()));
         menu.Items.Add(new ToolStripMenuItem("恢复默认大小", null, (_, _) => desktopPet.ResetSize()));
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(new ToolStripMenuItem("创建伙伴与管理记忆…", null, (_, _) => OpenCompanionStudio()));
         menu.Items.Add(pairItem);
         menu.Items.Add(pauseItem);
         // Keep the installation identity across restarts.
@@ -947,6 +948,24 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             dispatcher.BeginInvoke(new Action(InitializeIdentity));
         }
+    }
+
+    private async void OpenCompanionStudio()
+    {
+        if (configuration is null) { MessageBox.Show("联网后会自动创建身份，请稍后重试。", "正在连接"); return; }
+        try
+        {
+            using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(20) };
+            using HttpRequestMessage request = new(HttpMethod.Post, configuration.SiteUrl + "/api/device-bridge/studio/session?agentId=" + configuration.Credential.AgentId);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", configuration.Credential.Secret);
+            using HttpResponseMessage response = await client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            using JsonDocument body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Uri url = new(body.RootElement.GetProperty("url").GetString()!);
+            if (url.Scheme != "https" || url.Host != new Uri(AppConstants.ProductSite).Host || url.AbsolutePath != "/companion-studio/") throw new InvalidOperationException();
+            Process.Start(new ProcessStartInfo(url.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch { MessageBox.Show("请检查网络后重试。", "暂时无法打开工作室"); }
     }
 
     private bool initializingIdentity;
